@@ -5,12 +5,11 @@ interface PutRequestBody {
   content: string;
 }
 
-// PUT (update) a note
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } } // This is the updated type signature
 ) {
-  const { id } = params;
+  const { id } = context.params; // Get id from context
   const { content }: PutRequestBody = await request.json();
   const noteIndex = notes.findIndex((note) => note.id === id);
 
@@ -30,12 +29,11 @@ export async function PUT(
   return NextResponse.json(notes[noteIndex]);
 }
 
-// DELETE a note
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } } // Also update this one
 ) {
-  const { id } = params;
+  const { id } = context.params; // Get id from context
   const noteIndex = notes.findIndex((note) => note.id === id);
 
   if (noteIndex === -1) {
