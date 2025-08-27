@@ -25,7 +25,7 @@ export default function Home() {
   const createNote = async () => {
     const res = await fetch('/api/notes', { method: 'POST' });
     const newNote: Note = await res.json();
-    await fetchNotes(); // Refresh list
+    await fetchNotes();
     setActiveNoteId(newNote.id);
   };
 
@@ -43,10 +43,13 @@ export default function Home() {
 
   return (
     <main className="flex w-screen h-screen">
-      <div className="w-1/4 h-full flex flex-col bg-zinc-50 border-r border-zinc-200">
-        <div className="p-4 flex justify-between items-center border-b border-zinc-200 flex-shrink-0">
-          <h1 className="text-xl font-bold text-zinc-800">WebNotes</h1>
-          <button onClick={createNote} className="px-3 py-1 bg-yellow-400 text-zinc-800 font-semibold rounded-lg hover:bg-yellow-500 transition-colors">
+      <div className="w-1/4 h-full flex flex-col bg-zinc-900 border-r border-zinc-800">
+        <div className="p-4 flex justify-between items-center border-b border-zinc-800 flex-shrink-0">
+          <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>
+          <button 
+            onClick={createNote} 
+            className="px-3 py-1 bg-yellow-400 text-zinc-800 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
+          >
             + New
           </button>
         </div>

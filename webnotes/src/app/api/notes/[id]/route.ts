@@ -6,10 +6,12 @@ interface PutRequestBody {
 }
 
 // PUT (update) a note
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function PUT(
+  request: Request,
+  // Destructure 'id' directly from params right here
+  { params: { id } }: { params: { id: string } }
+) {
   const { content }: PutRequestBody = await request.json();
-
   const noteIndex = notes.findIndex((note) => note.id === id);
 
   if (noteIndex === -1) {
@@ -29,8 +31,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 // DELETE a note
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function DELETE(
+  request: Request,
+  // Do the same here for the DELETE function
+  { params: { id } }: { params: { id: string } }
+) {
   const noteIndex = notes.findIndex((note) => note.id === id);
 
   if (noteIndex === -1) {

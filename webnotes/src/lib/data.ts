@@ -1,7 +1,7 @@
 import type { Note } from '@/types';
 
 // A temporary in-memory data store for the MVP.
-export let notes: Note[] = [
+export const notes: Note[] = [
   {
     id: '1',
     title: 'Welcome to WebNotes!',

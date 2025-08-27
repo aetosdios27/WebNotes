@@ -9,7 +9,7 @@ interface NoteEditorProps {
 
 export default function NoteEditor({ activeNote }: NoteEditorProps) {
   const [text, setText] = useState<string>('');
-  const [debouncedText] = useDebounce(text, 500); // 500ms debounce delay
+  const [debouncedText] = useDebounce(text, 500);
 
   useEffect(() => {
     if (activeNote) {
@@ -37,18 +37,18 @@ export default function NoteEditor({ activeNote }: NoteEditorProps) {
 
   if (!activeNote) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-400 h-full bg-white">
+      <div className="flex-1 flex items-center justify-center h-full bg-black text-zinc-700">
         Select a note to view or create a new one.
       </div>
     );
   }
 
   return (
-    <div className="flex-1 h-full p-8 bg-white">
+    <div className="flex-1 h-full p-8 bg-black">
       <textarea
         value={text}
         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
-        className="w-full h-full text-lg resize-none focus:outline-none bg-transparent"
+        className="w-full h-full text-lg resize-none focus:outline-none bg-transparent text-zinc-100"
         placeholder="Start writing..."
       />
     </div>
