@@ -8,7 +8,7 @@ export async function GET() {
 }
 
 // POST a new note
-export async function POST(request: Request) {
+export async function POST(_request: Request) { // The underscore here is correct
   const newNote: Note = {
     id: Date.now().toString(),
     title: 'New Note',

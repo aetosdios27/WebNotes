@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Import useCallback
 import NoteList from './components/NoteList';
 import NoteEditor from './components/NoteEditor';
 import type { Note } from '@/types';
@@ -9,18 +9,19 @@ export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
-  const fetchNotes = async () => {
+  // Wrap fetchNotes in useCallback
+  const fetchNotes = useCallback(async () => {
     const res = await fetch('/api/notes');
     const data: Note[] = await res.json();
     setNotes(data);
     if (data.length > 0 && !activeNoteId) {
       setActiveNoteId(data[0].id);
     }
-  };
+  }, [activeNoteId]); // Add activeNoteId as a dependency
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+  }, [fetchNotes]); // Add fetchNotes to the dependency array
 
   const createNote = async () => {
     const res = await fetch('/api/notes', { method: 'POST' });

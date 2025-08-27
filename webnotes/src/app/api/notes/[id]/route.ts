@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { notes } from '@/lib/data';
 
 interface PutRequestBody {
@@ -7,10 +7,10 @@ interface PutRequestBody {
 
 // PUT (update) a note
 export async function PUT(
-  request: Request,
-  // Destructure 'id' directly from params right here
-  { params: { id } }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
+  const { id } = params;
   const { content }: PutRequestBody = await request.json();
   const noteIndex = notes.findIndex((note) => note.id === id);
 
@@ -32,10 +32,10 @@ export async function PUT(
 
 // DELETE a note
 export async function DELETE(
-  request: Request,
-  // Do the same here for the DELETE function
-  { params: { id } }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
+  const { id } = params;
   const noteIndex = notes.findIndex((note) => note.id === id);
 
   if (noteIndex === -1) {
