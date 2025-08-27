@@ -7,9 +7,9 @@ interface PutRequestBody {
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } } // This is the updated type signature
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params; // Get id from context
+  const { id } = await params; // Await the params
   const { content }: PutRequestBody = await request.json();
   const noteIndex = notes.findIndex((note) => note.id === id);
 
@@ -31,9 +31,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } } // Also update this one
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params; // Get id from context
+  const { id } = await params; // Await the params
   const noteIndex = notes.findIndex((note) => note.id === id);
 
   if (noteIndex === -1) {
