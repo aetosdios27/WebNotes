@@ -9,7 +9,6 @@ export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
-  // This function is now only for the initial load
   const fetchNotes = useCallback(async () => {
     const res = await fetch('/api/notes', { cache: 'no-store' });
     if (!res.ok) return;
@@ -31,7 +30,7 @@ export default function Home() {
     const res = await fetch('/api/notes', { method: 'POST' });
     if (res.ok) {
       const newNote: Note = await res.json();
-      // Directly add the new note to the state instead of refetching
+      // Directly add the new note to the state
       setNotes(prevNotes => [newNote, ...prevNotes]);
       setActiveNoteId(newNote.id);
     }
@@ -40,7 +39,7 @@ export default function Home() {
   const deleteNote = async (id: string) => {
     const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
     if (res.ok) {
-      // Directly remove the note from the state instead of refetching
+      // Directly remove the note from the state
       const newNotes = notes.filter((note: Note) => note.id !== id);
       setNotes(newNotes);
 
@@ -50,10 +49,17 @@ export default function Home() {
     }
   };
 
+  const handleNoteUpdate = (updatedNote: Note) => {
+    setNotes(prevNotes => 
+      prevNotes.map((note) => 
+        note.id === updatedNote.id ? updatedNote : note
+      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    );
+  };
+
   const activeNote = notes.find((note: Note) => note.id === activeNoteId);
 
   return (
-    // ... your JSX remains the same
     <main className="flex w-screen h-screen">
       <div className="w-1/4 h-full flex flex-col bg-zinc-900 border-r border-zinc-800">
         <div className="p-4 flex justify-between items-center border-b border-zinc-800 flex-shrink-0">
@@ -73,7 +79,7 @@ export default function Home() {
         />
       </div>
       <div className="flex-1 h-full">
-        <NoteEditor activeNote={activeNote} />
+        <NoteEditor activeNote={activeNote} onNoteUpdate={handleNoteUpdate} />
       </div>
     </main>
   );
