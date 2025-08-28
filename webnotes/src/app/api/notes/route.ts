@@ -1,21 +1,35 @@
+// src/app/api/notes/route.ts
+import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
-import { notes } from '@/lib/data';
-import type { Note } from '@/types';
 
-// GET all notes
+// GET all notes from the database
 export async function GET() {
-  return NextResponse.json(notes);
+  try {
+    const { rows } = await sql`SELECT * FROM notes ORDER BY "updatedAt" DESC;`;
+    return NextResponse.json(rows);
+  } catch (error) {
+    return NextResponse.json({ message: 'Error fetching notes', error }, { status: 500 });
+  }
 }
 
-// POST a new note
-export async function POST(_request: Request) { // The underscore here is correct
-  const newNote: Note = {
-    id: Date.now().toString(),
-    title: 'New Note',
-    content: 'New Note\n\n',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  notes.unshift(newNote); // Add to the beginning of the array
-  return NextResponse.json(newNote, { status: 201 });
+// POST a new note to the database
+export async function POST(request: Request) {
+  try {
+    const userId = 'user_placeholder';
+    const now = new Date().toISOString();
+    const defaultTitle = 'New Note';
+    const defaultContent = `${defaultTitle}\n`;
+
+    // Create note with proper timestamps
+    const result = await sql`
+      INSERT INTO notes (title, content, "userId", "createdAt", "updatedAt")
+      VALUES (${defaultTitle}, ${defaultContent}, ${userId}, ${now}, ${now})
+      RETURNING *;
+    `;
+    
+    return NextResponse.json(result.rows[0], { status: 201 });
+
+  } catch (error) {
+    return NextResponse.json({ message: 'Error creating note', error }, { status: 500 });
+  }
 }
