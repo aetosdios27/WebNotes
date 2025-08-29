@@ -26,7 +26,7 @@ export async function PUT(
     }
    
     return NextResponse.json(result.rows[0]);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
   }
 }
@@ -40,7 +40,7 @@ export async function DELETE(
   try {
     await sql`DELETE FROM notes WHERE id = ${id};`;
     return NextResponse.json({ message: 'Note deleted successfully' });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to delete note' }, { status: 500 });
   }
 }

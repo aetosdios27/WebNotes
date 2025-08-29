@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 // POST a new note to the database
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   try {
     const userId = 'user_placeholder';
     const now = new Date().toISOString();
