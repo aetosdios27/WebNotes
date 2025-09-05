@@ -1,65 +1,80 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useDebouncedCallback } from 'use-debounce'; // Import useDebouncedCallback
-import type { Note } from '@/types';
+
+import type { Note } from '@prisma/client';
+import { useDebouncedCallback } from 'use-debounce';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Toolbar } from './Toolbar';
 
 interface NoteEditorProps {
-  activeNote: Note | undefined;
-  onNoteUpdate: (note: Note) => void;
+ activeNote: Note | undefined;
+ onNoteUpdate: (note: Note) => void;
 }
 
 export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps) {
-  const [text, setText] = useState<string>('');
+ const debouncedSave = useDebouncedCallback(
+   async (noteId: string, htmlContent: string, textContent: string) => {
+     if (!noteId) return;
 
-  // Use useDebouncedCallback for more control
-  const debouncedSave = useDebouncedCallback(async (content: string) => {
-    if (!activeNote) return;
+     const res = await fetch(`/api/notes/${noteId}`, {
+       method: 'PUT',
+       headers: {
+         'Content-Type': 'application/json'
+       },
+       body: JSON.stringify({
+         htmlContent,
+         textContent
+       }),
+     });
 
-    const res = await fetch(`/api/notes/${activeNote.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
+     if (res.ok) {
+       const updatedNote: Note = await res.json();
+       onNoteUpdate(updatedNote);
+     }
+   },
+   1000
+ );
 
-    if (res.ok) {
-      const updatedNote: Note = await res.json();
-      onNoteUpdate(updatedNote);
-    }
-  }, 1000); // 1 second debounce
+ const editor = useEditor(
+   {
+     extensions: [StarterKit],
+     content: activeNote?.content ?? '',
+     editorProps: {
+       attributes: {
+         class: 'prose prose-invert prose-lg focus:outline-none max-w-none',
+       },
+     },
+     onUpdate: ({ editor }) => {
+       if (!activeNote?.id) return;
+       debouncedSave(activeNote.id, editor.getHTML(), editor.getText());
+     },
+     // Critical for Next.js to avoid hydration mismatch
+     immediatelyRender: false,
+   },
+   // Recreate the editor when switching notes
+   [activeNote?.id]
+ );
 
-  useEffect(() => {
-    if (activeNote) {
-      // When the active note changes, cancel any pending saves
-      // from the previous note and set the new text.
-      debouncedSave.cancel();
-      setText(activeNote.content);
-    } else {
-      setText('');
-    }
-  }, [activeNote, debouncedSave]);
+ if (!activeNote) {
+   return (
+     <div className="flex-1 flex items-center justify-center h-full bg-black text-zinc-700">
+       Select a note to view or create a new one.
+     </div>
+   );
+ }
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-    debouncedSave(e.target.value);
-  };
-  
-  if (!activeNote) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full bg-black text-zinc-700">
-        Select a note to view or create a new one.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 h-full p-8 bg-black">
-      <textarea
-        key={activeNote.id}
-        value={text}
-        onChange={handleTextChange} // Use the new handler
-        className="w-full h-full text-lg resize-none focus:outline-none bg-transparent text-zinc-100"
-        placeholder="Start writing..."
-      />
-    </div>
-  );
+ return (
+   <div className="flex flex-col flex-1 h-full p-8 bg-black">
+     <div className="pb-4">
+       {editor ? <Toolbar editor={editor} /> : <div className="h-8" />}
+     </div>
+     <div className="flex-1 h-full overflow-y-auto">
+       {editor ? (
+         <EditorContent editor={editor} />
+       ) : (
+         <div className="h-40 rounded-md bg-zinc-800/40 animate-pulse" />
+       )}
+     </div>
+   </div>
+ );
 }

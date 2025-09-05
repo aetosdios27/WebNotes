@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronsLeft, FolderPlus, FilePlus, Search } from 'lucide-react';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/app/components/ui/collapsible'; // Keep CollapsibleContent for the structure
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/app/components/ui/collapsible';
 import { Button } from '@/app/components/ui/button';
 import NoteList from './NoteList';
+import AuthButton from './AuthButton'; // Import the new AuthButton
 import type { Note, Folder } from '@/types';
 import {
   Tooltip,
@@ -23,8 +24,9 @@ interface SidebarProps {
 
 export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNote, createNote }: SidebarProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [isOpen, setIsOpen] = useState(true); // Keep track of the open state
+  const [isOpen, setIsOpen] = useState(true);
 
+  // Fetch folders from the API
   useEffect(() => {
     const fetchFolders = async () => {
       const res = await fetch('/api/folders');
@@ -36,6 +38,7 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
     fetchFolders();
   }, []);
   
+  // Handle creating a new folder
   const handleCreateFolder = async () => {
     const folderName = prompt("Enter new folder name:");
     if (folderName) {
@@ -51,6 +54,7 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
     }
   };
 
+  // Combine and sort folders and notes for display
   const combinedItems = useMemo(() => {
     const typedFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
     const typedNotes = notes.map(n => ({ ...n, type: 'note' as const }));
@@ -85,7 +89,6 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
         </div>
 
         {/* Section 2: The Icon Toolbar */}
-        {/* This toolbar is always visible, but its flex direction changes */}
         <div
           className={`p-2 border-b border-zinc-800 flex items-center ${
             isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2'
@@ -117,19 +120,22 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
           </Tooltip>
         </div>
 
-        {/* Section 3: The Combined List - Only render if sidebar is open */}
-        {isOpen && ( // The key change: only render this div if isOpen is true
-          <CollapsibleContent className="flex-1 flex flex-col overflow-y-hidden">
-            <div className="flex-1 overflow-y-auto">
-              <NoteList 
-                items={combinedItems}
-                activeNoteId={activeNoteId} 
-                setActiveNoteId={setActiveNoteId}
-                deleteNote={deleteNote}
-              />
-            </div>
-          </CollapsibleContent>
+        {/* Section 3: The Combined List (conditionally rendered) */}
+        {isOpen && (
+          <div className="flex-1 overflow-y-auto">
+            <NoteList 
+              items={combinedItems}
+              activeNoteId={activeNoteId} 
+              setActiveNoteId={setActiveNoteId}
+              deleteNote={deleteNote}
+            />
+          </div>
         )}
+
+        {/* Section 4: Auth Button Footer */}
+        <div className="mt-auto p-2 border-t border-zinc-800">
+          <AuthButton />
+        </div>
       </Collapsible>
     </TooltipProvider>
   );

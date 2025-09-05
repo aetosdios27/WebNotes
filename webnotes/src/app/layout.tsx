@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Providers from "@/app/components/Providers"; // 1. Import your new Providers component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,9 +16,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // We add the 'dark' class here permanently
     <html lang="en" className="dark">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {/* 2. Wrap children with the new Providers component */}
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
