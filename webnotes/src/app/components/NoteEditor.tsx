@@ -65,7 +65,7 @@ export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps
 
  return (
    <div className="flex flex-col flex-1 h-full p-8 bg-black">
-     <div className="pb-4">
+     <div className="pb-4 self-start">
        {editor ? <Toolbar editor={editor} /> : <div className="h-8" />}
      </div>
      <div className="flex-1 h-full overflow-y-auto">

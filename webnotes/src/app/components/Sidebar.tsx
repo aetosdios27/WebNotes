@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronsLeft, FolderPlus, FilePlus, Search } from 'lucide-react';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/app/components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger } from '@/app/components/ui/collapsible';
 import { Button } from '@/app/components/ui/button';
 import NoteList from './NoteList';
 import AuthButton from './AuthButton'; // Import the new AuthButton
