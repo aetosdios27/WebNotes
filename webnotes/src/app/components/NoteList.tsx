@@ -1,6 +1,8 @@
 'use client';
 import type { Note, Folder } from '@/types';
 import { FileText, Folder as FolderIcon, Trash2 } from 'lucide-react';
+// 1. Import Framer Motion
+import { motion, AnimatePresence } from 'framer-motion';
 
 type ListItem = (Note & { type: 'note' }) | (Folder & { type: 'folder' });
 
@@ -12,48 +14,63 @@ interface NoteListProps {
 }
 
 function formatDate(date: Date | string) {
-    const today = new Date();
-    const noteDate = new Date(date);
+  const today = new Date();
+  const noteDate = new Date(date);
 
-    if (noteDate.toDateString() === today.toDateString()) {
-        return noteDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        });
-    }
-    
-    return noteDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+  if (noteDate.toDateString() === today.toDateString()) {
+    return noteDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
     });
+  }
+
+  return noteDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function NoteList({ items, activeNoteId, setActiveNoteId, deleteNote }: NoteListProps) {
   return (
     <div className="h-full overflow-y-auto p-2 space-y-1">
-      <ul>
+      {/* 2. Wrap the list in AnimatePresence to handle exit animations */}
+      <AnimatePresence>
         {items.map((item) => {
           const isNoteSelected = item.type === 'note' && item.id === activeNoteId;
 
           if (item.type === 'folder') {
             return (
-              <li key={item.id} className="flex items-center gap-3 p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer">
+              // 3. Convert <li> to motion.li and add animation props
+              <motion.li
+                layout
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                transition={{ duration: 0.2 }}
+                key={item.id}
+                className="flex items-center gap-3 p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer"
+              >
                 <FolderIcon size={16} className="text-yellow-500" />
                 <span className="truncate">{item.name}</span>
-              </li>
+              </motion.li>
             );
           }
           
           // Item is a note
           return (
-            <li
+            // 3. Convert <li> to motion.li and add animation props
+            <motion.li
+              layout
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.2 }}
               key={item.id}
               onClick={() => setActiveNoteId(item.id)}
-              // --- This className is now unified with the folder style ---
               className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-colors relative group ${
                 isNoteSelected
-                  ? 'bg-zinc-800 text-white' // Use a subtle highlight for selected notes
+                  ? 'bg-zinc-800 text-white'
                   : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
@@ -74,10 +91,10 @@ export default function NoteList({ items, activeNoteId, setActiveNoteId, deleteN
               >
                 <Trash2 size={14} />
               </button>
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
+      </AnimatePresence>
     </div>
   );
 }
