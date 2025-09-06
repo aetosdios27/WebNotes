@@ -1,13 +1,12 @@
 @import "tailwindcss";
 
 body {
-  /* Change bg-zinc-900 to bg-black */
   @apply bg-black text-zinc-200;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styles */
+/* Custom Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -20,4 +19,73 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-zinc-700;
+}
+
+/*
+============================================================
+ Definitive Tiptap Editor Overrides for Tailwind Prose
+============================================================
+*/
+
+/* FIX 1: TIGHTER LINE SPACING */
+.ProseMirror p {
+  margin-top: 0.25em !important;
+  margin-bottom: 0.25em !important;
+}
+
+/* FIX 2: FORCE LIST STYLES TO SHOW */
+.ProseMirror ul {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  padding-left: 1.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+  padding-left: 1.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+
+.ProseMirror li {
+  display: list-item !important;
+  margin: 0.125rem 0 !important;
+}
+
+/* Remove margins from paragraphs inside list items */
+.ProseMirror li p {
+  margin: 0 !important;
+}
+
+/* Style the markers */
+.ProseMirror ul > li::marker {
+  color: #71717a !important; /* zinc-500 */
+}
+
+.ProseMirror ol > li::marker {
+  color: #71717a !important; /* zinc-500 */
+}
+
+/* Optional: Nested lists */
+.ProseMirror ul ul,
+.ProseMirror ol ol,
+.ProseMirror ul ol,
+.ProseMirror ol ul {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+/* Optional: Code blocks and inline code */
+.ProseMirror code {
+  @apply bg-zinc-800 text-zinc-300 px-1 py-0.5 rounded text-sm;
+}
+
+.ProseMirror pre {
+  @apply bg-zinc-900 text-zinc-300 p-4 rounded-lg overflow-x-auto my-4;
+}
+
+/* Optional: Blockquotes */
+.ProseMirror blockquote {
+  @apply border-l-4 border-zinc-700 pl-4 italic text-zinc-400 my-4;
 }
