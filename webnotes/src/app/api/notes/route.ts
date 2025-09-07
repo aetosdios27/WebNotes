@@ -1,3 +1,4 @@
+// src/app/api/notes/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -5,7 +6,7 @@ import { auth } from '@/lib/auth';
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json([], { status: 200 }); // empty list for logged-out users
+    return NextResponse.json([], { status: 200 });
   }
   const userId = session.user.id;
 
@@ -20,7 +21,7 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -28,11 +29,15 @@ export async function POST() {
   const userId = session.user.id;
 
   try {
+    const body = await request.json().catch(() => ({}));
+    const folderId = body.folderId || null;
+
     const newNote = await prisma.note.create({
       data: {
         title: 'New Note',
         content: '',
         userId,
+        folderId,
       },
     });
     return NextResponse.json(newNote, { status: 201 });

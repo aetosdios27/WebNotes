@@ -1,12 +1,14 @@
+// src/app/components/Sidebar.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronsLeft, FolderPlus, FilePlus, Search } from 'lucide-react';
+import { ChevronsLeft, FolderPlus, FilePlus, Search, ChevronRight, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger } from '@/app/components/ui/collapsible';
 import { Button } from '@/app/components/ui/button';
 import NoteList from './NoteList';
-import AuthButton from './AuthButton'; // Import the new AuthButton
+import AuthButton from './AuthButton';
 import type { Note, Folder } from '@/types';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +27,20 @@ interface SidebarProps {
 export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNote, createNote }: SidebarProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [isOpen, setIsOpen] = useState(true);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+
+  // Load expanded folders from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('expandedFolders');
+    if (saved) {
+      setExpandedFolders(new Set(JSON.parse(saved)));
+    }
+  }, []);
+
+  // Save expanded folders to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('expandedFolders', JSON.stringify(Array.from(expandedFolders)));
+  }, [expandedFolders]);
 
   // Fetch folders from the API
   useEffect(() => {
@@ -54,21 +70,48 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
     }
   };
 
-  // Combine and sort folders and notes for display
-  const combinedItems = useMemo(() => {
-    const typedFolders = folders.map(f => ({ ...f, type: 'folder' as const }));
-    const typedNotes = notes.map(n => ({ ...n, type: 'note' as const }));
-    
-    const allItems = [...typedFolders, ...typedNotes];
-    
-    allItems.sort((a, b) => {
-      if (a.type === 'folder' && b.type !== 'folder') return -1;
-      if (a.type !== 'folder' && b.type === 'folder') return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  // Toggle folder expansion
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
     });
-    
-    return allItems;
-  }, [folders, notes]);
+  };
+
+  // Group notes by folder
+  const { notesInFolders, unfiledNotes } = useMemo(() => {
+    const notesInFolders = new Map<string, Note[]>();
+    const unfiledNotes: Note[] = [];
+
+    notes.forEach(note => {
+      if (note.folderId) {
+        const folderNotes = notesInFolders.get(note.folderId) || [];
+        folderNotes.push(note);
+        notesInFolders.set(note.folderId, folderNotes);
+      } else {
+        unfiledNotes.push(note);
+      }
+    });
+
+    // Sort notes within each folder
+    notesInFolders.forEach((notes, folderId) => {
+      notesInFolders.set(folderId, notes.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      ));
+    });
+
+    return { 
+      notesInFolders, 
+      unfiledNotes: unfiledNotes.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
+    };
+  }, [notes]);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -120,14 +163,18 @@ export default function Sidebar({ notes, activeNoteId, setActiveNoteId, deleteNo
           </Tooltip>
         </div>
 
-        {/* Section 3: The Combined List (conditionally rendered) */}
+        {/* Section 3: Tree View (conditionally rendered) */}
         {isOpen && (
           <div className="flex-1 overflow-y-auto">
             <NoteList 
-              items={combinedItems}
+              folders={folders}
+              notesInFolders={notesInFolders}
+              unfiledNotes={unfiledNotes}
               activeNoteId={activeNoteId} 
               setActiveNoteId={setActiveNoteId}
               deleteNote={deleteNote}
+              expandedFolders={expandedFolders}
+              toggleFolder={toggleFolder}
             />
           </div>
         )}

@@ -1,12 +1,11 @@
 // src/app/page.tsx
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import dynamic from 'next/dynamic';
 import type { Note } from '@prisma/client';
-import { NoteListSkeleton } from './components/NoteListSkeleton'; // 1. Import the skeleton
+import { NoteListSkeleton } from './components/NoteListSkeleton';
 
 const NoteEditor = dynamic(() => import('./components/NoteEditor'), {
   ssr: false,
@@ -14,13 +13,11 @@ const NoteEditor = dynamic(() => import('./components/NoteEditor'), {
 });
 
 export default function Home() {
-  // 2. Add an isLoading state
   const [isLoading, setIsLoading] = useState(true);
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
   const fetchNotes = useCallback(async () => {
-    // No need to set isLoading here, it's for the initial load only
     try {
       const res = await fetch('/api/notes');
       if (!res.ok) throw new Error('Failed to fetch notes');
@@ -33,19 +30,21 @@ export default function Home() {
       }
     } catch (error) {
       console.error(error);
-      // Handle error state if needed
     } finally {
-      // 3. Set loading to false after the first fetch is complete
       setIsLoading(false);
     }
-  }, [activeNoteId]); // activeNoteId is needed to avoid stale state when setting it
+  }, [activeNoteId]);
 
   useEffect(() => {
     fetchNotes();
   }, [fetchNotes]);
 
-  const createNote = async () => {
-    const res = await fetch('/api/notes', { method: 'POST' });
+  const createNote = async (folderId?: string) => {
+    const res = await fetch('/api/notes', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderId })
+    });
     if (res.ok) {
       const newNote: Note = await res.json();
       setNotes((prevNotes) => [newNote, ...prevNotes]);
@@ -77,7 +76,6 @@ export default function Home() {
 
   return (
     <main className="flex w-screen h-screen">
-      {/* 4. Conditionally render the Sidebar or the Skeleton based on initial load */}
       {isLoading ? (
         <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
           <NoteListSkeleton />
@@ -88,7 +86,7 @@ export default function Home() {
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}
           deleteNote={deleteNote}
-          createNote={createNote}
+          createNote={() => createNote()}
         />
       )}
       <div className="flex-1 h-full">
