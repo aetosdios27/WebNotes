@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Providers from "@/app/components/Providers"; // 1. Import your new Providers component
+import Providers from "@/app/components/Providers";
+import { Toaster } from "@/app/components/ui/sonner"; // 1. Import the Toaster
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,8 +19,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        {/* 2. Wrap children with the new Providers component */}
         <Providers>{children}</Providers>
+        <Toaster /> {/* 2. Add the Toaster here */}
       </body>
     </html>
   );

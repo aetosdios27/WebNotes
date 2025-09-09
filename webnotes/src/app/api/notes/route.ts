@@ -1,18 +1,26 @@
 // src/app/api/notes/route.ts
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 
-export async function GET() {
+import { NextResponse, type NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+
+export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json([]);
   }
   const userId = session.user.id;
 
+  const { searchParams } = new URL(request.url);
+  const folderId = searchParams.get('folderId');
+
   try {
     const notes = await prisma.note.findMany({
-      where: { userId },
+      where: {
+        userId: userId,
+        // If folderId is 'null' (string), find unfiled notes. Otherwise, find by id.
+        folderId: folderId === 'null' ? null : folderId,
+      },
       orderBy: { updatedAt: 'desc' },
     });
     return NextResponse.json(notes);
@@ -27,17 +35,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+  
+  // FIX: The folderId is now optional from the body
+  const body = await request.json().catch(() => ({})); // Handle empty body
+  const folderId = body.folderId || null;
 
   try {
-    const body = await request.json().catch(() => ({}));
-    const folderId = body.folderId || null;
-
     const newNote = await prisma.note.create({
       data: {
         title: 'New Note',
         content: '',
-        userId,
-        folderId,
+        userId: userId,
+        // This will be null if no folderId is provided, creating an unfiled note
+        folderId: folderId, 
       },
     });
     return NextResponse.json(newNote, { status: 201 });

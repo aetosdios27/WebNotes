@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
 import React from 'react';
-import type { Note, Folder } from '@/types';
+import type { Note, Folder } from '@prisma/client';
 import { FileText, Folder as FolderIcon, Trash2, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// The props interface is updated to accept the new functions from the parent
 interface NoteListProps {
   folders: Folder[];
   notesInFolders: Map<string, Note[]>;
@@ -14,6 +15,7 @@ interface NoteListProps {
   deleteNote: (id: string) => void;
   expandedFolders: Set<string>;
   toggleFolder: (folderId: string) => void;
+  moveNote: (noteId: string, folderId: string | null) => void; // New prop for optimistic update
 }
 
 function formatDate(date: Date | string) {
@@ -42,8 +44,10 @@ export default function NoteList({
   setActiveNoteId, 
   deleteNote,
   expandedFolders,
-  toggleFolder
+  toggleFolder,
+  moveNote // Accept the new moveNote function
 }: NoteListProps) {
+  // Local state for drag UI feedback remains the same
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
@@ -53,7 +57,7 @@ export default function NoteList({
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnd = () => {
     setDraggedNoteId(null);
     setDragOverFolderId(null);
   };
@@ -68,37 +72,27 @@ export default function NoteList({
     setDragOverFolderId(folderId);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = () => {
     setDragOverFolderId(null);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
+  // THE KEY CHANGE: The handleDrop function is now extremely simple.
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
     
     const noteId = e.dataTransfer.getData('noteId');
     setDragOverFolderId(null);
     
-    if (!noteId) return;
-    
-    try {
-      const res = await fetch(`/api/notes/${noteId}/move`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderId }),
-      });
-
-      if (res.ok) {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Failed to move note:', error);
+    if (noteId && noteId !== activeNoteId) {
+      // It just calls the optimistic update function from the parent.
+      // No fetch, no window.location.reload()
+      moveNote(noteId, folderId);
     }
   };
 
+  // The render functions are mostly the same, just with updated props/types as needed
   const renderNote = (note: Note, isIndented: boolean = false) => (
-    // THE FIX: We wrap the motion.div in a standard div
-    // and move the drag-and-drop props to it.
     <div
       key={note.id}
       draggable
@@ -141,7 +135,7 @@ export default function NoteList({
     </div>
   );
 
-  const renderFolder = (folder: Folder) => {
+  const renderFolder = (folder: Folder & { notes?: Note[] }) => {
     const isExpanded = expandedFolders.has(folder.id);
     const folderNotes = notesInFolders.get(folder.id) || [];
     const isDragOver = dragOverFolderId === folder.id;
@@ -204,13 +198,13 @@ export default function NoteList({
           onDragEnter={(e) => handleDragEnter(e, null)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, null)}
-          className={`transition-all ${
-            dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 rounded-md p-2' : ''
+          className={`transition-all rounded-md ${
+            dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 p-2' : ''
           }`}
         >
-          {folders.length > 0 && unfiledNotes.length > 0 && (
-            <div className={`text-xs text-zinc-500 px-2 py-1 ${
-              dragOverFolderId === null && draggedNoteId ? 'mb-2' : 'mt-4'
+          {unfiledNotes.length > 0 && (
+            <div className={`text-xs text-zinc-500 px-2 pt-2 ${
+              folders.length > 0 ? 'mt-2' : ''
             }`}>
               Unfiled Notes
             </div>
