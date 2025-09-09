@@ -103,6 +103,3 @@ The application should now be running at [http://localhost:3000](http://localhos
 ## 📄 License
 
 This project is licensed under the **MIT License**.
-
-```
-```
