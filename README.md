@@ -2,6 +2,8 @@
 
 A simple, fast, and beautiful note-taking app for the web, inspired by the sleekness of Apple Notes and the speed of Excalidraw. Built for the majority of users who are overwhelmed by bloated, complicated solutions.
 
+*(Replace this with a real screenshot or, even better, a GIF of your app in action!)*
+
 ---
 
 ## ✨ Key Features
@@ -44,3 +46,65 @@ Follow these instructions to set up and run the project locally.
 ```bash
 git clone https://github.com/aetosdios27/WebNotes.git
 cd WebNotes
+````
+
+### 3. Install Dependencies
+
+```bash
+npm install
+```
+
+### 4. Set Up Environment Variables
+
+Create a file named `.env` in the root of your project and add the following variables.
+
+```bash
+# 1. Database Connection String (from Neon)
+DATABASE_URL="postgres://..."
+
+# 2. Auth.js Secret (generate one with `openssl rand -base64 32`)
+AUTH_SECRET="your-strong-random-secret"
+
+# 3. Google OAuth Credentials
+GOOGLE_CLIENT_ID="your-client-id-from-google"
+GOOGLE_CLIENT_SECRET="your-client-secret-from-google"
+
+# 4. NextAuth.js URL (for local development)
+AUTH_URL=http://localhost:3000
+```
+
+### 5. Sync the Database
+
+Push the Prisma schema to your database. This will create all the necessary tables.
+
+```bash
+npx prisma db push
+# (You may also need to run `npx prisma generate` after installing dependencies)
+```
+
+### 6. Run the Development Server
+
+```bash
+npm run dev
+```
+
+The application should now be running at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 🗺️ Future Roadmap
+
+* [ ] Advanced Search: Full-text and semantic search within note content.
+* [ ] Command Palette (Cmd/Ctrl + K): For lightning-fast navigation and actions.
+* [ ] Note Pinning & Context Menus: For enhanced organization and power-user workflows.
+* [ ] Sharing: Public read-only links for notes and PDF export.
+* [ ] Real-Time Collaboration: The long-term vision for multi-user editing.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
+
+```
+```
