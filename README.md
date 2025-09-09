@@ -2,8 +2,6 @@
 
 A simple, fast, and beautiful note-taking app for the web, inspired by the sleekness of Apple Notes and the speed of Excalidraw. Built for the majority of users who are overwhelmed by bloated, complicated solutions.
 
-*(Replace this with a real screenshot or, even better, a GIF of your app in action!)*
-
 ---
 
 ## ✨ Key Features
