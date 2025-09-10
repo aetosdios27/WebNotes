@@ -28,7 +28,21 @@ export async function GET() {
   }
 }
 
-// ... your POST function can remain the same
+// Your POST function is likely correct and can remain the same
 export async function POST(request: Request) {
- // ...
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  try {
+    const { name } = await request.json();
+    const folder = await prisma.folder.create({
+      data: { name, userId },
+    });
+    return NextResponse.json({ folder }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
+  }
 }

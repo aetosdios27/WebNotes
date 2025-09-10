@@ -1,3 +1,4 @@
+// src/app/components/NoteList.tsx
 'use client';
 import { useState } from 'react';
 import React from 'react';
@@ -5,7 +6,6 @@ import type { Note, Folder } from '@prisma/client';
 import { FileText, Folder as FolderIcon, Trash2, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// The props interface is updated to accept the new functions from the parent
 interface NoteListProps {
   folders: Folder[];
   notesInFolders: Map<string, Note[]>;
@@ -15,7 +15,7 @@ interface NoteListProps {
   deleteNote: (id: string) => void;
   expandedFolders: Set<string>;
   toggleFolder: (folderId: string) => void;
-  moveNote: (noteId: string, folderId: string | null) => void; // New prop for optimistic update
+  moveNote: (noteId: string, folderId: string | null) => void;
 }
 
 function formatDate(date: Date | string) {
@@ -45,9 +45,8 @@ export default function NoteList({
   deleteNote,
   expandedFolders,
   toggleFolder,
-  moveNote // Accept the new moveNote function
+  moveNote
 }: NoteListProps) {
-  // Local state for drag UI feedback remains the same
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
@@ -76,7 +75,7 @@ export default function NoteList({
     setDragOverFolderId(null);
   };
 
-  // THE KEY CHANGE: The handleDrop function is now extremely simple.
+  // FIXED: Removed the activeNoteId check to allow all notes to be moved
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
@@ -84,14 +83,12 @@ export default function NoteList({
     const noteId = e.dataTransfer.getData('noteId');
     setDragOverFolderId(null);
     
-    if (noteId && noteId !== activeNoteId) {
-      // It just calls the optimistic update function from the parent.
-      // No fetch, no window.location.reload()
+    if (noteId) {
+      // Now any note can be moved, including the active one
       moveNote(noteId, folderId);
     }
   };
 
-  // The render functions are mostly the same, just with updated props/types as needed
   const renderNote = (note: Note, isIndented: boolean = false) => (
     <div
       key={note.id}

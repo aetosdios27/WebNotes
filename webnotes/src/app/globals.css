@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   @apply bg-black text-zinc-200;
   -webkit-font-smoothing: antialiased;

@@ -1,34 +1,44 @@
-// src/app/components/AuthButton.tsx
-
 'use client';
 
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { Button } from './ui/button';
-import Image from 'next/image'; // 1. Import the Image component
+import Image from 'next/image';
+import { LogOut } from 'lucide-react';
 
 export default function AuthButton() {
   const { data: session } = useSession();
 
   if (session?.user) {
     return (
-      <div className="flex items-center gap-4 p-2">
-        {/* 2. Replace <img> with <Image /> */}
-        <Image
-          src={session.user.image ?? ''}
-          alt={session.user.name ?? 'User avatar'}
-          width={32} // 3. Add required width
-          height={32} // 4. Add required height
-          className="w-8 h-8 rounded-full"
-        />
-        <Button variant="ghost" onClick={() => signOut()}>
-          Sign Out
+      // Use flexbox to push items to opposite ends
+      <div className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Image
+            src={session.user.image ?? ''}
+            alt={session.user.name ?? 'User avatar'}
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
+          <span className="text-sm text-zinc-300 truncate">{session.user.name}</span>
+        </div>
+        
+        {/* Use a shadcn Button with ghost variant and custom hover styles */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => signOut()}
+          className="text-zinc-400 hover:bg-red-900/50 hover:text-red-400"
+          aria-label="Sign Out"
+        >
+          <LogOut className="h-4 w-4" />
         </Button>
       </div>
     );
   }
 
   return (
-    <Button variant="secondary" onClick={() => signIn('google')}>
+    <Button variant="secondary" className="w-full" onClick={() => signIn('google')}>
       Sign In with Google
     </Button>
   );

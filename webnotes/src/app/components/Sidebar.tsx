@@ -1,40 +1,47 @@
+// src/app/components/Sidebar.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronsLeft, FolderPlus, FilePlus, Search } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ChevronsLeft, FolderPlus, FilePlus, Search, ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger } from '@/app/components/ui/collapsible';
 import { Button } from '@/app/components/ui/button';
 import NoteList from './NoteList';
 import AuthButton from './AuthButton';
 import type { Note, Folder } from '@prisma/client';
-import type { FolderWithNotes } from '../page'; // Import the new type
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/app/components/ui/tooltip';
-import { toast } from 'sonner';
 
+type FolderWithNotes = Folder & { notes: Note[] };
 
 interface SidebarProps {
-  unfiledNotes: Note[];
+  notes: Note[];
   folders: FolderWithNotes[];
   activeNoteId: string | null;
   setActiveNoteId: (id: string) => void;
-  onDataChange: () => void; // A single function to signal data has changed
+  createNote: (folderId?: string) => void;
+  deleteNote: (id: string) => void;
+  moveNote: (noteId: string, folderId: string | null) => void;
 }
 
 export default function Sidebar({ 
-  unfiledNotes, 
+  notes, 
   folders,
   activeNoteId, 
   setActiveNoteId, 
-  onDataChange,
+  createNote,
+  deleteNote,
+  moveNote
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
+  // Load expanded folders from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('expandedFolders');
     if (saved) {
@@ -42,10 +49,36 @@ export default function Sidebar({
     }
   }, []);
 
+  // Save expanded folders to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('expandedFolders', JSON.stringify(Array.from(expandedFolders)));
   }, [expandedFolders]);
+  
+  // Handle creating a new folder
+  const handleCreateFolder = async () => {
+    const folderName = prompt("Enter new folder name:");
+    if (!folderName) return;
 
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderName }),
+      });
+      
+      if (res.ok) {
+        // The parent component should handle folder creation
+        // For now, we'll just reload to get the new folder
+        window.location.reload();
+      } else {
+        throw new Error('Failed to create folder');
+      }
+    } catch (error) {
+      toast.error('Failed to create folder');
+    }
+  };
+
+  // Toggle folder expansion
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
@@ -58,44 +91,30 @@ export default function Sidebar({
     });
   };
 
-  const createNote = async () => {
-    const res = await fetch('/api/notes', { method: 'POST' });
-    if (res.ok) onDataChange();
-  };
+  // Group notes by folder
+  const { notesInFolders, unfiledNotes } = useMemo(() => {
+    const notesInFolders = new Map<string, Note[]>();
+    const unfiledNotes: Note[] = [];
 
-  const createFolder = async () => {
-    const folderName = prompt("Enter new folder name:");
-    if (folderName) {
-      const res = await fetch('/api/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: folderName }),
-      });
-      if (res.ok) onDataChange();
-    }
-  };
+    // Use the notes from folders directly since they're already grouped
+    folders.forEach(folder => {
+      notesInFolders.set(folder.id, folder.notes);
+    });
 
-  const deleteNote = async (id: string) => {
-    const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-    if (res.ok) onDataChange();
-  };
-
-  const moveNote = async (noteId: string, folderId: string | null) => {
-    try {
-      const res = await fetch(`/api/notes/${noteId}/move`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderId }),
-      });
-      if (res.ok) {
-        onDataChange();
-      } else {
-        toast.error("Couldn't move note.");
+    // Find unfiled notes
+    notes.forEach(note => {
+      if (!note.folderId) {
+        unfiledNotes.push(note);
       }
-    } catch {
-      toast.error("Couldn't move note.");
-    }
-  };
+    });
+
+    return { 
+      notesInFolders, 
+      unfiledNotes: unfiledNotes.sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
+    };
+  }, [notes, folders]);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -104,36 +123,56 @@ export default function Sidebar({
         onOpenChange={setIsOpen}
         className={`h-full flex flex-col bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out ${isOpen ? 'w-80' : 'w-[68px]'}`}
       >
+        {/* Section 1: Header (Title and Collapse Button) */}
         <div className={`p-4 flex items-center border-b border-zinc-800 flex-shrink-0 ${isOpen ? 'justify-between' : 'justify-center'}`}>
           {isOpen && <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>}
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="icon">
               <ChevronsLeft className={`h-5 w-5 transition-transform duration-300 ${isOpen ? '' : 'rotate-180'}`} />
+              <span className="sr-only">Toggle sidebar</span>
             </Button>
           </CollapsibleTrigger>
         </div>
 
-        <div className={`p-2 border-b border-zinc-800 flex items-center ${ isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2' }`}>
+        {/* Section 2: The Icon Toolbar */}
+        <div
+          className={`p-2 border-b border-zinc-800 flex items-center ${
+            isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2'
+          }`}
+        >
           <Tooltip>
-            <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={createNote}><FilePlus size={18} /></Button></TooltipTrigger>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => createNote()}>
+                <FilePlus size={18} />
+              </Button>
+            </TooltipTrigger>
             <TooltipContent side="right"><p>New Note</p></TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={createFolder}><FolderPlus size={18} /></Button></TooltipTrigger>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={handleCreateFolder}>
+                <FolderPlus size={18} />
+              </Button>
+            </TooltipTrigger>
             <TooltipContent side="right"><p>New Folder</p></TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger asChild><Button variant="ghost" size="icon"><Search size={18} /></Button></TooltipTrigger>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Search size={18} />
+              </Button>
+            </TooltipTrigger>
             <TooltipContent side="right"><p>Search</p></TooltipContent>
           </Tooltip>
         </div>
 
+        {/* Section 3: Tree View (conditionally rendered) */}
         {isOpen && (
           <div className="flex-1 overflow-y-auto">
             <NoteList 
               folders={folders}
+              notesInFolders={notesInFolders}
               unfiledNotes={unfiledNotes}
-              notesInFolders={new Map(folders.map(folder => [folder.id, folder.notes]))}
               activeNoteId={activeNoteId} 
               setActiveNoteId={setActiveNoteId}
               deleteNote={deleteNote}
@@ -144,6 +183,7 @@ export default function Sidebar({
           </div>
         )}
 
+        {/* Section 4: Auth Button Footer */}
         <div className="mt-auto p-2 border-t border-zinc-800">
           <AuthButton />
         </div>

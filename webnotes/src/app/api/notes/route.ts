@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const notes = await prisma.note.findMany({
       where: {
         userId: userId,
-        // If folderId is 'null' (string), find unfiled notes. Otherwise, find by id.
         folderId: folderId === 'null' ? null : folderId,
       },
       orderBy: { updatedAt: 'desc' },
@@ -36,8 +35,7 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
   
-  // FIX: The folderId is now optional from the body
-  const body = await request.json().catch(() => ({})); // Handle empty body
+  const body = await request.json().catch(() => ({}));
   const folderId = body.folderId || null;
 
   try {
@@ -46,7 +44,6 @@ export async function POST(request: Request) {
         title: 'New Note',
         content: '',
         userId: userId,
-        // This will be null if no folderId is provided, creating an unfiled note
         folderId: folderId, 
       },
     });
