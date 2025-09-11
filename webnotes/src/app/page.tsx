@@ -1,3 +1,4 @@
+// src/app/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -44,15 +45,16 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activeNoteId]);
+  }, [isLoading]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);
   
-  const handleDataChange = useCallback(() => { fetchData(); }, [fetchData]);
+  const handleDataChange = useCallback(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
-  // This function is defined here and passed down
   const createNote = async (folderId?: string | null) => {
     const res = await fetch('/api/notes', { 
       method: 'POST',
@@ -90,7 +92,11 @@ export default function Home() {
     const updatedNotes = notes.map(n => n.id === noteId ? { ...n, folderId } : n);
     setNotes(updatedNotes);
     try {
-      const res = await fetch(`/api/notes/${noteId}/move`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ folderId }) });
+      const res = await fetch(`/api/notes/${noteId}/move`, { 
+        method: 'PATCH', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ folderId }) 
+      });
       if (!res.ok) throw new Error();
       handleDataChange();
     } catch {
@@ -102,13 +108,20 @@ export default function Home() {
   const createFolder = async () => {
     const folderName = prompt("Enter folder name:");
     if (folderName) {
-      const res = await fetch('/api/folders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: folderName }) });
+      const res = await fetch('/api/folders', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ name: folderName }) 
+      });
       if (res.ok) handleDataChange();
     }
   };
 
   const handleNoteUpdate = (updatedNote: Note) => {
-    setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+    setNotes(prev => prev
+      .map(n => n.id === updatedNote.id ? updatedNote : n)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    );
   };
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -125,11 +138,11 @@ export default function Home() {
           folders={folders}
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}
-          // All handlers are passed down from this component
           createNote={createNote}
           deleteNote={deleteNote}
           moveNote={moveNote}
           createFolder={createFolder}
+          onDataChange={handleDataChange} // Added this line
         />
       )}
       <div className="flex-1 h-full">
