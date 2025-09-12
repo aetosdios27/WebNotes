@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import React from 'react';
-import type { Note, Folder } from '@prisma/client';
+import type { Note, Folder } from '@/lib/storage/types';
 import { FileText, Folder as FolderIcon, Trash2, ChevronRight, Edit } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +13,6 @@ import {
 } from './context-menu';
 import { toast } from 'sonner';
 
-// In NoteList.tsx, update the interface to remove deleteNote since it's handled by onDataChange
 interface NoteListProps {
   folders: Folder[];
   notesInFolders: Map<string, Note[]>;
@@ -23,7 +22,7 @@ interface NoteListProps {
   expandedFolders: Set<string>;
   toggleFolder: (folderId: string) => void;
   moveNote: (noteId: string, folderId: string | null) => void;
-  onDataChange: () => void; // This replaces the need for deleteNote
+  onDataChange: () => void;
 }
 
 function formatDate(date: Date | string) {

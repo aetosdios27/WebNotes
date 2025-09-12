@@ -1,14 +1,18 @@
 // src/app/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import dynamic from 'next/dynamic';
-import type { Note, Folder } from '@prisma/client';
 import { NoteListSkeleton } from '@/app/components/NoteListSkeleton';
 import { toast } from 'sonner';
+import { useStorage } from '@/hooks/useStorage';
+import type { Note, Folder } from '@/lib/storage/types'; // Import from storage types
 
-export type FolderWithNotes = Folder & { notes: Note[] };
+// Updated FolderWithNotes type to match storage types
+export type FolderWithNotes = Omit<Folder, 'notes'> & { 
+  notes: Note[] 
+};
 
 const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
   ssr: false,
@@ -16,113 +20,100 @@ const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
 });
 
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [folders, setFolders] = useState<FolderWithNotes[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [foldersRes, unfiledNotesRes] = await Promise.all([
-        fetch('/api/folders'),
-        fetch('/api/notes?folderId=null'),
-      ]);
-      if (!foldersRes.ok || !unfiledNotesRes.ok) throw new Error('Failed to fetch data');
-      
-      const { folders: foldersArray } = await foldersRes.json();
-      const unfiledNotesArray = await unfiledNotesRes.json();
-      
-      const notesFromFolders = foldersArray.flatMap((f: FolderWithNotes) => f.notes);
-      setNotes([...unfiledNotesArray, ...notesFromFolders]);
-      setFolders(foldersArray);
-
-      if (isLoading && (unfiledNotesArray.length > 0 || notesFromFolders.length > 0)) {
-        setActiveNoteId(unfiledNotesArray[0]?.id || foldersArray[0]?.notes[0]?.id || null);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load data.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
   
-  const handleDataChange = useCallback(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  // Use the new storage hook
+  const {
+    notes,
+    folders,
+    settings,
+    isLoading,
+    createNote: storageCreateNote,
+    updateNote: storageUpdateNote,
+    deleteNote: storageDeleteNote,
+    createFolder: storageCreateFolder,
+    deleteFolder: storageDeleteFolder,
+    refresh,
+  } = useStorage();
 
-  const createNote = async (folderId?: string | null) => {
-    const res = await fetch('/api/notes', { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folderId }) 
-    });
-    if (res.ok) {
-      const newNote: Note = await res.json();
-      setNotes(prev => [newNote, ...prev]);
-      setActiveNoteId(newNote.id);
-      // Refetch in the background to get updated folder counts
-      fetch('/api/folders').then(res => res.json()).then(data => setFolders(data.folders));
-    } else {
-      toast.error("Failed to create note.");
+  // Transform folders to include their notes
+  const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
+    return folders.map(folder => ({
+      ...folder,
+      notes: notes.filter(note => note.folderId === folder.id)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    }));
+  }, [folders, notes]);
+
+  // Set initial active note
+  useEffect(() => {
+    if (!activeNoteId && notes.length > 0) {
+      const unfiledNotes = notes.filter(n => !n.folderId);
+      setActiveNoteId(unfiledNotes[0]?.id || notes[0]?.id || null);
     }
-  };
+  }, [notes, activeNoteId]);
 
-  const deleteNote = async (id: string) => {
-    const originalNotes = [...notes];
-    const newNotes = notes.filter((note) => note.id !== id);
-    setNotes(newNotes);
-    if (activeNoteId === id) setActiveNoteId(newNotes.length > 0 ? newNotes[0].id : null);
-    
-    const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      setNotes(originalNotes);
-      toast.error("Failed to delete note.");
-    } else {
-      handleDataChange();
-    }
-  };
-
-  const moveNote = async (noteId: string, folderId: string | null) => {
-    const originalNotes = [...notes];
-    const updatedNotes = notes.map(n => n.id === noteId ? { ...n, folderId } : n);
-    setNotes(updatedNotes);
+  const createNote = useCallback(async (folderId?: string | null) => {
     try {
-      const res = await fetch(`/api/notes/${noteId}/move`, { 
-        method: 'PATCH', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({ folderId }) 
+      const newNote = await storageCreateNote({
+        title: 'New Note',
+        content: '',
+        folderId: folderId || null,
       });
-      if (!res.ok) throw new Error();
-      handleDataChange();
-    } catch {
-      setNotes(originalNotes);
-      toast.error("Couldn't move note.");
+      setActiveNoteId(newNote.id);
+      toast.success('Note created');
+    } catch (error) {
+      toast.error('Failed to create note');
     }
-  };
+  }, [storageCreateNote]);
 
-  const createFolder = async () => {
-    const folderName = prompt("Enter folder name:");
+  const deleteNote = useCallback(async (id: string) => {
+    try {
+      await storageDeleteNote(id);
+      
+      // Update active note if we deleted the current one
+      if (activeNoteId === id) {
+        const remainingNotes = notes.filter(n => n.id !== id);
+        setActiveNoteId(remainingNotes.length > 0 ? remainingNotes[0].id : null);
+      }
+      
+      toast.success('Note deleted');
+    } catch (error) {
+      toast.error('Failed to delete note');
+    }
+  }, [storageDeleteNote, activeNoteId, notes]);
+
+  const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
+    try {
+      await storageUpdateNote(noteId, { folderId });
+      toast.success('Note moved');
+    } catch (error) {
+      toast.error('Failed to move note');
+    }
+  }, [storageUpdateNote]);
+
+  const createFolder = useCallback(async () => {
+    const folderName = prompt('Enter folder name:');
     if (folderName) {
-      const res = await fetch('/api/folders', { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({ name: folderName }) 
-      });
-      if (res.ok) handleDataChange();
+      try {
+        await storageCreateFolder({ name: folderName });
+        toast.success('Folder created');
+      } catch (error) {
+        toast.error('Failed to create folder');
+      }
     }
-  };
+  }, [storageCreateFolder]);
 
-  const handleNoteUpdate = (updatedNote: Note) => {
-    setNotes(prev => prev
-      .map(n => n.id === updatedNote.id ? updatedNote : n)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    );
-  };
+  const handleNoteUpdate = useCallback(async (updatedNote: Note) => {
+    try {
+      await storageUpdateNote(updatedNote.id, {
+        title: updatedNote.title,
+        content: updatedNote.content,
+      });
+    } catch (error) {
+      toast.error('Failed to update note');
+    }
+  }, [storageUpdateNote]);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
 
@@ -135,18 +126,22 @@ export default function Home() {
       ) : (
         <Sidebar
           notes={notes}
-          folders={folders}
+          folders={foldersWithNotes}
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}
           createNote={createNote}
           deleteNote={deleteNote}
           moveNote={moveNote}
           createFolder={createFolder}
-          onDataChange={handleDataChange} // Added this line
+          onDataChange={refresh}
+          syncStatus={settings.syncStatus}
         />
       )}
       <div className="flex-1 h-full">
-        <NoteEditor activeNote={activeNote} onNoteUpdate={handleNoteUpdate} />
+        <NoteEditor 
+          activeNote={activeNote} 
+          onNoteUpdate={handleNoteUpdate} 
+        />
       </div>
     </main>
   );
