@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import React from 'react';
 import type { Note, Folder } from '@prisma/client';
 import { FileText, Folder as FolderIcon, Trash2, ChevronRight, Edit } from 'lucide-react';
@@ -24,6 +24,8 @@ interface NoteListProps {
   toggleFolder: (folderId: string) => void;
   moveNote: (noteId: string, folderId: string | null) => void;
   onDataChange: () => void; // This replaces the need for deleteNote
+  newlyCreatedFolder?: { id: string; name: string } | null; // Added for inline folder creation
+  clearNewlyCreatedFolder?: () => void; // Added to clear the newly created folder state
 }
 
 function formatDate(date: Date | string) {
@@ -45,15 +47,52 @@ export default function NoteList({
   expandedFolders,
   toggleFolder,
   moveNote,
-  onDataChange // Receive the central data refresh function
+  onDataChange, // Receive the central data refresh function
+  newlyCreatedFolder,
+  clearNewlyCreatedFolder
 }: NoteListProps) {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newName, setNewName] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const newFolderInputCallbackRef = useCallback((node: HTMLInputElement) => {
+    if (node) {
+      node.focus();
+      node.setSelectionRange(node.value.length, node.value.length);
+    }
+  }, []);
+
+  // Effect to handle focusing when editing state changes
+  useEffect(() => {
+    if (editingId && !newlyCreatedFolder && inputRef.current) {
+      inputRef.current.focus();
+      const length = newName.length;
+      inputRef.current.setSelectionRange(length, length);
+    }
+  }, [editingId, newlyCreatedFolder, newName]);
+
+  // Effect to handle inline editing for newly created folders
+  useEffect(() => {
+    if (newlyCreatedFolder) {
+      setEditingId(newlyCreatedFolder.id);
+      setNewName(newlyCreatedFolder.name || 'New Folder');
+    }
+  }, [newlyCreatedFolder]);
+
+  
 
   // --- NEW: Handlers for Context Menu Actions ---
-  const handleRename = async (id: string, currentName: string, type: 'note' | 'folder') => {
-    const newName = prompt(`Rename ${type}:`, currentName);
-    if (newName && newName.trim() !== '' && newName !== currentName) {
+  const handleRename = (id: string, currentName: string) => {
+    setEditingId(id);
+    setNewName(currentName);
+  };
+
+  const confirmRename = async (id: string, type: 'note' | 'folder') => {
+    if (newName.trim() !== '' && newName !== (type === 'note' ? 
+        unfiledNotes.find(n => n.id === id)?.title || 'Untitled' : 
+        folders.find(f => f.id === id)?.name || 'Untitled')) {
       try {
         const res = await fetch(`/api/${type}s/${id}/rename`, {
           method: 'PATCH',
@@ -65,6 +104,12 @@ export default function NoteList({
           onDataChange(); // Trigger a refetch
         } else { throw new Error(); }
       } catch { toast.error(`Failed to rename ${type}.`); }
+    }
+    setEditingId(null);
+    setNewName('');
+    // Clear the newly created folder state if this was a newly created folder
+    if (newlyCreatedFolder?.id === id && clearNewlyCreatedFolder) {
+      clearNewlyCreatedFolder();
     }
   };
 
@@ -111,62 +156,93 @@ export default function NoteList({
   };
 
 // In NoteList.tsx, update the renderNote function:
-const renderNote = (note: Note, isIndented: boolean = false) => (
-  <ContextMenu key={note.id}> {/* Move key here */}
-    <ContextMenuTrigger asChild>
-      <div
-        // Remove key from here
-        draggable
-        onDragStart={(e) => handleDragStart(e, note.id)}
-        onDragEnd={handleDragEnd}
-        style={{ cursor: draggedNoteId ? 'grabbing' : 'grab' }}
-        className={isIndented ? 'ml-6' : ''}
-      >
-        <motion.div
-          layout
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, x: -30 }}
-          transition={{ duration: 0.2 }}
-          onClick={() => setActiveNoteId(note.id)}
-          className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-all relative group ${
-            note.id === activeNoteId
-              ? 'bg-zinc-800 text-white'
-              : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
-          } ${draggedNoteId === note.id ? 'opacity-50' : ''}`}
+const renderNote = (note: Note, isIndented: boolean = false) => {
+  const isEditing = editingId === note.id;
+  
+  return (
+    <ContextMenu key={note.id}> {/* Move key here */}
+      <ContextMenuTrigger asChild>
+        <div
+          // Remove key from here
+          draggable
+          onDragStart={(e) => handleDragStart(e, note.id)}
+          onDragEnd={handleDragEnd}
+          style={{ cursor: draggedNoteId ? 'grabbing' : 'grab' }}
+          className={isIndented ? 'ml-6' : ''}
         >
-          <FileText size={16} className="mt-1 flex-shrink-0 text-zinc-400" />
-          <div className="flex-1 overflow-hidden">
-            <h2 className="font-medium truncate">{note.title || 'Untitled'}</h2>
-            <p className="text-sm text-zinc-500">{formatDate(note.updatedAt)}</p>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(note.id, 'note'); }}
-            className="absolute top-2 right-2 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Delete note"
+          <motion.div
+            layout
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => !isEditing && setActiveNoteId(note.id)}
+            className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-all relative group ${
+              note.id === activeNoteId
+                ? 'bg-zinc-800 text-white'
+                : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+            } ${draggedNoteId === note.id ? 'opacity-50' : ''}`}
           >
-            <Trash2 size={14} />
-          </button>
-        </motion.div>
-      </div>
-    </ContextMenuTrigger>
-    <ContextMenuContent>
-      <ContextMenuItem onClick={() => handleRename(note.id, note.title || 'Untitled', 'note')}>
-        <Edit className="mr-2 h-4 w-4" /> Rename
-      </ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem className="text-red-500" onClick={() => handleDelete(note.id, 'note')}>
-        <Trash2 className="mr-2 h-4 w-4" /> Delete
-      </ContextMenuItem>
-    </ContextMenuContent>
-  </ContextMenu>
-);
+            <FileText size={16} className="mt-1 flex-shrink-0 text-zinc-400" />
+            <div className="flex-1 overflow-hidden">
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={() => confirmRename(note.id, 'note')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      confirmRename(note.id, 'note');
+                    } else if (e.key === 'Escape') {
+                      setEditingId(null);
+                      setNewName('');
+                    }
+                  }}
+                  className="bg-zinc-700 text-white rounded px-1 w-full"
+                  aria-label="Rename note"
+                />
+              ) : (
+                <>
+                  <h2 className="font-medium truncate">{note.title || 'Untitled'}</h2>
+                  <p className="text-sm text-zinc-500">{formatDate(note.updatedAt)}</p>
+                </>
+              )}
+            </div>
+            {!isEditing && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(note.id, 'note'); }}
+                className="absolute top-2 right-2 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Delete note"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </motion.div>
+        </div>
+      </ContextMenuTrigger>
+      {!isEditing && (
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => handleRename(note.id, note.title || 'Untitled')}>
+            <Edit className="mr-2 h-4 w-4" /> Rename
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem className="text-red-500" onClick={() => handleDelete(note.id, 'note')}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
+  );
+};
 
 // Update the renderFolder function similarly:
 const renderFolder = (folder: Folder & { notes?: Note[] }) => {
   const isExpanded = expandedFolders.has(folder.id);
   const folderNotes = notesInFolders.get(folder.id) || [];
   const isDragOver = dragOverFolderId === folder.id;
+  const isEditing = editingId === folder.id || newlyCreatedFolder?.id === folder.id;
 
   return (
     <ContextMenu key={folder.id}> {/* Move key here */}
@@ -185,7 +261,7 @@ const renderFolder = (folder: Folder & { notes?: Note[] }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, x: -30 }}
             transition={{ duration: 0.2 }}
-            onClick={() => toggleFolder(folder.id)}
+            onClick={() => !isEditing && toggleFolder(folder.id)}
             className={`flex items-center gap-2 p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer ${
               isDragOver ? 'bg-zinc-800/50' : ''
             }`}
@@ -194,12 +270,36 @@ const renderFolder = (folder: Folder & { notes?: Note[] }) => {
               <ChevronRight size={16} />
             </motion.div>
             <FolderIcon size={16} className="text-yellow-500" />
-            <span className="truncate font-medium">{folder.name}</span>
-            <span className="text-xs text-zinc-500 ml-auto">{folderNotes.length}</span>
+            <div className="flex-1 overflow-hidden">
+              {isEditing ? (
+                <input
+                  ref={newlyCreatedFolder?.id === folder.id ? newFolderInputCallbackRef : inputRef}
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={() => confirmRename(folder.id, 'folder')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      confirmRename(folder.id, 'folder');
+                    } else if (e.key === 'Escape') {
+                      setEditingId(null);
+                      setNewName('');
+                    }
+                  }}
+                  className="bg-zinc-700 text-white rounded px-1 w-full"
+                  aria-label="Rename folder"
+                />
+              ) : (
+                <span className="truncate font-medium">{folder.name}</span>
+              )}
+            </div>
+            {!isEditing && (
+              <span className="text-xs text-zinc-500 ml-auto">{folderNotes.length}</span>
+            )}
           </motion.div>
           
           <AnimatePresence>
-            {isExpanded && (
+            {isExpanded && !isEditing && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -213,14 +313,16 @@ const renderFolder = (folder: Folder & { notes?: Note[] }) => {
           </AnimatePresence>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => handleRename(folder.id, folder.name, 'folder')}>
-          <Edit className="mr-2 h-4 w-4" /> Rename
-        </ContextMenuItem>
-        <ContextMenuItem className="text-red-500" onClick={() => handleDelete(folder.id, 'folder')}>
-          <Trash2 className="mr-2 h-4 w-4" /> Delete
-        </ContextMenuItem>
-      </ContextMenuContent>
+      {!isEditing && (
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => handleRename(folder.id, folder.name)}>
+            <Edit className="mr-2 h-4 w-4" /> Rename
+          </ContextMenuItem>
+          <ContextMenuItem className="text-red-500" onClick={() => handleDelete(folder.id, 'folder')}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
     </ContextMenu>
   );
 };

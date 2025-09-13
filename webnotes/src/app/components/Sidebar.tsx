@@ -22,9 +22,8 @@ interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string) => void;
   createNote: (folderId?: string | null) => void;
-  deleteNote: (id: string) => void;
   moveNote: (noteId: string, folderId: string | null) => void;
-  createFolder: () => void;
+  createFolder: () => Promise<{ id: string; name: string } | null>; // Modified to return folder object
   onDataChange: () => void;
 }
 
@@ -34,13 +33,23 @@ export default function Sidebar({
   activeNoteId, 
   setActiveNoteId, 
   createNote,
-  deleteNote,
   moveNote,
   createFolder,
   onDataChange
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  
+  
+  const [newlyCreatedFolder, setNewlyCreatedFolder] = useState<{ id: string; name: string } | null>(null);
+  
+  const handleCreateFolder = async () => {
+    const newFolder = await createFolder();
+    if (newFolder) {
+      setNewlyCreatedFolder(newFolder);
+      // Don't call onDataChange immediately - let the NoteList handle it after rename
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('expandedFolders');
@@ -104,27 +113,33 @@ export default function Sidebar({
         <div className={`p-2 border-b border-zinc-800 flex items-center ${ isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2' }`}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => createNote()}>
+              <Button variant="ghost" size="icon" onClick={() => createNote()} className="hover:bg-zinc-700">
                 <FilePlus size={18} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right"><p>New Note</p></TooltipContent>
+            <TooltipContent side="bottom" sideOffset={0} className="px-2 py-1 text-xs">
+              <p>New Note</p>
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={createFolder}>
+              <Button variant="ghost" size="icon" onClick={handleCreateFolder} className="hover:bg-zinc-700">
                 <FolderPlus size={18} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right"><p>New Folder</p></TooltipContent>
+            <TooltipContent side="bottom" sideOffset={0} className="px-2 py-1 text-xs">
+              <p>New Folder</p>
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="hover:bg-zinc-700">
                 <Search size={18} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right"><p>Search</p></TooltipContent>
+            <TooltipContent side="bottom" sideOffset={0} className="px-2 py-1 text-xs">
+              <p>Search</p>
+            </TooltipContent>
           </Tooltip>
         </div>
 
@@ -140,6 +155,8 @@ export default function Sidebar({
               toggleFolder={toggleFolder}
               moveNote={moveNote}
               onDataChange={onDataChange}
+              newlyCreatedFolder={newlyCreatedFolder}
+              clearNewlyCreatedFolder={() => setNewlyCreatedFolder(null)}
               // Removed deleteNote - it's handled by onDataChange in NoteList
             />
           </div>

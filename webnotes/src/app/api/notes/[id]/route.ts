@@ -19,12 +19,23 @@ export async function PUT(
   const { id } = await params;
 
   const { htmlContent, textContent } = await request.json();
-  const title = (textContent?.split('\n')[0]?.trim() || 'New Note').slice(0, 200);
+  
+  // Fetch the current note to check its title
+  const currentNote = await prisma.note.findUnique({
+    where: { id }
+  });
+
+  let titleToUpdate = currentNote?.title;
+  
+  // Only update the title if it's still the default "New Note" or empty
+  if (currentNote && (currentNote.title === 'New Note' || !currentNote.title)) {
+    titleToUpdate = (textContent?.split('\n')[0]?.trim() || 'New Note').slice(0, 200);
+  }
 
   try {
     const result = await prisma.note.updateMany({
       where: { id, userId }, // Ensures ownership
-      data: { title, content: htmlContent, updatedAt: new Date() },
+      data: { title: titleToUpdate, content: htmlContent, updatedAt: new Date() },
     });
 
     if (result.count === 0) {

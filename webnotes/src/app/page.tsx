@@ -49,7 +49,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
   
   const handleDataChange = useCallback(() => { 
     fetchData(); 
@@ -72,20 +72,7 @@ export default function Home() {
     }
   };
 
-  const deleteNote = async (id: string) => {
-    const originalNotes = [...notes];
-    const newNotes = notes.filter((note) => note.id !== id);
-    setNotes(newNotes);
-    if (activeNoteId === id) setActiveNoteId(newNotes.length > 0 ? newNotes[0].id : null);
-    
-    const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      setNotes(originalNotes);
-      toast.error("Failed to delete note.");
-    } else {
-      handleDataChange();
-    }
-  };
+  
 
   const moveNote = async (noteId: string, folderId: string | null) => {
     const originalNotes = [...notes];
@@ -106,15 +93,19 @@ export default function Home() {
   };
 
   const createFolder = async () => {
-    const folderName = prompt("Enter folder name:");
-    if (folderName) {
-      const res = await fetch('/api/folders', { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({ name: folderName }) 
-      });
-      if (res.ok) handleDataChange();
+  const res = await fetch('/api/folders', { 
+    method: 'POST', 
+    headers: {'Content-Type': 'application/json'}, 
+    body: JSON.stringify({ name: 'New Folder' }) // Create with a default name
+  });
+    
+    if (res.ok) {
+      const { folder } = await res.json(); // Destructure the folder object
+      handleDataChange();
+      // Return the newly created folder object
+      return folder;
     }
+    return null;
   };
 
   const handleNoteUpdate = (updatedNote: Note) => {
@@ -139,7 +130,6 @@ export default function Home() {
           activeNoteId={activeNoteId}
           setActiveNoteId={setActiveNoteId}
           createNote={createNote}
-          deleteNote={deleteNote}
           moveNote={moveNote}
           createFolder={createFolder}
           onDataChange={handleDataChange} // Added this line
