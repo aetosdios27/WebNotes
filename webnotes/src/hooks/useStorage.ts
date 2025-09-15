@@ -1,7 +1,7 @@
 // src/hooks/useStorage.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { storage } from '@/lib/storage';
 import type { Note, Folder, UserSettings } from '@/lib/storage/types';
 import { useSession } from 'next-auth/react';
@@ -18,10 +18,16 @@ export function useStorage() {
   const [isLoading, setIsLoading] = useState(true);
   
   const { data: session, status } = useSession();
+  const hasInitiallyLoaded = useRef(false);
+  const lastSessionId = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   // Load data from storage
   const loadData = useCallback(async () => {
-    setIsLoading(true);
+    // Prevent multiple simultaneous loads
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    
     try {
       const [loadedNotes, loadedFolders, loadedSettings] = await Promise.all([
         storage.getNotes(),
@@ -35,22 +41,34 @@ export function useStorage() {
       console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
+      isLoadingRef.current = false;
     }
-  }, []);
+  }, []); // No dependencies to prevent recreating
 
-  // Initial load
+  // Initial load - only once
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!hasInitiallyLoaded.current) {
+      hasInitiallyLoaded.current = true;
+      loadData();
+    }
+  }, []); // Empty deps, only run once
 
-  // Refresh auth status when session changes
+  // Only refresh when session actually changes (login/logout)
   useEffect(() => {
-    if (status !== 'loading') {
+    if (status === 'loading') return;
+    
+    const currentSessionId = session?.user?.id || null;
+    
+    // Only refresh if session actually changed
+    if (lastSessionId.current !== null && lastSessionId.current !== currentSessionId) {
+      console.log('Session changed, refreshing data...');
       storage.refreshAuth().then(() => {
-        loadData(); // Reload data after auth change
+        loadData();
       });
     }
-  }, [session, status, loadData]);
+    
+    lastSessionId.current = currentSessionId;
+  }, [session?.user?.id, status]); // Remove loadData from deps
 
   // Note operations
   const createNote = useCallback(async (note: Partial<Note>) => {
@@ -98,14 +116,11 @@ export function useStorage() {
     setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
 
-  // Determine sync status based on session
+  // Determine sync status based on session - memoize to prevent loops
+  const syncStatus = session?.user ? 'synced' : 'unsynced';
   useEffect(() => {
-    if (session?.user) {
-      updateSettings({ syncStatus: 'synced' });
-    } else {
-      updateSettings({ syncStatus: 'unsynced' });
-    }
-  }, [session, updateSettings]);
+    setSettings(prev => ({ ...prev, syncStatus }));
+  }, [syncStatus]);
 
   return {
     notes,
