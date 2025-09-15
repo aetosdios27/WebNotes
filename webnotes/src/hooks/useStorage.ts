@@ -13,22 +13,19 @@ export function useStorage() {
     theme: 'dark',
     fontSize: 'medium',
     showLineNumbers: false,
-    syncStatus: 'unsynced',
+    syncStatus: 'syncing', // Start with syncing
   });
   const [isLoading, setIsLoading] = useState(true);
   
   const { data: session, status } = useSession();
-  const hasInitiallyLoaded = useRef(false);
-  const lastSessionId = useRef<string | null>(null);
-  const isLoadingRef = useRef(false);
+  const lastStatus = useRef(status);
 
-  // Load data from storage
   const loadData = useCallback(async () => {
-    // Prevent multiple simultaneous loads
-    if (isLoadingRef.current) return;
-    isLoadingRef.current = true;
-    
+    setIsLoading(true);
     try {
+      // Refresh auth state inside the adapter BEFORE loading data
+      await storage.refreshAuth();
+
       const [loadedNotes, loadedFolders, loadedSettings] = await Promise.all([
         storage.getNotes(),
         storage.getFolders(),
@@ -41,36 +38,28 @@ export function useStorage() {
       console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
-      isLoadingRef.current = false;
     }
-  }, []); // No dependencies to prevent recreating
+  }, []);
 
-  // Initial load - only once
+  // THE FIX: This is the ONLY data loading effect.
+  // It waits for the session to be resolved, then loads data ONCE.
+  // It will re-run ONLY if the user logs in or logs out.
   useEffect(() => {
-    if (!hasInitiallyLoaded.current) {
-      hasInitiallyLoaded.current = true;
+    // We only want to trigger a full reload when the auth status *changes*.
+    if (status !== 'loading' && status !== lastStatus.current) {
+      console.log(`Auth status changed to: ${status}. Reloading all data.`);
+      lastStatus.current = status;
+      loadData();
+    } else if (status !== 'loading' && isLoading) {
+      // This handles the very first initial load of the app.
+      console.log("Initial load, session resolved. Loading data.");
       loadData();
     }
-  }, []); // Empty deps, only run once
+  }, [status, loadData, isLoading]);
 
-  // Only refresh when session actually changes (login/logout)
-  useEffect(() => {
-    if (status === 'loading') return;
-    
-    const currentSessionId = session?.user?.id || null;
-    
-    // Only refresh if session actually changed
-    if (lastSessionId.current !== null && lastSessionId.current !== currentSessionId) {
-      console.log('Session changed, refreshing data...');
-      storage.refreshAuth().then(() => {
-        loadData();
-      });
-    }
-    
-    lastSessionId.current = currentSessionId;
-  }, [session?.user?.id, status]); // Remove loadData from deps
 
-  // Note operations
+  // --- All the action functions below are now much simpler ---
+
   const createNote = useCallback(async (note: Partial<Note>) => {
     const newNote = await storage.createNote(note);
     setNotes(prev => [newNote, ...prev]);
@@ -88,7 +77,6 @@ export function useStorage() {
     setNotes(prev => prev.filter(note => note.id !== id));
   }, []);
 
-  // Folder operations
   const createFolder = useCallback(async (folder: Partial<Folder>) => {
     const newFolder = await storage.createFolder(folder);
     setFolders(prev => [newFolder, ...prev]);
@@ -104,28 +92,25 @@ export function useStorage() {
   const deleteFolder = useCallback(async (id: string) => {
     await storage.deleteFolder(id);
     setFolders(prev => prev.filter(folder => folder.id !== id));
-    // Also update notes that were in this folder
     setNotes(prev => prev.map(note => 
       note.folderId === id ? { ...note, folderId: null } : note
     ));
   }, []);
-
-  // Settings operations
+  
   const updateSettings = useCallback(async (newSettings: Partial<UserSettings>) => {
-    await storage.updateSettings(newSettings);
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    const { syncStatus, ...persistentSettings } = newSettings;
+    await storage.updateSettings(persistentSettings);
+    setSettings(prev => ({ ...prev, ...persistentSettings }));
   }, []);
 
-  // Determine sync status based on session - memoize to prevent loops
-  const syncStatus = session?.user ? 'synced' : 'unsynced';
-  useEffect(() => {
-    setSettings(prev => ({ ...prev, syncStatus }));
-  }, [syncStatus]);
+  const derivedSyncStatus: UserSettings['syncStatus'] = 
+    status === 'loading' ? 'syncing' :
+    status === 'authenticated' ? 'synced' : 'unsynced';
 
   return {
     notes,
     folders,
-    settings,
+    settings: { ...settings, syncStatus: derivedSyncStatus },
     isLoading,
     createNote,
     updateNote,

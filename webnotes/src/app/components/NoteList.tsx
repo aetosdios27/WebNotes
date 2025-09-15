@@ -51,6 +51,7 @@ export default function NoteList({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: 'note' | 'folder'; name: string } | null>(null);
+  const [justDropped, setJustDropped] = useState<string | null>(null);
 
   // Rename handlers
   const handleRename = (id: string, currentName: string, type: 'note' | 'folder') => {
@@ -133,11 +134,15 @@ export default function NoteList({
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
-    setDragOverFolderId(folderId);
+    if (draggedNoteId) { 
+      setDragOverFolderId(folderId);
+    }
   };
 
-  const handleDragLeave = () => {
-    setDragOverFolderId(null);
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverFolderId(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
@@ -145,12 +150,15 @@ export default function NoteList({
     e.stopPropagation();
     const noteId = e.dataTransfer.getData('noteId');
     setDragOverFolderId(null);
+    
     if (noteId) {
+      setJustDropped(folderId);
+      setTimeout(() => setJustDropped(null), 1000);
       moveNote(noteId, folderId);
     }
   };
 
-  // Render functions
+  // Render a single note
   const renderNote = (note: Note, isIndented: boolean = false) => (
     <ContextMenu key={note.id}>
       <ContextMenuTrigger asChild>
@@ -234,10 +242,12 @@ export default function NoteList({
     </ContextMenu>
   );
 
+  // Render a single folder and its notes
   const renderFolder = (folder: Folder & { notes?: Note[] }) => {
     const isExpanded = expandedFolders.has(folder.id);
     const folderNotes = notesInFolders.get(folder.id) || [];
     const isDragOver = dragOverFolderId === folder.id;
+    const wasJustDropped = justDropped === folder.id;
 
     return (
       <ContextMenu key={folder.id}>
@@ -247,7 +257,13 @@ export default function NoteList({
             onDragEnter={(e) => handleDragEnter(e, folder.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, folder.id)}
-            className={`transition-all ${isDragOver ? 'ring-2 ring-yellow-500/50 rounded-md' : ''}`}
+            className={`transition-all duration-200 ${
+              isDragOver 
+                ? 'ring-2 ring-blue-500/50 bg-blue-500/10 rounded-md' 
+                : wasJustDropped 
+                ? 'ring-2 ring-green-500/50 bg-green-500/10 rounded-md'
+                : ''
+            }`}
           >
             <motion.div
               layout
@@ -257,7 +273,7 @@ export default function NoteList({
               transition={{ duration: 0.2 }}
               onClick={() => renamingId !== folder.id && toggleFolder(folder.id)}
               className={`flex items-center gap-2 p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer ${
-                isDragOver ? 'bg-zinc-800/50' : ''
+                isDragOver ? 'bg-blue-500/20' : wasJustDropped ? 'bg-green-500/20' : ''
               }`}
             >
               <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
@@ -347,19 +363,17 @@ export default function NoteList({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, null)}
             className={`transition-all rounded-md ${
-              dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 p-2' : ''
+              dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-blue-500/50 p-2' : ''
             }`}
           >
             {unfiledNotes.length > 0 && (
-              <div className={`text-xs text-zinc-500 px-2 pt-2 ${
-                folders.length > 0 ? 'mt-2' : ''
-              }`}>
+              <div className={`text-xs text-zinc-500 px-2 pt-2 ${folders.length > 0 ? 'mt-2' : ''}`}>
                 Unfiled Notes
               </div>
             )}
             {unfiledNotes.map(note => renderNote(note))}
-
-              {draggedNoteId && unfiledNotes.length === 0 && dragOverFolderId === null && (
+              
+            {draggedNoteId && unfiledNotes.length === 0 && dragOverFolderId === null && (
               <div className="text-xs text-zinc-500 text-center py-4 border-2 border-dashed border-zinc-700 rounded-md">
                 Drop here for unfiled notes
               </div>

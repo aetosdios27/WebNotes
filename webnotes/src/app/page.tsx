@@ -7,9 +7,8 @@ import dynamic from 'next/dynamic';
 import { NoteListSkeleton } from '@/app/components/NoteListSkeleton';
 import { toast } from 'sonner';
 import { useStorage } from '@/hooks/useStorage';
-import type { Note, Folder } from '@/lib/storage/types'; // Import from storage types
+import type { Note, Folder } from '@/lib/storage/types';
 
-// Updated FolderWithNotes type to match storage types
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
 };
@@ -22,7 +21,6 @@ const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
 export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   
-  // Use the new storage hook
   const {
     notes,
     folders,
@@ -32,11 +30,9 @@ export default function Home() {
     updateNote: storageUpdateNote,
     deleteNote: storageDeleteNote,
     createFolder: storageCreateFolder,
-    deleteFolder: storageDeleteFolder,
     refresh,
   } = useStorage();
 
-  // Transform folders to include their notes
   const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
     return folders.map(folder => ({
       ...folder,
@@ -45,18 +41,13 @@ export default function Home() {
     }));
   }, [folders, notes]);
 
-  // Set initial active note
-  useEffect(() => {
-    if (!activeNoteId && notes.length > 0) {
-      const unfiledNotes = notes.filter(n => !n.folderId);
-      setActiveNoteId(unfiledNotes[0]?.id || notes[0]?.id || null);
-    }
-  }, [notes, activeNoteId]);
+  // THE FIX: The useEffect that auto-selected a note has been REMOVED.
+  // The app will now start with activeNoteId as null.
 
   const createNote = useCallback(async (folderId?: string | null) => {
     try {
       const newNote = await storageCreateNote({
-        title: 'New Note',
+        title: '', // Start with an empty title to force user input
         content: '',
         folderId: folderId || null,
       });
@@ -69,14 +60,10 @@ export default function Home() {
 
   const deleteNote = useCallback(async (id: string) => {
     try {
-      await storageDeleteNote(id);
-      
-      // Update active note if we deleted the current one
       if (activeNoteId === id) {
-        const remainingNotes = notes.filter(n => n.id !== id);
-        setActiveNoteId(remainingNotes.length > 0 ? remainingNotes[0].id : null);
+        setActiveNoteId(null);
       }
-      
+      await storageDeleteNote(id);
       toast.success('Note deleted');
     } catch (error) {
       toast.error('Failed to delete note');
@@ -93,6 +80,7 @@ export default function Home() {
   }, [storageUpdateNote]);
 
   const createFolder = useCallback(async () => {
+    // This should be updated to a custom dialog later
     const folderName = prompt('Enter folder name:');
     if (folderName) {
       try {
