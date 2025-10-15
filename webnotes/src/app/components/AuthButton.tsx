@@ -27,7 +27,6 @@ const statusConfig = {
   syncing: {
     color: 'bg-yellow-500',
     tooltip: 'Saving changes...',
-    // THE FIX: Reduced spinner size to fit inside the smaller dot
     icon: <div className="w-2.5 h-2.5 border-2 border-zinc-900 border-t-yellow-300 rounded-full animate-spin" />,
   },
   unsynced: {
@@ -66,7 +65,6 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
                     className="rounded-full"
                   />
                   <div 
-                    // THE FIX: Reduced dot size from w-3.5 h-3.5 to w-3 h-3
                     className={`absolute bottom-0 right-0 w-3 h-3 rounded-full flex items-center justify-center
                                 ${config.color} ring-2 ring-zinc-900`}
                   >
@@ -85,7 +83,12 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
             )}
           </div>
           {isOpen && (
-            <Button variant="ghost" size="icon" onClick={() => signOut()}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => signOut()}
+              className="hover:bg-zinc-800 hover:text-red-400 transition-colors"
+            >
               <LogOut className="w-4 h-4" />
             </Button>
           )}
@@ -98,7 +101,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
     <Button
       variant="ghost"
       onClick={() => signIn('google')}
-      className={`w-full flex items-center gap-3 p-2 ${isOpen ? 'justify-start' : 'justify-center'}`}
+      className={`w-full flex items-center gap-3 p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all duration-200 ${isOpen ? 'justify-start' : 'justify-center'}`}
     >
       <LogIn className="w-5 h-5" />
       {isOpen && <span className="font-semibold">Sign In with Google</span>}

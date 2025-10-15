@@ -12,23 +12,18 @@ export async function GET() {
   const userId = session.user.id;
 
   try {
-    // THE FIX: Use Prisma's `include` to fetch all folders AND their notes
+    // FIXED: Don't include notes - we fetch them separately
     const folders = await prisma.folder.findMany({
       where: { userId },
-      include: {
-        notes: { // Nest all notes belonging to each folder
-          orderBy: { updatedAt: 'desc' },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json({ folders });
   } catch (error) {
+    console.error('Get folders error:', error);
     return NextResponse.json({ error: 'Failed to fetch folders' }, { status: 500 });
   }
 }
 
-// Your POST function is likely correct and can remain the same
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -43,6 +38,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ folder }, { status: 201 });
   } catch (error) {
+    console.error('Create folder error:', error);
     return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
   }
 }

@@ -22,7 +22,7 @@ export function useStorage() {
   const lastStatus = useRef(status);
 
   const loadData = useCallback(async () => {
-    if (!isLoading) setIsLoading(true);
+    setIsLoading(true);
     
     try {
       await storage.refreshAuth();
@@ -32,6 +32,10 @@ export function useStorage() {
         storage.getFolders(),
         storage.getSettings(),
       ]);
+      
+      console.log('Loaded notes:', loadedNotes.length);
+      console.log('Loaded folders:', loadedFolders.length);
+      
       setNotes(loadedNotes);
       setFolders(loadedFolders);
       setSettings(loadedSettings);
@@ -40,7 +44,7 @@ export function useStorage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, []);
 
   useEffect(() => {
     if (status !== 'loading' && status !== lastStatus.current) {
@@ -65,32 +69,36 @@ export function useStorage() {
     return updatedNote;
   }, []);
 
+  // FIXED: Simplified - no sorting for simple updates
   const updateNoteLocally = useCallback((id: string, data: Partial<Note>) => {
     setNotes(prev => {
       const updated = prev.map(note => {
         if (note.id === id) {
-          return { ...note, ...data };
+          return { ...note, ...data, updatedAt: new Date() };
         }
         return note;
       });
       
-      // Re-sort to move pinned notes to top
-      return updated.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        
-        if (a.isPinned && b.isPinned) {
-          const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-          const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-          return bTime - aTime;
-        }
-        
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
+      // Only sort if we're updating pin status
+      if (data.isPinned !== undefined) {
+        return updated.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          
+          if (a.isPinned && b.isPinned) {
+            const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+            const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+            return bTime - aTime;
+          }
+          
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+      }
+      
+      return updated;
     });
   }, []);
 
-  // NEW: Toggle pin method
   const togglePin = useCallback(async (id: string) => {
     const updatedNote = await storage.togglePin(id);
     setNotes(prev => {
@@ -158,7 +166,7 @@ export function useStorage() {
     createNote,
     updateNote,
     updateNoteLocally,
-    togglePin, // NEW: Export togglePin
+    togglePin,
     deleteNote,
     createFolder,
     updateFolder,

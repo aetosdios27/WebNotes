@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import dynamic from 'next/dynamic';
 import { NoteListSkeleton } from '@/app/components/NoteListSkeleton';
@@ -30,7 +30,7 @@ export default function Home() {
     createNote: storageCreateNote,
     updateNote: storageUpdateNote,
     updateNoteLocally,
-    togglePin: storageTogglePin, // NEW: Get togglePin
+    togglePin: storageTogglePin,
     deleteNote: storageDeleteNote,
     createFolder: storageCreateFolder,
     refresh,
@@ -78,14 +78,29 @@ export default function Home() {
     }
   }, [storageDeleteNote, activeNoteId]);
 
+  // FIXED: Optimistic update with no visible refresh
   const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
+    const originalNote = notes.find(n => n.id === noteId);
+    if (!originalNote) return;
+
+    // Optimistic local update - instant UI change
+    if (updateNoteLocally) {
+      updateNoteLocally(noteId, { folderId });
+    }
+
     try {
+      // Background sync - no await to prevent blocking
       await storageUpdateNote(noteId, { folderId });
       toast.success('Note moved');
     } catch (error) {
+      // Rollback on error
+      console.error('Failed to move note:', error);
+      if (updateNoteLocally) {
+        updateNoteLocally(noteId, { folderId: originalNote.folderId });
+      }
       toast.error('Failed to move note');
     }
-  }, [storageUpdateNote]);
+  }, [notes, storageUpdateNote, updateNoteLocally]);
 
   const createFolder = useCallback(async () => {
     const folderName = prompt('Enter folder name:');
@@ -110,13 +125,12 @@ export default function Home() {
     }
   }, [storageUpdateNote]);
 
-  // NEW: Toggle pin handler
   const togglePin = useCallback(async (noteId: string) => {
     try {
       await storageTogglePin(noteId);
     } catch (error) {
       console.error('Failed to toggle pin:', error);
-      throw error; // Re-throw so NoteList can handle rollback
+      throw error;
     }
   }, [storageTogglePin]);
 
@@ -145,7 +159,7 @@ export default function Home() {
           createFolder={createFolder}
           onDataChange={refresh}
           updateNoteLocally={updateNoteLocally}
-          togglePin={togglePin} // NEW: Pass togglePin
+          togglePin={togglePin}
           syncStatus={combinedStatus}
         />
       )}

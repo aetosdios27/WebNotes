@@ -37,6 +37,16 @@ export class CloudStorageAdapter {
   }
 
   async updateNote(id: string, data: Partial<Note>): Promise<Note> {
+    // Check if we're only updating the folderId (moving the note)
+    if (data.folderId !== undefined && !data.content && !data.title) {
+      const response = await this.fetchWithAuth(`/api/notes/${id}/move`, {
+        method: 'PATCH',
+        body: JSON.stringify({ folderId: data.folderId }),
+      });
+      return response.json();
+    }
+    
+    // Otherwise, it's a content/title update
     const response = await this.fetchWithAuth(`/api/notes/${id}`, {
       method: 'PUT',
       body: JSON.stringify({
@@ -53,12 +63,11 @@ export class CloudStorageAdapter {
     });
   }
 
-  // Toggle pin status - UPDATED
+  // Toggle pin status
   async togglePin(id: string): Promise<Note> {
     const response = await this.fetchWithAuth(`/api/notes/${id}/pin`, {
       method: 'PATCH',
     });
-    // Now the API returns the full updated note
     return response.json();
   }
 

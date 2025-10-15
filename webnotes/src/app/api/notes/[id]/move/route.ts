@@ -26,6 +26,7 @@ export async function PATCH(
       },
       data: {
         folderId: folderId,
+        updatedAt: new Date(), // Update timestamp
       },
     });
 
@@ -33,8 +34,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Note not found or access denied' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Note moved successfully' });
+    // FIXED: Return the updated note instead of just a message
+    const updatedNote = await prisma.note.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!updatedNote) {
+      return NextResponse.json({ error: 'Failed to fetch updated note' }, { status: 404 });
+    }
+
+    return NextResponse.json(updatedNote);
   } catch (error) {
+    console.error('Move note error:', error);
     return NextResponse.json({ error: 'Failed to move note' }, { status: 500 });
   }
 }

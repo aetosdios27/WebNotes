@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from 'react';
 interface NoteEditorProps {
   activeNote: Note | undefined;
   onNoteUpdate: (note: Note) => void;
-  // THE FIX: New prop to report saving status
   onSavingStatusChange: (isSaving: boolean) => void;
 }
 
@@ -32,7 +31,6 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
     async (noteId: string, newTitle: string, htmlContent: string) => {
       if (!noteId) return;
 
-      // THE FIX: Report that we are starting to save
       onSavingStatusChange(true);
       
       try {
@@ -42,11 +40,10 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
       } catch (error) {
         console.error('Failed to save note:', error);
       } finally {
-        // THE FIX: Report that saving is finished (success or fail)
         onSavingStatusChange(false);
       }
     },
-    1500 // Increased debounce for a better "syncing" experience
+    1500
   );
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +60,7 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
       content: activeNote?.content ?? '',
       editorProps: {
         attributes: {
-          class: 'prose prose-invert prose-lg focus:outline-none max-w-none',
+          class: 'prose prose-invert prose-lg focus:outline-none max-w-none break-words',
         },
       },
       onUpdate: ({ editor }) => {
@@ -102,8 +99,7 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
           value={title}
           onChange={handleTitleChange}
           placeholder="Untitled"
-          className="w-full bg-transparent text-4xl font-bold text-white placeholder-zinc-600 
-                     focus:outline-none mb-8 leading-tight"
+          className="w-full bg-transparent text-4xl font-bold text-white placeholder-zinc-600 focus:outline-none mb-8 leading-tight break-words"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -112,7 +108,7 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
           }}
         />
         
-        <div className="min-h-[500px]">
+        <div className="min-h-[500px] editor-wrapper">
           {editor ? (
             <EditorContent editor={editor} />
           ) : (
@@ -120,6 +116,27 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
           )}
         </div>
       </div>
+      
+      <style jsx global>{`
+        /* Text wrapping fix for Tiptap editor */
+        .ProseMirror {
+          word-wrap: break-word !important;
+          word-break: break-word !important;
+          overflow-wrap: break-word !important;
+          white-space: pre-wrap !important;
+          max-width: 100% !important;
+        }
+        
+        .ProseMirror p {
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+        }
+        
+        .ProseMirror pre {
+          white-space: pre-wrap !important;
+          word-wrap: break-word !important;
+        }
+      `}</style>
     </div>
   );
 }
