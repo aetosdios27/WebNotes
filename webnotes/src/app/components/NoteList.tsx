@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import React from 'react';
 import type { Note, Folder } from '@/lib/storage/types';
-import { FileText, Folder as FolderIcon, Trash2, ChevronRight, Edit, Check, X } from 'lucide-react';
+import { FileText, Folder as FolderIcon, Trash2, ChevronRight, Edit, Check, X, Pin, PinOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ContextMenu,
@@ -24,6 +24,8 @@ interface NoteListProps {
   toggleFolder: (folderId: string) => void;
   moveNote: (noteId: string, folderId: string | null) => void;
   onDataChange: () => void;
+  updateNoteLocally?: (noteId: string, updates: Partial<Note>) => void;
+  togglePin: (noteId: string) => Promise<void>;
 }
 
 function formatDate(date: Date | string) {
@@ -44,7 +46,9 @@ export default function NoteList({
   expandedFolders,
   toggleFolder,
   moveNote,
-  onDataChange
+  onDataChange,
+  updateNoteLocally,
+  togglePin
 }: NoteListProps) {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
@@ -52,6 +56,46 @@ export default function NoteList({
   const [renameValue, setRenameValue] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: 'note' | 'folder'; name: string } | null>(null);
   const [justDropped, setJustDropped] = useState<string | null>(null);
+  const [justPinnedNotes, setJustPinnedNotes] = useState<Set<string>>(new Set());
+
+  // Optimistic pin/unpin handler - NO LOADING STATE
+  const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
+    // Optimistic update - instant UI change
+    const newPinnedStatus = !currentPinned;
+    if (updateNoteLocally) {
+      updateNoteLocally(noteId, {
+        isPinned: newPinnedStatus,
+        pinnedAt: newPinnedStatus ? new Date() : null,
+      });
+    }
+
+    // Add flash effect on pin
+    if (newPinnedStatus) {
+      setJustPinnedNotes(prev => new Set(prev).add(noteId));
+      setTimeout(() => {
+        setJustPinnedNotes(prev => {
+          const next = new Set(prev);
+          next.delete(noteId);
+          return next;
+        });
+      }, 800); // Shorter flash duration
+    }
+
+    // Silent background sync
+    try {
+      await togglePin(noteId);
+      // No success toast - pinning should be silent
+    } catch (error) {
+      // Only show feedback on error
+      if (updateNoteLocally) {
+        updateNoteLocally(noteId, {
+          isPinned: currentPinned,
+          pinnedAt: currentPinned ? new Date() : null,
+        });
+      }
+      toast.error('Failed to pin note');
+    }
+  };
 
   // Rename handlers
   const handleRename = (id: string, currentName: string, type: 'note' | 'folder') => {
@@ -159,88 +203,119 @@ export default function NoteList({
   };
 
   // Render a single note
-  const renderNote = (note: Note, isIndented: boolean = false) => (
-    <ContextMenu key={note.id}>
-      <ContextMenuTrigger asChild>
-        <div
-          draggable={renamingId !== note.id}
-          onDragStart={(e) => handleDragStart(e, note.id)}
-          onDragEnd={handleDragEnd}
-          style={{ cursor: renamingId !== note.id && draggedNoteId ? 'grabbing' : 'grab' }}
-          className={isIndented ? 'ml-6' : ''}
-        >
-          <motion.div
-            layout
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => renamingId !== note.id && setActiveNoteId(note.id)}
-            className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-all relative group ${
-              note.id === activeNoteId
-                ? 'bg-zinc-800 text-white'
-                : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
-            } ${draggedNoteId === note.id ? 'opacity-50' : ''}`}
+  const renderNote = (note: Note, isIndented: boolean = false) => {
+    const justPinned = justPinnedNotes.has(note.id);
+    
+    return (
+      <ContextMenu key={note.id}>
+        <ContextMenuTrigger asChild>
+          <div
+            draggable={renamingId !== note.id}
+            onDragStart={(e) => handleDragStart(e, note.id)}
+            onDragEnd={handleDragEnd}
+            style={{ cursor: renamingId !== note.id && draggedNoteId ? 'grabbing' : 'grab' }}
+            className={isIndented ? 'ml-6' : ''}
           >
-            <FileText size={16} className="mt-1 flex-shrink-0 text-zinc-400" />
-            <div className="flex-1 overflow-hidden">
-              {renamingId === note.id ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') confirmRename(note.id, 'note');
-                      if (e.key === 'Escape') cancelRename();
-                    }}
-                    className="flex-1 bg-zinc-700 text-white px-2 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      confirmRename(note.id, 'note');
-                    }}
-                    className="text-green-500 hover:text-green-400"
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      cancelRename();
-                    }}
-                    className="text-red-500 hover:text-red-400"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h2 className="font-medium truncate">{note.title || 'Untitled'}</h2>
-                  <p className="text-sm text-zinc-500">{formatDate(note.updatedAt)}</p>
-                </>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => handleRename(note.id, note.title || 'Untitled', 'note')}>
-          <Edit className="mr-2 h-4 w-4" /> Rename
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem 
-          className="text-red-500" 
-          onClick={() => handleDelete(note.id, 'note', note.title || 'Untitled')}
-        >
-          <Trash2 className="mr-2 h-4 w-4" /> Delete
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  );
+            <motion.div
+              layout
+              layoutId={`note-${note.id}`}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+              }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ 
+                duration: 0.3,
+                layout: { type: "spring", stiffness: 300, damping: 30 }
+              }}
+              onClick={() => renamingId !== note.id && setActiveNoteId(note.id)}
+              className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-all relative group ${
+                note.id === activeNoteId
+                  ? 'bg-zinc-800 text-white'
+                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+              } ${draggedNoteId === note.id ? 'opacity-50' : ''} ${
+                note.isPinned ? 'border-l-2 border-yellow-500/70' : ''
+              } ${justPinned ? 'ring-2 ring-yellow-500/50 bg-yellow-500/10' : ''}`}
+            >
+              <FileText size={16} className="mt-1 flex-shrink-0 text-zinc-400" />
+              <div className="flex-1 overflow-hidden">
+                {renamingId === note.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') confirmRename(note.id, 'note');
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      className="flex-1 bg-zinc-700 text-white px-2 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        confirmRename(note.id, 'note');
+                      }}
+                      className="text-green-500 hover:text-green-400"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cancelRename();
+                      }}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-medium truncate flex-1">{note.title || 'Untitled'}</h2>
+                      {note.isPinned && (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                        >
+                          <Pin size={12} className="text-yellow-500 flex-shrink-0" fill="currentColor" />
+                        </motion.div>
+                      )}
+                    </div>
+                    <p className="text-sm text-zinc-500">{formatDate(note.updatedAt)}</p>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => handleTogglePin(note.id, note.isPinned || false)}>
+            {note.isPinned ? (
+              <><PinOff className="mr-2 h-4 w-4" /> Unpin</>
+            ) : (
+              <><Pin className="mr-2 h-4 w-4" /> Pin</>
+            )}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleRename(note.id, note.title || 'Untitled', 'note')}>
+            <Edit className="mr-2 h-4 w-4" /> Rename
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem 
+            className="text-red-500" 
+            onClick={() => handleDelete(note.id, 'note', note.title || 'Untitled')}
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
 
   // Render a single folder and its notes
   const renderFolder = (folder: Folder & { notes?: Note[] }) => {
@@ -259,7 +334,7 @@ export default function NoteList({
             onDrop={(e) => handleDrop(e, folder.id)}
             className={`transition-all duration-200 ${
               isDragOver 
-                ? 'ring-2 ring-blue-500/50 bg-blue-500/10 rounded-md' 
+                ? 'ring-2 ring-yellow-500/50 bg-yellow-500/10 rounded-md' 
                 : wasJustDropped 
                 ? 'ring-2 ring-green-500/50 bg-green-500/10 rounded-md'
                 : ''
@@ -273,7 +348,7 @@ export default function NoteList({
               transition={{ duration: 0.2 }}
               onClick={() => renamingId !== folder.id && toggleFolder(folder.id)}
               className={`flex items-center gap-2 p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer ${
-                isDragOver ? 'bg-blue-500/20' : wasJustDropped ? 'bg-green-500/20' : ''
+                isDragOver ? 'bg-yellow-500/20' : wasJustDropped ? 'bg-green-500/20' : ''
               }`}
             >
               <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
@@ -363,7 +438,7 @@ export default function NoteList({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, null)}
             className={`transition-all rounded-md ${
-              dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-blue-500/50 p-2' : ''
+              dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 p-2' : ''
             }`}
           >
             {unfiledNotes.length > 0 && (

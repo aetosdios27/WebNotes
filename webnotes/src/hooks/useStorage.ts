@@ -1,9 +1,9 @@
 // src/hooks/useStorage.ts
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { storage } from '@/lib/storage';
-import type { Note, Folder, UserSettings } from '@/lib/storage/types';
+import type { Note, Folder, UserSettings, SyncStatus } from '@/lib/storage/types';
 import { useSession } from 'next-auth/react';
 
 export function useStorage() {
@@ -13,17 +13,18 @@ export function useStorage() {
     theme: 'dark',
     fontSize: 'medium',
     showLineNumbers: false,
-    syncStatus: 'syncing', // Start with syncing
+    syncStatus: 'syncing',
   });
   const [isLoading, setIsLoading] = useState(true);
   
-  const { data: session, status } = useSession();
+  const { status } = useSession();
+  
   const lastStatus = useRef(status);
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
+    if (!isLoading) setIsLoading(true);
+    
     try {
-      // Refresh auth state inside the adapter BEFORE loading data
       await storage.refreshAuth();
 
       const [loadedNotes, loadedFolders, loadedSettings] = await Promise.all([
@@ -39,26 +40,18 @@ export function useStorage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isLoading]);
 
-  // THE FIX: This is the ONLY data loading effect.
-  // It waits for the session to be resolved, then loads data ONCE.
-  // It will re-run ONLY if the user logs in or logs out.
   useEffect(() => {
-    // We only want to trigger a full reload when the auth status *changes*.
     if (status !== 'loading' && status !== lastStatus.current) {
       console.log(`Auth status changed to: ${status}. Reloading all data.`);
       lastStatus.current = status;
       loadData();
     } else if (status !== 'loading' && isLoading) {
-      // This handles the very first initial load of the app.
       console.log("Initial load, session resolved. Loading data.");
       loadData();
     }
   }, [status, loadData, isLoading]);
-
-
-  // --- All the action functions below are now much simpler ---
 
   const createNote = useCallback(async (note: Partial<Note>) => {
     const newNote = await storage.createNote(note);
@@ -69,6 +62,54 @@ export function useStorage() {
   const updateNote = useCallback(async (id: string, data: Partial<Note>) => {
     const updatedNote = await storage.updateNote(id, data);
     setNotes(prev => prev.map(note => note.id === id ? updatedNote : note));
+    return updatedNote;
+  }, []);
+
+  const updateNoteLocally = useCallback((id: string, data: Partial<Note>) => {
+    setNotes(prev => {
+      const updated = prev.map(note => {
+        if (note.id === id) {
+          return { ...note, ...data };
+        }
+        return note;
+      });
+      
+      // Re-sort to move pinned notes to top
+      return updated.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        
+        if (a.isPinned && b.isPinned) {
+          const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+          const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+          return bTime - aTime;
+        }
+        
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    });
+  }, []);
+
+  // NEW: Toggle pin method
+  const togglePin = useCallback(async (id: string) => {
+    const updatedNote = await storage.togglePin(id);
+    setNotes(prev => {
+      const updated = prev.map(note => note.id === id ? updatedNote : note);
+      
+      // Re-sort to move pinned notes to top
+      return updated.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        
+        if (a.isPinned && b.isPinned) {
+          const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+          const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+          return bTime - aTime;
+        }
+        
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    });
     return updatedNote;
   }, []);
 
@@ -103,9 +144,11 @@ export function useStorage() {
     setSettings(prev => ({ ...prev, ...persistentSettings }));
   }, []);
 
-  const derivedSyncStatus: UserSettings['syncStatus'] = 
-    status === 'loading' ? 'syncing' :
-    status === 'authenticated' ? 'synced' : 'unsynced';
+  const derivedSyncStatus = useMemo<SyncStatus>(() => {
+    if (status === 'loading') return 'syncing';
+    if (status === 'authenticated') return 'synced';
+    return 'unsynced';
+  }, [status]);
 
   return {
     notes,
@@ -114,6 +157,8 @@ export function useStorage() {
     isLoading,
     createNote,
     updateNote,
+    updateNoteLocally,
+    togglePin, // NEW: Export togglePin
     deleteNote,
     createFolder,
     updateFolder,

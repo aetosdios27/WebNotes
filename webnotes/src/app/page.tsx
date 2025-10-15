@@ -20,6 +20,7 @@ const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
 
 export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const {
     notes,
@@ -28,6 +29,8 @@ export default function Home() {
     isLoading,
     createNote: storageCreateNote,
     updateNote: storageUpdateNote,
+    updateNoteLocally,
+    togglePin: storageTogglePin, // NEW: Get togglePin
     deleteNote: storageDeleteNote,
     createFolder: storageCreateFolder,
     refresh,
@@ -37,20 +40,27 @@ export default function Home() {
     return folders.map(folder => ({
       ...folder,
       notes: notes.filter(note => note.folderId === folder.id)
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .sort((a, b) => {
+          // Pinned notes first
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          
+          // If both pinned, sort by pinnedAt
+          if (a.isPinned && b.isPinned) {
+            const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+            const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+            return bTime - aTime;
+          }
+          
+          // Otherwise sort by updatedAt
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        })
     }));
   }, [folders, notes]);
 
-  // THE FIX: The useEffect that auto-selected a note has been REMOVED.
-  // The app will now start with activeNoteId as null.
-
   const createNote = useCallback(async (folderId?: string | null) => {
     try {
-      const newNote = await storageCreateNote({
-        title: '', // Start with an empty title to force user input
-        content: '',
-        folderId: folderId || null,
-      });
+      const newNote = await storageCreateNote({ title: '', content: '', folderId });
       setActiveNoteId(newNote.id);
       toast.success('Note created');
     } catch (error) {
@@ -60,15 +70,13 @@ export default function Home() {
 
   const deleteNote = useCallback(async (id: string) => {
     try {
-      if (activeNoteId === id) {
-        setActiveNoteId(null);
-      }
+      if (activeNoteId === id) setActiveNoteId(null);
       await storageDeleteNote(id);
       toast.success('Note deleted');
     } catch (error) {
       toast.error('Failed to delete note');
     }
-  }, [storageDeleteNote, activeNoteId, notes]);
+  }, [storageDeleteNote, activeNoteId]);
 
   const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
     try {
@@ -80,7 +88,6 @@ export default function Home() {
   }, [storageUpdateNote]);
 
   const createFolder = useCallback(async () => {
-    // This should be updated to a custom dialog later
     const folderName = prompt('Enter folder name:');
     if (folderName) {
       try {
@@ -103,7 +110,22 @@ export default function Home() {
     }
   }, [storageUpdateNote]);
 
+  // NEW: Toggle pin handler
+  const togglePin = useCallback(async (noteId: string) => {
+    try {
+      await storageTogglePin(noteId);
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+      throw error; // Re-throw so NoteList can handle rollback
+    }
+  }, [storageTogglePin]);
+
   const activeNote = notes.find(n => n.id === activeNoteId);
+
+  const combinedStatus = useMemo(() => {
+    if (isSaving) return 'syncing';
+    return settings.syncStatus;
+  }, [isSaving, settings.syncStatus]);
 
   return (
     <main className="flex w-screen h-screen">
@@ -122,13 +144,16 @@ export default function Home() {
           moveNote={moveNote}
           createFolder={createFolder}
           onDataChange={refresh}
-          syncStatus={settings.syncStatus}
+          updateNoteLocally={updateNoteLocally}
+          togglePin={togglePin} // NEW: Pass togglePin
+          syncStatus={combinedStatus}
         />
       )}
       <div className="flex-1 h-full">
         <NoteEditor 
           activeNote={activeNote} 
           onNoteUpdate={handleNoteUpdate} 
+          onSavingStatusChange={setIsSaving}
         />
       </div>
     </main>

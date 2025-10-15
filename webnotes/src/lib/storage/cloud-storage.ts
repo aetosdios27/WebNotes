@@ -53,6 +53,15 @@ export class CloudStorageAdapter {
     });
   }
 
+  // Toggle pin status - UPDATED
+  async togglePin(id: string): Promise<Note> {
+    const response = await this.fetchWithAuth(`/api/notes/${id}/pin`, {
+      method: 'PATCH',
+    });
+    // Now the API returns the full updated note
+    return response.json();
+  }
+
   // Folders
   async getFolders(): Promise<Folder[]> {
     const response = await this.fetchWithAuth('/api/folders');
@@ -83,9 +92,8 @@ export class CloudStorageAdapter {
     });
   }
 
-  // Settings (you'll need to implement these endpoints)
+  // Settings
   async getSettings(): Promise<UserSettings> {
-    // For now, return defaults
     return {
       theme: 'dark',
       fontSize: 'medium',
@@ -95,7 +103,6 @@ export class CloudStorageAdapter {
   }
 
   async updateSettings(settings: Partial<UserSettings>): Promise<void> {
-    // TODO: Implement settings endpoint
     console.log('Settings update not implemented yet:', settings);
   }
 }

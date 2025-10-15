@@ -72,6 +72,32 @@ export class LocalStorageAdapter {
     this.save(this.getNotesKey(), updatedNotes);
   }
 
+  // NEW: Toggle pin status
+  async togglePin(id: string): Promise<Note> {
+    const notes = await this.getNotes();
+    const note = notes.find(n => n.id === id);
+    
+    if (!note) {
+      throw new Error('Note not found');
+    }
+
+    const newPinnedStatus = !note.isPinned;
+    const updatedNotes = notes.map(n => 
+      n.id === id 
+        ? { 
+            ...n, 
+            isPinned: newPinnedStatus,
+            pinnedAt: newPinnedStatus ? new Date() : null,
+            updatedAt: new Date()
+          } 
+        : n
+    );
+    
+    this.save(this.getNotesKey(), updatedNotes);
+    
+    return updatedNotes.find(n => n.id === id)!;
+  }
+
   // Folders
   async getFolders(): Promise<Folder[]> {
     return this.load(this.getFoldersKey(), []);

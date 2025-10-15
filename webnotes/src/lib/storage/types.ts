@@ -18,11 +18,14 @@ export interface Folder {
   createdAt: Date;
 }
 
+// THE FIX: The shared type definition that everything else will use.
+export type SyncStatus = 'synced' | 'syncing' | 'unsynced';
+
 export interface UserSettings {
   theme: 'dark' | 'light' | 'system';
   fontSize: 'small' | 'medium' | 'large';
   showLineNumbers: boolean;
-  syncStatus: 'synced' | 'unsynced' | 'syncing';
+  syncStatus: SyncStatus;
 }
 
 export type StorageOperation = 'create' | 'update' | 'delete';

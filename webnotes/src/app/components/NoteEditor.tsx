@@ -11,16 +11,17 @@ import { useEffect, useRef, useState } from 'react';
 interface NoteEditorProps {
   activeNote: Note | undefined;
   onNoteUpdate: (note: Note) => void;
+  // THE FIX: New prop to report saving status
+  onSavingStatusChange: (isSaving: boolean) => void;
 }
 
-export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps) {
+export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusChange }: NoteEditorProps) {
   const [title, setTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title || '');
-      // Auto-focus title if it's a new, completely empty note
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
         setTimeout(() => titleInputRef.current?.focus(), 100);
       }
@@ -30,19 +31,22 @@ export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps
   const debouncedSave = useDebouncedCallback(
     async (noteId: string, newTitle: string, htmlContent: string) => {
       if (!noteId) return;
-      
-      const finalTitle = newTitle.trim() || htmlContent.substring(0, 50).split('\n')[0] || 'Untitled';
 
-      const updatedNote = {
-        ...activeNote!,
-        title: finalTitle,
-        content: htmlContent,
-        updatedAt: new Date()
-      };
+      // THE FIX: Report that we are starting to save
+      onSavingStatusChange(true);
       
-      onNoteUpdate(updatedNote);
+      try {
+        const finalTitle = newTitle.trim() || htmlContent.substring(0, 50).split('\n')[0] || 'Untitled';
+        const updatedNote = { ...activeNote!, title: finalTitle, content: htmlContent, updatedAt: new Date() };
+        await onNoteUpdate(updatedNote);
+      } catch (error) {
+        console.error('Failed to save note:', error);
+      } finally {
+        // THE FIX: Report that saving is finished (success or fail)
+        onSavingStatusChange(false);
+      }
     },
-    1000
+    1500 // Increased debounce for a better "syncing" experience
   );
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +77,6 @@ export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps
 
   useEffect(() => {
     if (editor && activeNote && editor.getHTML() !== (activeNote.content || '')) {
-      // THE FIX: Instead of `false`, pass an options object `{ emitUpdate: false }`.
       editor.commands.setContent(activeNote.content || '', { emitUpdate: false });
     }
   }, [activeNote?.id, activeNote?.content, editor]);
@@ -89,7 +92,6 @@ export default function NoteEditor({ activeNote, onNoteUpdate }: NoteEditorProps
   return (
     <div className="flex flex-col flex-1 h-full bg-black">
       <div className="flex-1 overflow-y-auto px-12 pt-8">
-        
         <div className="inline-block mb-6"> 
           {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
         </div>

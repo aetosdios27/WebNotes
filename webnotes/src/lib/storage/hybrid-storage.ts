@@ -15,7 +15,6 @@ export class HybridStorageAdapter {
     this.cloud = new CloudStorageAdapter();
 
     if (typeof window !== 'undefined') {
-      // Check if we've already migrated
       this.hasMigrated = localStorage.getItem('webnotes_migrated') === 'true';
       
       window.addEventListener('online', () => {
@@ -26,7 +25,6 @@ export class HybridStorageAdapter {
         this.isOnline = false;
       });
 
-      // Check authentication status
       this.checkAuth();
     }
   }
@@ -38,7 +36,6 @@ export class HybridStorageAdapter {
       const wasAuthenticated = this.isAuthenticated;
       this.isAuthenticated = !!session?.user;
       
-      // If just authenticated and haven't migrated yet, migrate local data
       if (this.isAuthenticated && !wasAuthenticated && !this.hasMigrated) {
         console.log('User just logged in, migrating local data...');
         await this.migrateLocalToCloud();
@@ -55,17 +52,14 @@ export class HybridStorageAdapter {
       
       console.log(`Found ${localNotes.length} local notes and ${localFolders.length} local folders to migrate`);
       
-      // Skip if no local data
       if (localNotes.length === 0 && localFolders.length === 0) {
         this.hasMigrated = true;
         localStorage.setItem('webnotes_migrated', 'true');
         return;
       }
       
-      // Create a mapping of old folder IDs to new ones
       const folderIdMap = new Map<string, string>();
       
-      // Migrate folders first
       for (const folder of localFolders) {
         try {
           console.log(`Migrating folder: ${folder.name}`);
@@ -79,31 +73,28 @@ export class HybridStorageAdapter {
         }
       }
       
-      // Then migrate notes with updated folder IDs
       for (const note of localNotes) {
         try {
           console.log(`Migrating note: ${note.title}`);
-          // Map the local folder ID to the new cloud folder ID
           const newFolderId = note.folderId ? (folderIdMap.get(note.folderId) || null) : null;
           
           await this.cloud.createNote({
             title: note.title,
             content: note.content,
-            folderId: newFolderId, // Use mapped ID instead of original
+            folderId: newFolderId,
             createdAt: note.createdAt,
             isPinned: note.isPinned,
             pinnedAt: note.pinnedAt
           });
         } catch (error) {
           console.error('Failed to migrate note:', note.title, error);
-          // If it fails due to folder constraint, try again without folder
           if (error instanceof Error && error.message.includes('P2003')) {
             try {
               console.log('Retrying note migration without folder...');
               await this.cloud.createNote({
                 title: note.title,
                 content: note.content,
-                folderId: null, // Remove folder association
+                folderId: null,
                 createdAt: note.createdAt,
                 isPinned: note.isPinned,
                 pinnedAt: note.pinnedAt
@@ -115,17 +106,13 @@ export class HybridStorageAdapter {
         }
       }
       
-      // Mark as migrated
       this.hasMigrated = true;
       localStorage.setItem('webnotes_migrated', 'true');
       
-      // Clear local storage after successful migration
       localStorage.removeItem('webnotes_notes_v1');
       localStorage.removeItem('webnotes_folders_v1');
       
       console.log('Migration complete!');
-      
-      // Trigger a refresh to show the migrated data
       window.location.reload();
     } catch (error) {
       console.error('Migration failed:', error);
@@ -136,7 +123,6 @@ export class HybridStorageAdapter {
   private async sync(): Promise<void> {
     if (!this.isOnline || !this.isAuthenticated) return;
     
-    // Check if we need to migrate
     if (!this.hasMigrated) {
       await this.migrateLocalToCloud();
     }
@@ -198,6 +184,19 @@ export class HybridStorageAdapter {
     } else {
       await this.local.deleteNote(id);
     }
+  }
+
+  // NEW: Toggle pin status
+  async togglePin(id: string): Promise<Note> {
+    if (this.shouldUseCloud()) {
+      try {
+        return await this.cloud.togglePin(id);
+      } catch (error) {
+        console.error('Failed to toggle pin in cloud, updating locally:', error);
+        return this.local.togglePin(id);
+      }
+    }
+    return this.local.togglePin(id);
   }
 
   // Folders
@@ -278,12 +277,10 @@ export class HybridStorageAdapter {
     }
   }
 
-  // Public method to trigger auth check (call after sign in/out)
   async refreshAuth(): Promise<void> {
     await this.checkAuth();
   }
   
-  // Reset migration flag (useful for testing)
   resetMigration(): void {
     localStorage.removeItem('webnotes_migrated');
     this.hasMigrated = false;

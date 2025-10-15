@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
         userId: userId,
         folderId: folderId === 'null' ? null : folderId,
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [
+        { isPinned: 'desc' },    // Pinned notes first
+        { pinnedAt: 'desc' },    // Then by pin time (most recently pinned first)
+        { updatedAt: 'desc' },   // Then by update time
+      ],
     });
     return NextResponse.json(notes);
   } catch (error) {
@@ -44,7 +48,8 @@ export async function POST(request: Request) {
         title: 'New Note',
         content: '',
         userId: userId,
-        folderId: folderId, 
+        folderId: folderId,
+        isPinned: false, // Default to unpinned
       },
     });
     return NextResponse.json(newNote, { status: 201 });
