@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import dynamic from 'next/dynamic';
 import { NoteListSkeleton } from '@/app/components/NoteListSkeleton';
@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { useStorage } from '@/hooks/useStorage';
 import type { Note, Folder } from '@/lib/storage/types';
 import { Button } from '@/app/components/ui/button';
-import { ChevronLeft, Menu } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
@@ -22,7 +23,8 @@ const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
 export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true); // NEW: mobile sidebar state
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   
   const {
     notes,
@@ -37,6 +39,20 @@ export default function Home() {
     createFolder: storageCreateFolder,
     refresh,
   } = useStorage();
+
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (window.innerWidth < 768 && showMobileSidebar) {
+        if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+          setShowMobileSidebar(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMobileSidebar]);
 
   const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
     return folders.map(folder => ({
@@ -61,7 +77,7 @@ export default function Home() {
     try {
       const newNote = await storageCreateNote({ title: '', content: '', folderId });
       setActiveNoteId(newNote.id);
-      setShowSidebar(false); // Hide sidebar on mobile when creating note
+      setShowMobileSidebar(false); // Close sidebar on mobile
       toast.success('Note created');
     } catch (error) {
       toast.error('Failed to create note');
@@ -72,7 +88,6 @@ export default function Home() {
     try {
       if (activeNoteId === id) {
         setActiveNoteId(null);
-        setShowSidebar(true); // Show sidebar when deleting active note
       }
       await storageDeleteNote(id);
       toast.success('Note deleted');
@@ -133,12 +148,9 @@ export default function Home() {
     }
   }, [storageTogglePin]);
 
-  // MODIFIED: When selecting note, hide sidebar on mobile
   const handleSetActiveNote = useCallback((noteId: string | null) => {
     setActiveNoteId(noteId);
-    if (noteId) {
-      setShowSidebar(false); // Hide sidebar on mobile when selecting note
-    }
+    setShowMobileSidebar(false); // Close sidebar when selecting note
   }, []);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -149,45 +161,74 @@ export default function Home() {
   }, [isSaving, settings.syncStatus]);
 
   return (
-    <main className="flex w-screen h-screen overflow-hidden">
-      {/* SIDEBAR - responsive visibility */}
-      <div className={`
-        h-full
-        ${showSidebar ? 'block' : 'hidden md:block'}
-      `}>
-        {isLoading ? (
-          <div className="w-full md:w-80 h-full bg-zinc-900 border-r border-zinc-800">
-            <NoteListSkeleton />
-          </div>
-        ) : (
-          <Sidebar
-            notes={notes}
-            folders={foldersWithNotes}
-            activeNoteId={activeNoteId}
-            setActiveNoteId={handleSetActiveNote}
-            createNote={createNote}
-            deleteNote={deleteNote}
-            moveNote={moveNote}
-            createFolder={createFolder}
-            onDataChange={refresh}
-            updateNoteLocally={updateNoteLocally}
-            togglePin={togglePin}
-            syncStatus={combinedStatus}
+    <main className="flex w-screen h-screen overflow-hidden relative">
+      {/* Mobile backdrop overlay */}
+      <AnimatePresence>
+        {showMobileSidebar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setShowMobileSidebar(false)}
           />
         )}
-      </div>
+      </AnimatePresence>
+
+      {/* SIDEBAR - animated slide-in on mobile */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          ref={sidebarRef}
+          initial={false}
+          animate={{
+            x: showMobileSidebar ? 0 : '-100%',
+          }}
+          transition={{
+            type: 'spring',
+            stiffness: 300,
+            damping: 30,
+          }}
+          className="fixed md:relative inset-y-0 left-0 z-50 md:z-0 md:translate-x-0"
+        >
+          {isLoading ? (
+            <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
+              <NoteListSkeleton />
+            </div>
+          ) : (
+            <Sidebar
+              notes={notes}
+              folders={foldersWithNotes}
+              activeNoteId={activeNoteId}
+              setActiveNoteId={handleSetActiveNote}
+              createNote={createNote}
+              deleteNote={deleteNote}
+              moveNote={moveNote}
+              createFolder={createFolder}
+              onDataChange={refresh}
+              updateNoteLocally={updateNoteLocally}
+              togglePin={togglePin}
+              syncStatus={combinedStatus}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* EDITOR - with mobile header */}
       <div className="flex-1 h-full flex flex-col overflow-hidden">
         {/* Mobile header bar */}
-        <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-4 py-2 gap-3">
+        <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowSidebar(true)}
-            className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-9 w-9"
           >
-            <Menu className="h-5 w-5" />
+            {showMobileSidebar ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
           {activeNote && (
             <h2 className="text-sm font-medium text-zinc-200 truncate">
