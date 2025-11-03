@@ -11,13 +11,12 @@ import {
   Trash2,
   Home,
   Pin,
-  Folder,
+  Folder as FolderIcon,
   Calendar,
   Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Note, Folder } from '@/lib/storage/types';
-import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import Highlighter from 'react-highlight-words';
 
@@ -26,7 +25,7 @@ interface CommandPaletteProps {
   folders: Folder[];
   activeNoteId: string | null;
   setActiveNoteId: (id: string | null) => void;
-  createNote: (folderId?: string | null, title?: string) => Promise<string | null>; // UPDATED TYPE
+  createNote: (folderId?: string | null, title?: string) => Promise<string | null>;
   createFolder: () => void;
   deleteNote: (id: string) => void;
   togglePin?: (noteId: string) => void;
@@ -50,7 +49,6 @@ export default function CommandPalette({
   const [searchFilter, setSearchFilter] = useState<SearchFilter>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const router = useRouter();
   
   const activePage = pages[pages.length - 1];
   const isHome = activePage === 'home';
@@ -129,9 +127,8 @@ export default function CommandPalette({
     setOpen(false);
   }, [createNote]);
 
-  // UPDATED: Actually passes the search term as title
   const handleCreateNoteWithTitle = useCallback(async () => {
-    await createNote(null, search); // Pass search as title!
+    await createNote(null, search);
     setOpen(false);
   }, [createNote, search]);
 
@@ -338,7 +335,7 @@ export default function CommandPalette({
                   <div className="py-8 text-center">
                     <div className="text-zinc-500 mb-4">
                       <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">No notes found for "{search}"</p>
+                      <p className="text-sm">No notes found for &quot;{search}&quot;</p>
                     </div>
                     <div className="space-y-2">
                       <button
@@ -346,7 +343,7 @@ export default function CommandPalette({
                         className="mx-auto flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
                       >
                         <FilePlus className="h-4 w-4 text-yellow-500" />
-                        <span className="text-sm text-zinc-300">Create "{search}"</span>
+                        <span className="text-sm text-zinc-300">Create &quot;{search}&quot;</span>
                       </button>
                       {recentSearches.length > 0 && (
                         <div className="pt-4">
@@ -503,7 +500,7 @@ export default function CommandPalette({
                             className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 rounded cursor-pointer hover:bg-zinc-800 hover:text-white data-[selected=true]:bg-zinc-800 data-[selected=true]:text-white"
                           >
                             <FolderPlus className="h-4 w-4 text-yellow-500" />
-                            New note in "{folder.name}"
+                            New note in &quot;{folder.name}&quot;
                           </Command.Item>
                         ))}
                       </Command.Group>
@@ -547,7 +544,7 @@ export default function CommandPalette({
                             <div className="flex items-center gap-3 mt-1">
                               {folder && (
                                 <span className="text-xs text-zinc-600 flex items-center gap-1">
-                                  <Folder className="h-3 w-3" />
+                                  <FolderIcon className="h-3 w-3" />
                                   {folder.name}
                                 </span>
                               )}
