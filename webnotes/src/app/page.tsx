@@ -86,9 +86,7 @@ export default function Home() {
 
   const deleteNote = useCallback(async (id: string) => {
     try {
-      if (activeNoteId === id) {
-        setActiveNoteId(null);
-      }
+      if (activeNoteId === id) setActiveNoteId(null);
       await storageDeleteNote(id);
       toast.success('Note deleted');
     } catch (error) {
@@ -148,9 +146,12 @@ export default function Home() {
     }
   }, [storageTogglePin]);
 
-  const handleSetActiveNote = useCallback((noteId: string | null) => {
+  // Mobile-specific: close sidebar when selecting note
+  const handleSetActiveNoteForMobile = useCallback((noteId: string | null) => {
     setActiveNoteId(noteId);
-    setShowMobileSidebar(false); // Close sidebar when selecting note
+    if (window.innerWidth < 768) {
+      setShowMobileSidebar(false);
+    }
   }, []);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -161,7 +162,7 @@ export default function Home() {
   }, [isSaving, settings.syncStatus]);
 
   return (
-    <main className="flex w-screen h-screen overflow-hidden relative">
+    <main className="flex w-screen h-screen overflow-hidden">
       {/* Mobile backdrop overlay */}
       <AnimatePresence>
         {showMobileSidebar && (
@@ -176,48 +177,73 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* SIDEBAR - animated slide-in on mobile */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          ref={sidebarRef}
-          initial={false}
-          animate={{
-            x: showMobileSidebar ? 0 : '-100%',
-          }}
-          transition={{
-            type: 'spring',
-            stiffness: 300,
-            damping: 30,
-          }}
-          className="fixed md:relative inset-y-0 left-0 z-50 md:z-0 md:translate-x-0"
-        >
-          {isLoading ? (
-            <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
-              <NoteListSkeleton />
-            </div>
-          ) : (
-            <Sidebar
-              notes={notes}
-              folders={foldersWithNotes}
-              activeNoteId={activeNoteId}
-              setActiveNoteId={handleSetActiveNote}
-              createNote={createNote}
-              deleteNote={deleteNote}
-              moveNote={moveNote}
-              createFolder={createFolder}
-              onDataChange={refresh}
-              updateNoteLocally={updateNoteLocally}
-              togglePin={togglePin}
-              syncStatus={combinedStatus}
-            />
-          )}
-        </motion.div>
+      {/* DESKTOP SIDEBAR - always visible */}
+      <div className="hidden md:block">
+        {isLoading ? (
+          <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
+            <NoteListSkeleton />
+          </div>
+        ) : (
+          <Sidebar
+            notes={notes}
+            folders={foldersWithNotes}
+            activeNoteId={activeNoteId}
+            setActiveNoteId={setActiveNoteId}
+            createNote={createNote}
+            deleteNote={deleteNote}
+            moveNote={moveNote}
+            createFolder={createFolder}
+            onDataChange={refresh}
+            updateNoteLocally={updateNoteLocally}
+            togglePin={togglePin}
+            syncStatus={combinedStatus}
+          />
+        )}
+      </div>
+
+      {/* MOBILE SIDEBAR - animated slide-in */}
+      <AnimatePresence>
+        {showMobileSidebar && (
+          <motion.div
+            ref={sidebarRef}
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{
+              type: 'spring',
+              stiffness: 300,
+              damping: 30,
+            }}
+            className="fixed md:hidden inset-y-0 left-0 z-50 w-80"
+          >
+            {isLoading ? (
+              <div className="w-full h-full bg-zinc-900 border-r border-zinc-800">
+                <NoteListSkeleton />
+              </div>
+            ) : (
+              <Sidebar
+                notes={notes}
+                folders={foldersWithNotes}
+                activeNoteId={activeNoteId}
+                setActiveNoteId={handleSetActiveNoteForMobile}
+                createNote={createNote}
+                deleteNote={deleteNote}
+                moveNote={moveNote}
+                createFolder={createFolder}
+                onDataChange={refresh}
+                updateNoteLocally={updateNoteLocally}
+                togglePin={togglePin}
+                syncStatus={combinedStatus}
+              />
+            )}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* EDITOR - with mobile header */}
-      <div className="flex-1 h-full flex flex-col overflow-hidden">
+      <div className="flex-1 h-full flex flex-col">
         {/* Mobile header bar */}
-        <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
+        <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
           <Button
             variant="ghost"
             size="icon"
