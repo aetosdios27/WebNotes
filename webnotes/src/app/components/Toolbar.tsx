@@ -1,5 +1,3 @@
-// src/app/components/Toolbar.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -37,13 +35,12 @@ export function Toolbar({ editor }: Props) {
   }
 
   return (
-    <div className="border border-zinc-700 bg-transparent rounded-lg p-1 flex items-center gap-1">
-      {/* The only change is bg-zinc-700 -> bg-zinc-900 */}
+    <div className="border border-zinc-700 bg-transparent rounded-lg p-1 flex items-center gap-1 overflow-x-auto">
       <Toggle
         size="sm"
         pressed={editor.isActive('bold')}
         onPressedChange={() => editor.chain().focus().toggleBold().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400"
+        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Bold className="h-4 w-4" />
       </Toggle>
@@ -52,7 +49,7 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive('italic')}
         onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400"
+        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Italic className="h-4 w-4" />
       </Toggle>
@@ -61,7 +58,7 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive('strike')}
         onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400"
+        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Strikethrough className="h-4 w-4" />
       </Toggle>
@@ -70,7 +67,7 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive('bulletList')}
         onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400"
+        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <List className="h-4 w-4" />
       </Toggle>
@@ -79,7 +76,7 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive('orderedList')}
         onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400"
+        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <ListOrdered className="h-4 w-4" />
       </Toggle>

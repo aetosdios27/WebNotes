@@ -1,4 +1,3 @@
-// src/app/components/Sidebar.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -86,26 +85,21 @@ export default function Sidebar({
       }
     });
 
-    // FIXED: Sort notes in each folder
     notesInFolders.forEach((folderNotes, folderId) => {
       notesInFolders.set(folderId, folderNotes.sort((a, b) => {
-        // Pinned notes first
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
         
-        // If both pinned, sort by pinnedAt
         if (a.isPinned && b.isPinned) {
           const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
           const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
           return bTime - aTime;
         }
         
-        // Otherwise sort by updatedAt
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       }));
     });
 
-    // Sort unfiled notes with pinned first
     const sortedUnfiled = unfiledNotes.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -130,16 +124,24 @@ export default function Sidebar({
       <Collapsible
         open={isOpen}
         onOpenChange={setIsOpen}
-        className={`h-full flex flex-col bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out ${isOpen ? 'w-80' : 'w-[68px]'}`}
+        className={`
+          h-full flex flex-col bg-zinc-900 border-r border-zinc-800 
+          transition-all duration-300 ease-in-out
+          ${isOpen ? 'w-full md:w-80' : 'w-full md:w-[68px]'}
+        `}
       >
         {/* Header */}
-        <div className={`p-4 flex items-center border-b border-zinc-800 flex-shrink-0 ${isOpen ? 'justify-between' : 'justify-center'}`}>
+        <div className={`
+          p-4 flex items-center border-b border-zinc-800 flex-shrink-0 
+          ${isOpen ? 'justify-between' : 'justify-center'}
+        `}>
           {isOpen && <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>}
           <CollapsibleTrigger asChild>
+            {/* Hide collapse button on mobile, show on desktop */}
             <Button 
               variant="ghost" 
               size="icon"
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="hidden md:flex text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <ChevronsLeft className={`h-5 w-5 transition-transform duration-300 ${isOpen ? '' : 'rotate-180'}`} />
             </Button>
@@ -147,14 +149,17 @@ export default function Sidebar({
         </div>
 
         {/* Action Buttons */}
-        <div className={`p-2 border-b border-zinc-800 flex items-center ${ isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2' }`}>
+        <div className={`
+          p-2 border-b border-zinc-800 flex items-center
+          ${isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2'}
+        `}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => createNote()}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
                 <FilePlus size={18} />
               </Button>
@@ -170,7 +175,7 @@ export default function Sidebar({
                 variant="ghost" 
                 size="icon" 
                 onClick={createFolder}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
                 <FolderPlus size={18} />
               </Button>
@@ -185,7 +190,7 @@ export default function Sidebar({
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
                 <Search size={18} />
               </Button>
