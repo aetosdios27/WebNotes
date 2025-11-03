@@ -10,6 +10,7 @@ import type { Note, Folder } from '@/lib/storage/types';
 import { Button } from '@/app/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CommandPalette from '@/app/components/CommandPalette';
 
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
@@ -73,14 +74,25 @@ export default function Home() {
     }));
   }, [folders, notes]);
 
-  const createNote = useCallback(async (folderId?: string | null) => {
+  // UPDATED: Accept optional title parameter
+  const createNote = useCallback(async (folderId?: string | null, title?: string): Promise<string | null> => {
     try {
-      const newNote = await storageCreateNote({ title: '', content: '', folderId });
+      const newNote = await storageCreateNote({ 
+        title: title || '',  // Use provided title or empty
+        content: '', 
+        folderId 
+      });
       setActiveNoteId(newNote.id);
       setShowMobileSidebar(false); // Close sidebar on mobile
-      toast.success('Note created');
+      if (title) {
+        toast.success(`Created "${title}"`);
+      } else {
+        toast.success('Note created');
+      }
+      return newNote.id; // Return the ID for reference
     } catch (error) {
       toast.error('Failed to create note');
+      return null;
     }
   }, [storageCreateNote]);
 
@@ -269,9 +281,22 @@ export default function Home() {
             activeNote={activeNote} 
             onNoteUpdate={handleNoteUpdate} 
             onSavingStatusChange={setIsSaving}
+            onDeleteNote={deleteNote}
           />
         </div>
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        notes={notes}
+        folders={folders}
+        activeNoteId={activeNoteId}
+        setActiveNoteId={setActiveNoteId}
+        createNote={createNote}
+        createFolder={createFolder}
+        deleteNote={deleteNote}
+        togglePin={togglePin}
+      />
     </main>
   );
 }

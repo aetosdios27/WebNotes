@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import 'tippy.js/dist/tippy.css';
 
 html {
   scroll-behavior: smooth;

@@ -1,20 +1,31 @@
-// src/app/components/NoteEditor.tsx
 'use client';
 
 import type { Note } from '@/lib/storage/types';
 import { useDebouncedCallback } from 'use-debounce';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Typography from '@tiptap/extension-typography';
+import Placeholder from '@tiptap/extension-placeholder';
+import { Markdown } from 'tiptap-markdown';
+import { SlashCommand } from './SlashCommandExtension';
+import { slashCommandSuggestion } from './SlashCommands';
 import { Toolbar } from './Toolbar';
+import NoteSettings from './NoteSettings';
 import { useEffect, useRef, useState } from 'react';
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
   onNoteUpdate: (note: Note) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
+  onDeleteNote?: (noteId: string) => void;
 }
 
-export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusChange }: NoteEditorProps) {
+export default function NoteEditor({ 
+  activeNote, 
+  onNoteUpdate, 
+  onSavingStatusChange,
+  onDeleteNote 
+}: NoteEditorProps) {
   const [title, setTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,15 +38,20 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
     }
   }, [activeNote?.id]);
 
+  // Helper to get markdown from editor
+  const getMarkdown = (editor: any) => {
+    return editor.storage.markdown?.getMarkdown() || editor.getHTML();
+  };
+
   const debouncedSave = useDebouncedCallback(
-    async (noteId: string, newTitle: string, htmlContent: string) => {
+    async (noteId: string, newTitle: string, markdownContent: string) => {
       if (!noteId) return;
 
       onSavingStatusChange(true);
       
       try {
-        const finalTitle = newTitle.trim() || htmlContent.substring(0, 50).split('\n')[0] || 'Untitled';
-        const updatedNote = { ...activeNote!, title: finalTitle, content: htmlContent, updatedAt: new Date() };
+        const finalTitle = newTitle.trim() || markdownContent.substring(0, 50).split('\n')[0] || 'Untitled';
+        const updatedNote = { ...activeNote!, title: finalTitle, content: markdownContent, updatedAt: new Date() };
         await onNoteUpdate(updatedNote);
       } catch (error) {
         console.error('Failed to save note:', error);
@@ -50,13 +66,52 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
     const newTitle = e.target.value;
     setTitle(newTitle);
     if (activeNote && editor) {
-      debouncedSave(activeNote.id, newTitle, editor.getHTML());
+      debouncedSave(activeNote.id, newTitle, getMarkdown(editor));
+    }
+  };
+
+  const handleDelete = () => {
+    if (activeNote && onDeleteNote) {
+      onDeleteNote(activeNote.id);
     }
   };
 
   const editor = useEditor(
     {
-      extensions: [StarterKit],
+      extensions: [
+        StarterKit.configure({
+          heading: {
+            levels: [1, 2, 3, 4, 5, 6],
+          },
+          code: {
+            HTMLAttributes: {
+              class: 'bg-zinc-800 text-yellow-400 px-1 py-0.5 rounded text-sm',
+            },
+          },
+          codeBlock: {
+            HTMLAttributes: {
+              class: 'bg-zinc-800 text-zinc-200 p-4 rounded-lg my-4 font-mono text-sm',
+            },
+          },
+          blockquote: {
+            HTMLAttributes: {
+              class: 'border-l-4 border-yellow-500 pl-4 italic text-zinc-400',
+            },
+          },
+        }),
+        Typography,
+        Placeholder.configure({
+          placeholder: 'Type / for commands, or start writing with markdown...',
+        }),
+        Markdown.configure({
+          html: true,
+          transformPastedText: true,
+          transformCopiedText: true,
+        }),
+        SlashCommand.configure({
+          suggestion: slashCommandSuggestion,
+        }),
+      ],
       content: activeNote?.content ?? '',
       editorProps: {
         attributes: {
@@ -65,7 +120,8 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
       },
       onUpdate: ({ editor }) => {
         if (!activeNote?.id) return;
-        debouncedSave(activeNote.id, title, editor.getHTML());
+        const markdown = getMarkdown(editor);
+        debouncedSave(activeNote.id, title, markdown);
       },
       immediatelyRender: false,
     },
@@ -73,8 +129,11 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
   );
 
   useEffect(() => {
-    if (editor && activeNote && editor.getHTML() !== (activeNote.content || '')) {
-      editor.commands.setContent(activeNote.content || '', { emitUpdate: false });
+    if (editor && activeNote) {
+      const currentMarkdown = getMarkdown(editor);
+      if (currentMarkdown !== (activeNote.content || '')) {
+        editor.commands.setContent(activeNote.content || '', { emitUpdate: false });
+      }
     }
   }, [activeNote?.id, activeNote?.content, editor]);
 
@@ -88,7 +147,17 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
 
   return (
     <div className="flex flex-col flex-1 h-full bg-black">
+      {/* Settings button - positioned absolute top-right */}
+      <div className="absolute top-8 right-12 z-10">
+        <NoteSettings 
+          note={activeNote} 
+          onDelete={handleDelete}
+        />
+      </div>
+
+      {/* Main content */}
       <div className="flex-1 overflow-y-auto px-12 pt-8">
+        {/* Toolbar - inline-block so it hugs content */}
         <div className="inline-block mb-6"> 
           {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
         </div>
@@ -108,7 +177,7 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
           }}
         />
         
-        <div className="min-h-[500px] editor-wrapper">
+        <div className="min-h-[500px] editor-wrapper pb-12">
           {editor ? (
             <EditorContent editor={editor} />
           ) : (
@@ -135,6 +204,83 @@ export default function NoteEditor({ activeNote, onNoteUpdate, onSavingStatusCha
         .ProseMirror pre {
           white-space: pre-wrap !important;
           word-wrap: break-word !important;
+        }
+
+        /* Placeholder styling */
+        .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: #52525b;
+          pointer-events: none;
+          height: 0;
+        }
+
+        /* Markdown element styling */
+        .ProseMirror h1 {
+          font-size: 2.25em;
+          font-weight: 700;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+          line-height: 1.2;
+        }
+
+        .ProseMirror h2 {
+          font-size: 1.875em;
+          font-weight: 700;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+          line-height: 1.3;
+        }
+
+        .ProseMirror h3 {
+          font-size: 1.5em;
+          font-weight: 600;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+        }
+
+        .ProseMirror h4 {
+          font-size: 1.25em;
+          font-weight: 600;
+          margin-top: 0.5em;
+          margin-bottom: 0.5em;
+        }
+
+        .ProseMirror ul {
+          list-style-type: disc;
+          padding-left: 1.5em;
+          margin: 1em 0;
+        }
+
+        .ProseMirror ol {
+          list-style-type: decimal;
+          padding-left: 1.5em;
+          margin: 1em 0;
+        }
+
+        .ProseMirror li {
+          margin: 0.25em 0;
+        }
+
+        .ProseMirror a {
+          color: #fbbf24;
+          text-decoration: underline;
+        }
+
+        .ProseMirror a:hover {
+          color: #f59e0b;
+        }
+
+        .ProseMirror hr {
+          border: none;
+          border-top: 2px solid #3f3f46;
+          margin: 2em 0;
+        }
+
+        /* Tippy.js tooltip styling */
+        .tippy-box[data-theme~='dark'] {
+          background-color: transparent;
+          border: none;
         }
       `}</style>
     </div>

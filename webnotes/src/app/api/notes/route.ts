@@ -1,5 +1,3 @@
-// src/app/api/notes/route.ts
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
@@ -41,12 +39,14 @@ export async function POST(request: Request) {
   
   const body = await request.json().catch(() => ({}));
   const folderId = body.folderId || null;
+  const title = body.title || 'New Note'; // Use title from body, fallback to default
+  const content = body.content || ''; // Use content from body, fallback to empty
 
   try {
     const newNote = await prisma.note.create({
       data: {
-        title: 'New Note',
-        content: '',
+        title: title,
+        content: content,
         userId: userId,
         folderId: folderId,
         isPinned: false, // Default to unpinned
