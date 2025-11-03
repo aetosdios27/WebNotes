@@ -7,17 +7,12 @@ import {
   FilePlus, 
   FolderPlus, 
   FileText, 
-  Settings,
-  Moon,
-  Sun,
   LogOut,
   Trash2,
   Home,
   Pin,
   Folder,
   Calendar,
-  Hash,
-  Filter,
   Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
