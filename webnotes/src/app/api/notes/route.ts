@@ -1,6 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { welcomeNotes } from '@/lib/welcome-notes';
+
+// Check if user is new (has no notes)
+async function isNewUser(userId: string): Promise<boolean> {
+  const noteCount = await prisma.note.count({
+    where: { userId }
+  });
+  return noteCount === 0;
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -13,6 +22,31 @@ export async function GET(request: NextRequest) {
   const folderId = searchParams.get('folderId');
 
   try {
+    // Check if this is a new user
+    const isNew = await isNewUser(userId);
+    
+    // If new user, create welcome notes
+    if (isNew) {
+      // Create all welcome notes in parallel
+      await Promise.all(
+        welcomeNotes.map(note => 
+          prisma.note.create({
+            data: {
+              title: note.title,
+              content: note.content,
+              userId: userId,
+              folderId: null,
+              isPinned: note.isPinned || false,
+              pinnedAt: note.pinnedAt || null,
+            }
+          })
+        )
+      );
+      
+      console.log('Created welcome notes for new user:', userId);
+    }
+
+    // Fetch notes (including newly created welcome notes if applicable)
     const notes = await prisma.note.findMany({
       where: {
         userId: userId,
@@ -24,8 +58,10 @@ export async function GET(request: NextRequest) {
         { updatedAt: 'desc' },   // Then by update time
       ],
     });
+    
     return NextResponse.json(notes);
   } catch (error) {
+    console.error('Error in GET /api/notes:', error);
     return NextResponse.json({ message: 'Error fetching notes', error }, { status: 500 });
   }
 }
@@ -54,6 +90,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(newNote, { status: 201 });
   } catch (error) {
+    console.error('Error in POST /api/notes:', error);
     return NextResponse.json({ message: 'Error creating note', error }, { status: 500 });
   }
 }

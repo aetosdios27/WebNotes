@@ -69,40 +69,28 @@ export default function CommandPalette({
     localStorage.setItem('recentSearches', JSON.stringify(updated));
   }, [recentSearches]);
 
-  // Toggle command palette with Cmd+K
+  // FIX: Updated keyboard shortcuts - removed Cmd+N and Cmd+Shift+N
+  // Those are now handled globally in page.tsx with different keys (Cmd+E and Cmd+Shift+F)
+  // Only keeping Cmd+K for command palette and Cmd+Shift+F to open search
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // Cmd+K - Toggle command palette
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen((open) => !open);
       }
       
-      // Quick shortcuts
-      if (!open) {
-        // Cmd+N - New Note
-        if (e.key === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-          e.preventDefault();
-          createNote();
-        }
-        
-        // Cmd+Shift+N - New Folder
-        if (e.key === 'N' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-          e.preventDefault();
-          createFolder();
-        }
-
-        // Cmd+Shift+F - Open search with focus
-        if (e.key === 'F' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-          e.preventDefault();
-          setOpen(true);
-          setSearchFilter('all');
-        }
+      // Cmd+Shift+F - Open search with focus (only if not already open)
+      if (!open && e.key === 'F' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        setOpen(true);
+        setSearchFilter('all');
       }
     };
 
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
-  }, [open, createNote, createFolder]);
+  }, [open]);
 
   // Reset when closing
   useEffect(() => {
@@ -414,7 +402,7 @@ export default function CommandPalette({
                       </Command.Group>
                     )}
 
-                    {/* Quick Actions */}
+                    {/* Quick Actions - FIX: Updated keyboard shortcut labels */}
                     <Command.Group heading="Quick Actions" className="text-xs text-zinc-500 p-2">
                       <Command.Item
                         value="new note"
@@ -423,7 +411,7 @@ export default function CommandPalette({
                       >
                         <FilePlus className="h-4 w-4 text-zinc-500" />
                         New Note
-                        <kbd className="ml-auto text-xs text-zinc-500">⌘N</kbd>
+                        <kbd className="ml-auto text-xs text-zinc-500">⌘E</kbd> {/* Changed from ⌘N */}
                       </Command.Item>
 
                       <Command.Item
@@ -436,7 +424,7 @@ export default function CommandPalette({
                       >
                         <FolderPlus className="h-4 w-4 text-zinc-500" />
                         New Folder
-                        <kbd className="ml-auto text-xs text-zinc-500">⌘⇧N</kbd>
+                        <kbd className="ml-auto text-xs text-zinc-500">⌘⇧F</kbd> {/* Already correct */}
                       </Command.Item>
 
                       {activeNoteId && (
@@ -564,7 +552,7 @@ export default function CommandPalette({
                 )}
               </Command.List>
 
-              {/* Footer */}
+              {/* Footer - FIX: Updated shortcut label */}
               <div className="border-t border-zinc-800 px-4 py-2 flex items-center justify-between text-xs text-zinc-500">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
@@ -576,8 +564,8 @@ export default function CommandPalette({
                     Select
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded">⌘⇧F</kbd>
-                    Search
+                    <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded">⌘E</kbd> {/* Changed from ⌘⇧F */}
+                    New Note
                   </span>
                 </div>
                 {search && (

@@ -11,21 +11,30 @@ import { Button } from '@/app/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CommandPalette from '@/app/components/CommandPalette';
+import LoadingScreen from '@/app/components/LoadingScreen';
+import { useSession } from 'next-auth/react';
 
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
 };
 
+// Remove "Loading Editor..." flicker
 const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
   ssr: false,
-  loading: () => <div className="flex-1 flex items-center justify-center h-full bg-black text-zinc-700">Loading Editor...</div>,
+  loading: () => null,
 });
 
 export default function Home() {
+  const { status } = useSession();
+  
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  
+  // Track minimum animation time AND if we're in extended loading
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [showExtendedMessage, setShowExtendedMessage] = useState(false);
   
   const {
     notes,
@@ -40,6 +49,29 @@ export default function Home() {
     createFolder: storageCreateFolder,
     refresh,
   } = useStorage();
+
+  // Minimum 2.8s timer for animation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinTimeElapsed(true);
+    }, 2800);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // If still loading after 3.5s, show extended message
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        setShowExtendedMessage(true);
+      }
+    }, 3500); // 700ms after animation finishes
+    
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+  // Show loading until BOTH animation finishes AND data is loaded
+  const showLoading = !minTimeElapsed || isLoading;
 
   // Close sidebar when clicking outside on mobile
   useEffect(() => {
@@ -74,22 +106,21 @@ export default function Home() {
     }));
   }, [folders, notes]);
 
-  // UPDATED: Accept optional title parameter
   const createNote = useCallback(async (folderId?: string | null, title?: string): Promise<string | null> => {
     try {
       const newNote = await storageCreateNote({ 
-        title: title || '',  // Use provided title or empty
+        title: title || '',
         content: '', 
         folderId 
       });
       setActiveNoteId(newNote.id);
-      setShowMobileSidebar(false); // Close sidebar on mobile
+      setShowMobileSidebar(false);
       if (title) {
         toast.success(`Created "${title}"`);
       } else {
         toast.success('Note created');
       }
-      return newNote.id; // Return the ID for reference
+      return newNote.id;
     } catch (error) {
       toast.error('Failed to create note');
       return null;
@@ -158,7 +189,39 @@ export default function Home() {
     }
   }, [storageTogglePin]);
 
-  // Mobile-specific: close sidebar when selecting note
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyboard = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isEditing = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.contentEditable === 'true' ||
+                        target.closest('.ProseMirror');
+      
+      if (isEditing) return;
+      
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      
+      // Cmd/Ctrl + E - Create New Note
+      if (modKey && e.key === 'e' && !e.shiftKey) {
+        e.preventDefault();
+        createNote();
+        return;
+      }
+      
+      // Cmd/Ctrl + Shift + F - Create New Folder
+      if (modKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        createFolder();
+        return;
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyboard);
+    return () => window.removeEventListener('keydown', handleGlobalKeyboard);
+  }, [createNote, createFolder]);
+
   const handleSetActiveNoteForMobile = useCallback((noteId: string | null) => {
     setActiveNoteId(noteId);
     if (window.innerWidth < 768) {
@@ -172,6 +235,11 @@ export default function Home() {
     if (isSaving) return 'syncing';
     return settings.syncStatus;
   }, [isSaving, settings.syncStatus]);
+
+  // Show loading screen with extended message if needed
+  if (showLoading) {
+    return <LoadingScreen isExtended={showExtendedMessage} />;
+  }
 
   return (
     <main className="flex w-screen h-screen overflow-hidden">
