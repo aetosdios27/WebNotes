@@ -22,6 +22,8 @@ import {
 import type { Note } from '@/lib/storage/types';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface NoteSettingsProps {
   note: Note | null;
@@ -113,6 +115,136 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
     URL.revokeObjectURL(url);
     toast.success('Exported as Markdown');
     setOpen(false);
+  };
+
+  // Export as PDF
+  const exportAsPDF = async () => {
+    if (!note) return;
+    
+    // Create a temporary container for rendering
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.width = '210mm'; // A4 width
+    tempDiv.style.padding = '20mm';
+    tempDiv.style.background = 'white';
+    tempDiv.style.color = 'black';
+    tempDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+    
+    // Add styled content
+    tempDiv.innerHTML = `
+      <style>
+        * { box-sizing: border-box; }
+        h1 { font-size: 32px; margin-bottom: 8px; color: #111; font-weight: 700; }
+        h2 { font-size: 24px; margin-bottom: 8px; margin-top: 20px; color: #333; font-weight: 600; }
+        h3 { font-size: 20px; margin-bottom: 6px; margin-top: 16px; color: #444; font-weight: 600; }
+        h4 { font-size: 18px; margin-bottom: 6px; margin-top: 14px; color: #555; font-weight: 600; }
+        p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; color: #1f2937; }
+        ul, ol { margin-bottom: 12px; padding-left: 24px; }
+        li { margin-bottom: 4px; font-size: 14px; line-height: 1.5; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 13px; font-family: monospace; }
+        pre { background: #f3f4f6; padding: 12px; border-radius: 4px; overflow-x: auto; margin: 12px 0; }
+        pre code { background: none; padding: 0; }
+        blockquote { border-left: 4px solid #e5e7eb; padding-left: 16px; color: #6b7280; margin: 16px 0; font-style: italic; }
+        hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+        strong { font-weight: 600; }
+        em { font-style: italic; }
+        a { color: #2563eb; text-decoration: underline; }
+        table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+        th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 14px; }
+        th { background: #f9fafb; font-weight: 600; }
+      </style>
+      <div style="margin-bottom: 24px;">
+        <h1 style="margin-bottom: 4px;">${note.title || 'Untitled'}</h1>
+        <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
+          Created: ${new Date(note.createdAt).toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })} • 
+          Modified: ${new Date(note.updatedAt).toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })}
+        </p>
+      </div>
+      <div style="line-height: 1.6;">
+        ${note.content || '<p style="color: #9ca3af;">Empty note</p>'}
+      </div>
+      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <p style="color: #9ca3af; font-size: 11px; text-align: center; margin: 0;">
+          Created with WebNotes
+        </p>
+      </div>
+    `;
+    
+    document.body.appendChild(tempDiv);
+    
+    try {
+      // Show loading toast
+      toast.loading('Generating PDF...');
+      
+      // Convert to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2, // Higher quality
+        logging: false,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        windowWidth: 794, // A4 width in pixels at 96 DPI
+      });
+      
+      // Calculate dimensions
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageHeight = 297; // A4 height in mm
+      
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      // Add first page
+      pdf.addImage(
+        canvas.toDataURL('image/png'),
+        'PNG',
+        0,
+        position,
+        imgWidth,
+        imgHeight
+      );
+      heightLeft -= pageHeight;
+      
+      // Add additional pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          0,
+          position,
+          imgWidth,
+          imgHeight
+        );
+        heightLeft -= pageHeight;
+      }
+      
+      // Download
+      const filename = `${note.title || 'untitled'}.pdf`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      pdf.save(filename);
+      
+      toast.dismiss();
+      toast.success('Exported as PDF');
+      setOpen(false);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.dismiss();
+      toast.error('Failed to export PDF');
+    } finally {
+      // Cleanup
+      document.body.removeChild(tempDiv);
+    }
   };
 
   if (!note) return null;
@@ -246,6 +378,15 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
             >
               <Download className="h-4 w-4 mr-2" />
               Export as Markdown
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-zinc-300 hover:text-white hover:bg-zinc-800"
+              onClick={exportAsPDF}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export as PDF
             </Button>
             {onDelete && (
               <Button
