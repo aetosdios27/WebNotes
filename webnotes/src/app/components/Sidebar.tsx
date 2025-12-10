@@ -22,7 +22,8 @@ interface SidebarProps {
   activeNoteId: string | null;
   setActiveNoteId: (id: string) => void;
   createNote: (folderId?: string | null) => void;
-  deleteNote: (id: string) => void;
+  deleteNote: (id: string) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
   moveNote: (noteId: string, folderId: string | null) => void;
   createFolder: () => void;
   onDataChange: () => void;
@@ -38,6 +39,7 @@ export default function Sidebar({
   setActiveNoteId, 
   createNote,
   deleteNote,
+  deleteFolder,
   moveNote,
   createFolder,
   onDataChange,
@@ -130,14 +132,12 @@ export default function Sidebar({
           ${isOpen ? 'w-full md:w-80' : 'w-full md:w-[68px]'}
         `}
       >
-        {/* Header */}
         <div className={`
           p-4 flex items-center border-b border-zinc-800 flex-shrink-0 
           ${isOpen ? 'justify-between' : 'justify-center'}
         `}>
           {isOpen && <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>}
           <CollapsibleTrigger asChild>
-            {/* Hide collapse button on mobile, show on desktop */}
             <Button 
               variant="ghost" 
               size="icon"
@@ -148,7 +148,6 @@ export default function Sidebar({
           </CollapsibleTrigger>
         </div>
 
-        {/* Action Buttons */}
         <div className={`
           p-2 border-b border-zinc-800 flex items-center
           ${isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2'}
@@ -201,7 +200,6 @@ export default function Sidebar({
           </Tooltip>
         </div>
 
-        {/* Note List */}
         {isOpen && (
           <div className="flex-1 overflow-y-auto">
             <NoteList 
@@ -216,11 +214,12 @@ export default function Sidebar({
               onDataChange={onDataChange}
               updateNoteLocally={updateNoteLocally}
               togglePin={togglePin}
+              deleteNote={deleteNote}
+              deleteFolder={deleteFolder}
             />
           </div>
         )}
 
-        {/* Auth Button at Bottom */}
         <div className="mt-auto p-2 border-t border-zinc-800">
           <AuthButton isOpen={isOpen} syncStatus={syncStatus} />
         </div>

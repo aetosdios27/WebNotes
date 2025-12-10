@@ -12,7 +12,8 @@ import {
   Code,
   Quote,
   Minus,
-  Type
+  Type,
+  Sigma // Added Sigma icon for math
 } from 'lucide-react';
 
 interface CommandItem {
@@ -217,6 +218,34 @@ export const slashCommandItems = (): CommandItem[] => [
     },
   },
   {
+    title: 'Math Inline',
+    description: 'Inline LaTeX equation',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'latex', 'equation', 'formula'],
+    command: ({ editor, range }: any) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setMathInline('') // Starts empty so user can type
+        .run();
+    },
+  },
+  {
+    title: 'Math Block',
+    description: 'Centered LaTeX equation',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'latex', 'equation', 'block'],
+    command: ({ editor, range }: any) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .setMathBlock('') // Starts empty
+        .run();
+    },
+  },
+  {
     title: 'Divider',
     description: 'Insert a horizontal rule',
     icon: <Minus className="h-4 w-4" />,
@@ -299,4 +328,4 @@ export const slashCommandSuggestion = {
       },
     };
   },
-};
+}

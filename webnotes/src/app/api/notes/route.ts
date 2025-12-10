@@ -1,15 +1,9 @@
+// src/app/api/notes/route.ts
+
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { welcomeNotes } from '@/lib/welcome-notes';
-
-// Check if user is new (has no notes)
-async function isNewUser(userId: string): Promise<boolean> {
-  const noteCount = await prisma.note.count({
-    where: { userId }
-  });
-  return noteCount === 0;
-}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -22,14 +16,16 @@ export async function GET(request: NextRequest) {
   const folderId = searchParams.get('folderId');
 
   try {
-    // Check if this is a new user
-    const isNew = await isNewUser(userId);
-    
-    // If new user, create welcome notes
-    if (isNew) {
-      // Create all welcome notes in parallel
+    // Check if user has seen welcome notes
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { hasSeenWelcome: true }
+    });
+
+    // Only create welcome notes once
+    if (!user?.hasSeenWelcome) {
       await Promise.all(
-        welcomeNotes.map(note => 
+        welcomeNotes.map(note =>
           prisma.note.create({
             data: {
               title: note.title,
@@ -42,23 +38,28 @@ export async function GET(request: NextRequest) {
           })
         )
       );
-      
+
+      // Mark as seen - won't create again even if all notes deleted
+      await prisma.user.update({
+        where: { id: userId },
+        data: { hasSeenWelcome: true }
+      });
+
       console.log('Created welcome notes for new user:', userId);
     }
 
-    // Fetch notes (including newly created welcome notes if applicable)
     const notes = await prisma.note.findMany({
       where: {
         userId: userId,
         folderId: folderId === 'null' ? null : folderId,
       },
       orderBy: [
-        { isPinned: 'desc' },    // Pinned notes first
-        { pinnedAt: 'desc' },    // Then by pin time (most recently pinned first)
-        { updatedAt: 'desc' },   // Then by update time
+        { isPinned: 'desc' },
+        { pinnedAt: 'desc' },
+        { updatedAt: 'desc' },
       ],
     });
-    
+
     return NextResponse.json(notes);
   } catch (error) {
     console.error('Error in GET /api/notes:', error);
@@ -72,11 +73,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
-  
+
   const body = await request.json().catch(() => ({}));
   const folderId = body.folderId || null;
-  const title = body.title || 'New Note'; // Use title from body, fallback to default
-  const content = body.content || ''; // Use content from body, fallback to empty
+  const title = body.title || 'New Note';
+  const content = body.content || '';
 
   try {
     const newNote = await prisma.note.create({
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
         content: content,
         userId: userId,
         folderId: folderId,
-        isPinned: false, // Default to unpinned
+        isPinned: false,
       },
     });
     return NextResponse.json(newNote, { status: 201 });

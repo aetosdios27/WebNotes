@@ -9,7 +9,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// AUTH MODELS (Unchanged)
+// AUTH MODELS
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -22,6 +22,9 @@ model User {
   // Add relations to Note and Folder
   notes         Note[]
   folders       Folder[]
+
+  // Welcome notes flag
+  hasSeenWelcome Boolean @default(false) @map("has_seen_welcome")
 
   @@map("users")
 }
@@ -65,18 +68,15 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-
 // APPLICATION MODELS
 model Folder {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
 
-  // Relation to User
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
 
-  // Relation to Notes
   notes     Note[]
 
   @@map("folders")
@@ -89,15 +89,12 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Pinning fields - matching your types.ts naming
   isPinned  Boolean  @default(false) @map("is_pinned")
   pinnedAt  DateTime? @map("pinned_at")
 
-  // Relation to User
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
 
-  // Relation to Folder (optional)
   folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   folderId  String?  @map("folder_id")
 

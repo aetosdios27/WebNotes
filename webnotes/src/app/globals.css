@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import 'tippy.js/dist/tippy.css';
+@import 'katex/dist/katex.min.css';
 
 html {
   scroll-behavior: smooth;
@@ -93,4 +94,68 @@ body {
 /* Optional: Blockquotes */
 .ProseMirror blockquote {
   @apply border-l-4 border-zinc-700 pl-4 italic text-zinc-400 my-4;
+}
+
+/*
+============================================================
+ LaTeX / Math Node Styling
+============================================================
+*/
+
+/* Inline Math */
+.math-inline-render {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  background: rgba(250, 204, 21, 0.1); /* Yellow tint */
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.math-inline-render:hover {
+  background: rgba(250, 204, 21, 0.2);
+  border-color: rgba(250, 204, 21, 0.5);
+}
+
+/* Block Math */
+.math-block-render {
+  display: block;
+  padding: 16px;
+  margin: 16px 0;
+  background: rgba(250, 204, 21, 0.05);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.math-block-render:hover {
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* KaTeX Dark Theme Overrides */
+.katex {
+  color: #fafafa !important;
+  font-size: 1.1em;
+}
+
+.katex .mord,
+.katex .mbin,
+.katex .mrel,
+.katex .mop,
+.katex .mopen,
+.katex .mclose,
+.katex .mpunct,
+.katex .minner {
+  color: #fafafa !important;
+}
+
+/* Make fractions and radicals visible */
+.katex .frac-line,
+.katex .sqrt-line {
+  border-bottom-color: #fafafa !important;
 }

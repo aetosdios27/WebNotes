@@ -19,7 +19,6 @@ import {
   DropdownMenuSeparator,
 } from './dropdown-menu';
 import { toast } from 'sonner';
-import { useLongPress } from 'use-long-press';
 
 interface NoteListProps {
   folders: Folder[];
@@ -33,6 +32,8 @@ interface NoteListProps {
   onDataChange: () => void;
   updateNoteLocally?: (noteId: string, updates: Partial<Note>) => void;
   togglePin: (noteId: string) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
 }
 
 function formatDate(date: Date | string) {
@@ -55,7 +56,9 @@ export default function NoteList({
   moveNote,
   onDataChange,
   updateNoteLocally,
-  togglePin
+  togglePin,
+  deleteNote,
+  deleteFolder,
 }: NoteListProps) {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
@@ -66,7 +69,6 @@ export default function NoteList({
   const [justPinnedNotes, setJustPinnedNotes] = useState<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
 
-  // Detect mobile on mount
   React.useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -74,7 +76,6 @@ export default function NoteList({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Optimistic pin/unpin handler
   const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
     const newPinnedStatus = !currentPinned;
     if (updateNoteLocally) {
@@ -108,7 +109,6 @@ export default function NoteList({
     }
   };
 
-  // Rename handlers
   const handleRename = (id: string, currentName: string, type: 'note' | 'folder') => {
     setRenamingId(id);
     setRenameValue(currentName);
@@ -145,7 +145,6 @@ export default function NoteList({
     setRenameValue('');
   };
 
-  // Delete handlers
   const handleDelete = (id: string, type: 'note' | 'folder', name: string) => {
     setDeleteConfirm({ id, type, name });
   };
@@ -153,26 +152,27 @@ export default function NoteList({
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     
+    const { id, type, name } = deleteConfirm;
+    setDeleteConfirm(null);
+    
+    if (type === 'note' && id === activeNoteId) {
+      setActiveNoteId('');
+    }
+
     try {
-      const res = await fetch(`/api/${deleteConfirm.type}s/${deleteConfirm.id}`, { 
-        method: 'DELETE' 
-      });
-      if (res.ok) {
-        toast.success(`${deleteConfirm.type.charAt(0).toUpperCase() + deleteConfirm.type.slice(1)} deleted`);
-        onDataChange();
+      if (type === 'note') {
+        await deleteNote(id);
       } else {
-        throw new Error();
+        await deleteFolder(id);
       }
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted`);
     } catch {
-      toast.error(`Failed to delete ${deleteConfirm.type}`);
-    } finally {
-      setDeleteConfirm(null);
+      toast.error(`Failed to delete ${type}`);
     }
   };
 
-  // Drag and drop handlers (disabled on mobile)
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, noteId: string) => {
-    if (isMobile) return; // Disable drag on mobile
+    if (isMobile) return;
     setDraggedNoteId(noteId);
     e.dataTransfer.setData('noteId', noteId);
     e.dataTransfer.effectAllowed = 'move';
@@ -218,12 +218,9 @@ export default function NoteList({
     }
   };
 
-  // Render a single note
   const renderNote = (note: Note, isIndented: boolean = false) => {
     const justPinned = justPinnedNotes.has(note.id);
     
-    // Desktop: Context menu on right-click
-    // Mobile: Show menu button
     const NoteContent = (
       <div
         draggable={!isMobile && renamingId !== note.id}
@@ -303,7 +300,6 @@ export default function NoteList({
                     </motion.div>
                   )}
                   
-                  {/* Mobile: Show menu button */}
                   {isMobile && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -350,8 +346,6 @@ export default function NoteList({
       </div>
     );
 
-    // Desktop: Wrap in context menu
-    // Mobile: No context menu (use dropdown instead)
     if (isMobile) {
       return <div key={note.id}>{NoteContent}</div>;
     }
@@ -384,7 +378,6 @@ export default function NoteList({
     );
   };
 
-  // Render a single folder and its notes
   const renderFolder = (folder: Folder & { notes?: Note[] }) => {
     const isExpanded = expandedFolders.has(folder.id);
     const folderNotes = notesInFolders.get(folder.id) || [];
@@ -458,7 +451,6 @@ export default function NoteList({
               <span className="truncate font-medium flex-1 text-sm md:text-base">{folder.name}</span>
               <span className="text-xs text-zinc-500">{folderNotes.length}</span>
               
-              {/* Mobile: Show menu button */}
               {isMobile && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -535,7 +527,7 @@ export default function NoteList({
         <AnimatePresence mode="popLayout">
           {folders.map(folder => renderFolder(folder))}
           
-          {!isMobile && ( // Only show drop zone on desktop
+          {!isMobile && (
             <div
               onDragOver={handleDragOver}
               onDragEnter={(e) => handleDragEnter(e, null)}
@@ -571,7 +563,6 @@ export default function NoteList({
         </AnimatePresence>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
         <div 
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"

@@ -3,15 +3,14 @@ import typography from '@tailwindcss/typography'
 import animate from 'tailwindcss-animate'
 
 const config: Config = {
-  // This is the most critical line.
+  // Reverting to class based, but without the theme extensions
   darkMode: 'class', 
   
-  // These paths tell Tailwind where to find your classes.
   content: [
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {}, // Clean slate
   },
   plugins: [animate, typography],
 }

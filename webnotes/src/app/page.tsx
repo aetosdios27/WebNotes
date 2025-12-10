@@ -18,7 +18,6 @@ export type FolderWithNotes = Omit<Folder, 'notes'> & {
   notes: Note[] 
 };
 
-// Remove "Loading Editor..." flicker
 const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
   ssr: false,
   loading: () => null,
@@ -32,7 +31,6 @@ export default function Home() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
-  // Track minimum animation time AND if we're in extended loading
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [showExtendedMessage, setShowExtendedMessage] = useState(false);
   
@@ -46,11 +44,11 @@ export default function Home() {
     updateNoteLocally,
     togglePin: storageTogglePin,
     deleteNote: storageDeleteNote,
+    deleteFolder: storageDeleteFolder,
     createFolder: storageCreateFolder,
     refresh,
   } = useStorage();
 
-  // Minimum 2.8s timer for animation
   useEffect(() => {
     const timer = setTimeout(() => {
       setMinTimeElapsed(true);
@@ -59,21 +57,18 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  // If still loading after 3.5s, show extended message
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLoading) {
         setShowExtendedMessage(true);
       }
-    }, 3500); // 700ms after animation finishes
+    }, 3500);
     
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Show loading until BOTH animation finishes AND data is loaded
   const showLoading = !minTimeElapsed || isLoading;
 
-  // Close sidebar when clicking outside on mobile
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (window.innerWidth < 768 && showMobileSidebar) {
@@ -128,14 +123,13 @@ export default function Home() {
   }, [storageCreateNote]);
 
   const deleteNote = useCallback(async (id: string) => {
-    try {
-      if (activeNoteId === id) setActiveNoteId(null);
-      await storageDeleteNote(id);
-      toast.success('Note deleted');
-    } catch (error) {
-      toast.error('Failed to delete note');
-    }
+    if (activeNoteId === id) setActiveNoteId(null);
+    await storageDeleteNote(id);
   }, [storageDeleteNote, activeNoteId]);
+
+  const deleteFolder = useCallback(async (id: string) => {
+    await storageDeleteFolder(id);
+  }, [storageDeleteFolder]);
 
   const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
     const originalNote = notes.find(n => n.id === noteId);
@@ -189,7 +183,6 @@ export default function Home() {
     }
   }, [storageTogglePin]);
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyboard = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -203,14 +196,12 @@ export default function Home() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
       
-      // Cmd/Ctrl + E - Create New Note
       if (modKey && e.key === 'e' && !e.shiftKey) {
         e.preventDefault();
         createNote();
         return;
       }
       
-      // Cmd/Ctrl + Shift + F - Create New Folder
       if (modKey && e.shiftKey && e.key === 'F') {
         e.preventDefault();
         createFolder();
@@ -236,14 +227,12 @@ export default function Home() {
     return settings.syncStatus;
   }, [isSaving, settings.syncStatus]);
 
-  // Show loading screen with extended message if needed
   if (showLoading) {
     return <LoadingScreen isExtended={showExtendedMessage} />;
   }
 
   return (
     <main className="flex w-screen h-screen overflow-hidden">
-      {/* Mobile backdrop overlay */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
@@ -257,7 +246,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* DESKTOP SIDEBAR - always visible */}
       <div className="hidden md:block">
         {isLoading ? (
           <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
@@ -271,6 +259,7 @@ export default function Home() {
             setActiveNoteId={setActiveNoteId}
             createNote={createNote}
             deleteNote={deleteNote}
+            deleteFolder={deleteFolder}
             moveNote={moveNote}
             createFolder={createFolder}
             onDataChange={refresh}
@@ -281,7 +270,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* MOBILE SIDEBAR - animated slide-in */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
@@ -308,6 +296,7 @@ export default function Home() {
                 setActiveNoteId={handleSetActiveNoteForMobile}
                 createNote={createNote}
                 deleteNote={deleteNote}
+                deleteFolder={deleteFolder}
                 moveNote={moveNote}
                 createFolder={createFolder}
                 onDataChange={refresh}
@@ -320,9 +309,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* EDITOR - with mobile header */}
       <div className="flex-1 h-full flex flex-col">
-        {/* Mobile header bar */}
         <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
           <Button
             variant="ghost"
@@ -343,7 +330,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Editor */}
         <div className="flex-1 overflow-hidden">
           <NoteEditor 
             activeNote={activeNote} 
@@ -354,7 +340,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Command Palette */}
       <CommandPalette
         notes={notes}
         folders={folders}

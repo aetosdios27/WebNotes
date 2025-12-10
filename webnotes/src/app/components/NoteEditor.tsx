@@ -11,6 +11,9 @@ import { SlashCommand } from './SlashCommandExtension';
 import { slashCommandSuggestion } from './SlashCommands';
 import { Toolbar } from './Toolbar';
 import NoteSettings from './NoteSettings';
+import { MathInline } from './extensions/MathInline';
+import { MathBlock } from './extensions/MathBlock';
+import { MathBubbleMenu } from './MathBubbleMenu';
 import { useEffect, useRef, useState } from 'react';
 
 interface NoteEditorProps {
@@ -111,6 +114,8 @@ export default function NoteEditor({
         SlashCommand.configure({
           suggestion: slashCommandSuggestion,
         }),
+        MathInline,
+        MathBlock,
       ],
       content: activeNote?.content ?? '',
       editorProps: {
@@ -179,7 +184,10 @@ export default function NoteEditor({
         
         <div className="min-h-[500px] editor-wrapper pb-12">
           {editor ? (
-            <EditorContent editor={editor} />
+            <>
+              <EditorContent editor={editor} />
+              <MathBubbleMenu editor={editor} />
+            </>
           ) : (
             <div className="h-40 rounded-md bg-zinc-800/40 animate-pulse" />
           )}
