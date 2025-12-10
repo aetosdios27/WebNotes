@@ -13,8 +13,16 @@ import {
   Quote,
   Minus,
   Type,
-  Sigma // Added Sigma icon for math
+  Sigma,
+  Divide,
+  Grid3X3,
+  Infinity,
+  Brackets,
+  Braces,
+  ArrowRight,
+  PlusCircle,
 } from 'lucide-react';
+import { mathTemplates } from './extensions/math';
 
 interface CommandItem {
   title: string;
@@ -75,7 +83,7 @@ export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
   }));
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden p-2 min-w-[280px]">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden p-2 min-w-[280px] max-h-[400px] overflow-y-auto">
       {props.items.length > 0 ? (
         props.items.map((item, index) => (
           <button
@@ -106,6 +114,9 @@ export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
 SlashCommands.displayName = 'SlashCommands';
 
 export const slashCommandItems = (): CommandItem[] => [
+  // ============================================
+  // TEXT & HEADINGS
+  // ============================================
   {
     title: 'Text',
     description: 'Just start writing with plain text',
@@ -161,11 +172,15 @@ export const slashCommandItems = (): CommandItem[] => [
         .run();
     },
   },
+
+  // ============================================
+  // LISTS
+  // ============================================
   {
     title: 'Bullet List',
     description: 'Create a simple bullet list',
     icon: <List className="h-4 w-4" />,
-    keywords: ['ul', 'list', 'bullet'],
+    keywords: ['ul', 'list', 'bullet', 'unordered'],
     command: ({ editor, range }: any) => {
       editor
         .chain()
@@ -179,7 +194,7 @@ export const slashCommandItems = (): CommandItem[] => [
     title: 'Numbered List',
     description: 'Create a numbered list',
     icon: <ListOrdered className="h-4 w-4" />,
-    keywords: ['ol', 'ordered', 'numbered'],
+    keywords: ['ol', 'ordered', 'numbered', 'list'],
     command: ({ editor, range }: any) => {
       editor
         .chain()
@@ -189,11 +204,15 @@ export const slashCommandItems = (): CommandItem[] => [
         .run();
     },
   },
+
+  // ============================================
+  // BLOCKS
+  // ============================================
   {
     title: 'Quote',
     description: 'Create a blockquote',
     icon: <Quote className="h-4 w-4" />,
-    keywords: ['blockquote', 'citation'],
+    keywords: ['blockquote', 'citation', 'quote'],
     command: ({ editor, range }: any) => {
       editor
         .chain()
@@ -207,7 +226,7 @@ export const slashCommandItems = (): CommandItem[] => [
     title: 'Code Block',
     description: 'Create a code block',
     icon: <Code className="h-4 w-4" />,
-    keywords: ['code', 'codeblock', 'snippet'],
+    keywords: ['code', 'codeblock', 'snippet', 'programming'],
     command: ({ editor, range }: any) => {
       editor
         .chain()
@@ -218,38 +237,10 @@ export const slashCommandItems = (): CommandItem[] => [
     },
   },
   {
-    title: 'Math Inline',
-    description: 'Inline LaTeX equation',
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ['math', 'latex', 'equation', 'formula'],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline('') // Starts empty so user can type
-        .run();
-    },
-  },
-  {
-    title: 'Math Block',
-    description: 'Centered LaTeX equation',
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ['math', 'latex', 'equation', 'block'],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock('') // Starts empty
-        .run();
-    },
-  },
-  {
     title: 'Divider',
     description: 'Insert a horizontal rule',
     icon: <Minus className="h-4 w-4" />,
-    keywords: ['hr', 'horizontal', 'line', 'separator'],
+    keywords: ['hr', 'horizontal', 'line', 'separator', 'divider'],
     command: ({ editor, range }: any) => {
       editor
         .chain()
@@ -259,14 +250,395 @@ export const slashCommandItems = (): CommandItem[] => [
         .run();
     },
   },
+
+  // ============================================
+  // MATH - BASIC
+  // ============================================
+  {
+    title: 'Math Inline',
+    description: 'Inline equation ($...$)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'latex', 'equation', 'formula', 'inline', '$', 'katex'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline('').run();
+    },
+  },
+  {
+    title: 'Math Block',
+    description: 'Display equation ($$...$$)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'latex', 'equation', 'block', 'display', '$$', 'katex'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock('').run();
+    },
+  },
+  {
+    title: 'Fraction',
+    description: 'Insert a fraction (a/b)',
+    icon: <Divide className="h-4 w-4" />,
+    keywords: ['math', 'fraction', 'frac', 'divide', 'ratio'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.fraction).run();
+    },
+  },
+  {
+    title: 'Square Root',
+    description: 'Insert square root (√)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'sqrt', 'root', 'square'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.sqrt).run();
+    },
+  },
+  {
+    title: 'Subscript',
+    description: 'Insert subscript (xᵢ)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'subscript', 'index', 'sub'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.subscript).run();
+    },
+  },
+  {
+    title: 'Superscript',
+    description: 'Insert superscript (xⁿ)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'superscript', 'power', 'exponent', 'sup'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.superscript).run();
+    },
+  },
+  {
+    title: 'Infinity',
+    description: 'Insert infinity (∞)',
+    icon: <Infinity className="h-4 w-4" />,
+    keywords: ['math', 'infinity', 'inf', 'infinite'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.infinity).run();
+    },
+  },
+  {
+    title: 'Plus/Minus',
+    description: 'Insert plus-minus (±)',
+    icon: <PlusCircle className="h-4 w-4" />,
+    keywords: ['math', 'plus', 'minus', 'pm', 'plusminus'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.plusMinus).run();
+    },
+  },
+
+  // ============================================
+  // MATH - CALCULUS
+  // ============================================
+  {
+    title: 'Sum',
+    description: 'Insert summation (Σ)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'sum', 'sigma', 'summation', 'series'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.sum).run();
+    },
+  },
+  {
+    title: 'Product',
+    description: 'Insert product (Π)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'product', 'pi', 'prod', 'multiply'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.product).run();
+    },
+  },
+  {
+    title: 'Integral',
+    description: 'Insert integral (∫)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'integral', 'int', 'calculus', 'integration'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.integral).run();
+    },
+  },
+  {
+    title: 'Limit',
+    description: 'Insert limit (lim)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'limit', 'lim', 'calculus'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.limit).run();
+    },
+  },
+  {
+    title: 'Derivative',
+    description: 'Insert derivative (d/dx)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'derivative', 'diff', 'calculus', 'dx'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.derivative).run();
+    },
+  },
+  {
+    title: 'Partial Derivative',
+    description: 'Insert partial derivative (∂)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'partial', 'derivative', 'multivariable'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.partial).run();
+    },
+  },
+  {
+    title: 'Gradient',
+    description: 'Insert gradient (∇)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'gradient', 'nabla', 'del', 'vector'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.gradient).run();
+    },
+  },
+
+  // ============================================
+  // MATH - LINEAR ALGEBRA
+  // ============================================
+  {
+    title: 'Matrix',
+    description: 'Insert 2×2 matrix',
+    icon: <Grid3X3 className="h-4 w-4" />,
+    keywords: ['math', 'matrix', 'array', 'linear', 'algebra'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.matrix).run();
+    },
+  },
+  {
+    title: 'Determinant',
+    description: 'Insert determinant |A|',
+    icon: <Grid3X3 className="h-4 w-4" />,
+    keywords: ['math', 'determinant', 'det', 'matrix', 'linear'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.determinant).run();
+    },
+  },
+  {
+    title: 'Vector',
+    description: 'Insert column vector',
+    icon: <Brackets className="h-4 w-4" />,
+    keywords: ['math', 'vector', 'column', 'linear', 'algebra'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.vector).run();
+    },
+  },
+  {
+    title: 'Norm',
+    description: 'Insert norm ||x||',
+    icon: <Brackets className="h-4 w-4" />,
+    keywords: ['math', 'norm', 'magnitude', 'length', 'absolute'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.norm).run();
+    },
+  },
+
+  // ============================================
+  // MATH - STATISTICS
+  // ============================================
+  {
+    title: 'Expectation',
+    description: 'Expected value E[X]',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'expectation', 'expected', 'mean', 'average', 'statistics'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.expectation).run();
+    },
+  },
+  {
+    title: 'Probability',
+    description: 'Probability P(X)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'probability', 'prob', 'statistics', 'chance'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.probability).run();
+    },
+  },
+  {
+    title: 'Variance',
+    description: 'Variance Var(X)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'variance', 'var', 'statistics', 'spread'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.variance).run();
+    },
+  },
+  {
+    title: 'Normal Distribution',
+    description: 'Normal distribution N(μ,σ²)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'normal', 'gaussian', 'distribution', 'bell', 'curve'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.normalDist).run();
+    },
+  },
+
+  // ============================================
+  // MATH - MACHINE LEARNING
+  // ============================================
+  {
+    title: 'Hat',
+    description: 'Insert hat notation (ŷ)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'hat', 'estimate', 'prediction', 'ml'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.hat).run();
+    },
+  },
+  {
+    title: 'Argmax',
+    description: 'Insert argmax',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'argmax', 'maximum', 'optimization', 'ml'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.argmax).run();
+    },
+  },
+  {
+    title: 'Argmin',
+    description: 'Insert argmin',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'argmin', 'minimum', 'optimization', 'ml'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.argmin).run();
+    },
+  },
+  {
+    title: 'Sigmoid',
+    description: 'Sigmoid function σ(x)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'sigmoid', 'logistic', 'activation', 'neural', 'ml'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.sigmoid).run();
+    },
+  },
+  {
+    title: 'Softmax',
+    description: 'Softmax function',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'softmax', 'activation', 'classification', 'neural', 'ml'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.softmax).run();
+    },
+  },
+
+  // ============================================
+  // MATH - SET THEORY
+  // ============================================
+  {
+    title: 'Element Of',
+    description: 'Element of set (x ∈ A)',
+    icon: <Braces className="h-4 w-4" />,
+    keywords: ['math', 'element', 'in', 'member', 'set', 'belongs'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.elementOf).run();
+    },
+  },
+  {
+    title: 'Union',
+    description: 'Set union (A ∪ B)',
+    icon: <Braces className="h-4 w-4" />,
+    keywords: ['math', 'union', 'cup', 'set', 'or'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.union).run();
+    },
+  },
+  {
+    title: 'Intersection',
+    description: 'Set intersection (A ∩ B)',
+    icon: <Braces className="h-4 w-4" />,
+    keywords: ['math', 'intersection', 'cap', 'set', 'and'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.intersection).run();
+    },
+  },
+  {
+    title: 'Subset',
+    description: 'Subset (A ⊆ B)',
+    icon: <Braces className="h-4 w-4" />,
+    keywords: ['math', 'subset', 'contained', 'set'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.subset).run();
+    },
+  },
+
+  // ============================================
+  // MATH - LOGIC
+  // ============================================
+  {
+    title: 'For All',
+    description: 'Universal quantifier (∀)',
+    icon: <ArrowRight className="h-4 w-4" />,
+    keywords: ['math', 'forall', 'all', 'universal', 'quantifier', 'logic'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.forall).run();
+    },
+  },
+  {
+    title: 'Exists',
+    description: 'Existential quantifier (∃)',
+    icon: <ArrowRight className="h-4 w-4" />,
+    keywords: ['math', 'exists', 'existential', 'quantifier', 'logic'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.exists).run();
+    },
+  },
+  {
+    title: 'Implies',
+    description: 'Logical implication (⇒)',
+    icon: <ArrowRight className="h-4 w-4" />,
+    keywords: ['math', 'implies', 'implication', 'then', 'logic', 'arrow'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.implies).run();
+    },
+  },
+  {
+    title: 'If and Only If',
+    description: 'Biconditional (⇔)',
+    icon: <ArrowRight className="h-4 w-4" />,
+    keywords: ['math', 'iff', 'biconditional', 'equivalent', 'logic'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.iff).run();
+    },
+  },
+
+  // ============================================
+  // MATH - COMBINATORICS
+  // ============================================
+  {
+    title: 'Binomial',
+    description: 'Binomial coefficient (n choose k)',
+    icon: <Sigma className="h-4 w-4" />,
+    keywords: ['math', 'binomial', 'choose', 'combination', 'combinatorics'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathInline(mathTemplates.binomial).run();
+    },
+  },
+
+  // ============================================
+  // MATH - PIECEWISE
+  // ============================================
+  {
+    title: 'Cases',
+    description: 'Piecewise function',
+    icon: <Braces className="h-4 w-4" />,
+    keywords: ['math', 'cases', 'piecewise', 'conditional', 'if'],
+    command: ({ editor, range }: any) => {
+      editor.chain().focus().deleteRange(range).setMathBlock(mathTemplates.cases).run();
+    },
+  },
 ];
 
 export const slashCommandSuggestion = {
   items: ({ query }: { query: string }) => {
     const items = slashCommandItems();
-    
+
+    if (!query) return items;
+
+    const searchTerm = query.toLowerCase();
+
     return items.filter(item => {
-      const searchTerm = query.toLowerCase();
       return (
         item.title.toLowerCase().includes(searchTerm) ||
         item.description.toLowerCase().includes(searchTerm) ||
@@ -328,4 +700,4 @@ export const slashCommandSuggestion = {
       },
     };
   },
-}
+};

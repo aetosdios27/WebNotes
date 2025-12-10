@@ -3,7 +3,6 @@ import { useState } from 'react';
 import React from 'react';
 import type { Note, Folder } from '@/lib/storage/types';
 import { FileText, Folder as FolderIcon, Trash2, ChevronRight, Edit, Check, X, Pin, PinOff, MoreVertical } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -152,7 +151,7 @@ export default function NoteList({
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     
-    const { id, type, name } = deleteConfirm;
+    const { id, type } = deleteConfirm;
     setDeleteConfirm(null);
     
     if (type === 'note' && id === activeNoteId) {
@@ -229,20 +228,12 @@ export default function NoteList({
         style={{ cursor: !isMobile && renamingId !== note.id && draggedNoteId ? 'grabbing' : 'default' }}
         className={isIndented ? 'ml-6' : ''}
       >
-        <motion.div
-          layout
-          layoutId={`note-${note.id}`}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ 
-            opacity: 1, 
-            y: 0,
+        <div
+          onClick={(e) => {
+            if (e.button === 0 && renamingId !== note.id) {
+              setActiveNoteId(note.id);
+            }
           }}
-          exit={{ opacity: 0, x: -30 }}
-          transition={{ 
-            duration: 0.3,
-            layout: { type: "spring", stiffness: 300, damping: 30 }
-          }}
-          onClick={() => renamingId !== note.id && setActiveNoteId(note.id)}
           className={`flex items-start gap-3 p-3 md:p-2 rounded-md cursor-pointer transition-all relative group ${
             note.id === activeNoteId
               ? 'bg-zinc-800 text-white'
@@ -291,13 +282,7 @@ export default function NoteList({
                 <div className="flex items-center gap-2">
                   <h2 className="font-medium truncate flex-1 text-sm md:text-base">{note.title || 'Untitled'}</h2>
                   {note.isPinned && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                    >
-                      <Pin size={12} className="text-yellow-500 flex-shrink-0" fill="currentColor" />
-                    </motion.div>
+                    <Pin size={12} className="text-yellow-500 flex-shrink-0" fill="currentColor" />
                   )}
                   
                   {isMobile && (
@@ -342,7 +327,7 @@ export default function NoteList({
               </>
             )}
           </div>
-        </motion.div>
+        </div>
       </div>
     );
 
@@ -398,20 +383,20 @@ export default function NoteList({
             : ''
         }`}
       >
-        <motion.div
-          layout
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, x: -30 }}
-          transition={{ duration: 0.2 }}
-          onClick={() => renamingId !== folder.id && toggleFolder(folder.id)}
+        <div
+          onClick={(e) => {
+            if (e.button === 0 && renamingId !== folder.id) {
+              toggleFolder(folder.id);
+            }
+          }}
           className={`flex items-center gap-2 p-3 md:p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer group ${
             isDragOver ? 'bg-yellow-500/20' : wasJustDropped ? 'bg-green-500/20' : ''
           }`}
         >
-          <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronRight size={16} />
-          </motion.div>
+          <ChevronRight 
+            size={16} 
+            className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+          />
           <FolderIcon size={16} className="text-yellow-500" />
           {renamingId === folder.id ? (
             <div className="flex items-center gap-2 flex-1">
@@ -479,21 +464,13 @@ export default function NoteList({
               )}
             </>
           )}
-        </motion.div>
+        </div>
         
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              style={{ overflow: 'hidden' }}
-            >
-              {folderNotes.map(note => renderNote(note, true))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {isExpanded && (
+          <div className="overflow-hidden">
+            {folderNotes.map(note => renderNote(note, true))}
+          </div>
+        )}
       </div>
     );
 
@@ -524,43 +501,41 @@ export default function NoteList({
   return (
     <>
       <div className="p-2 space-y-1">
-        <AnimatePresence mode="popLayout">
-          {folders.map(folder => renderFolder(folder))}
-          
-          {!isMobile && (
-            <div
-              onDragOver={handleDragOver}
-              onDragEnter={(e) => handleDragEnter(e, null)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, null)}
-              className={`transition-all rounded-md ${
-                dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 p-2' : ''
-              }`}
-            >
-              {unfiledNotes.length > 0 && (
-                <div className={`text-xs text-zinc-500 px-2 pt-2 ${folders.length > 0 ? 'mt-2' : ''}`}>
-                  Unfiled Notes
-                </div>
-              )}
-              {unfiledNotes.map(note => renderNote(note))}
-                
-              {draggedNoteId && unfiledNotes.length === 0 && dragOverFolderId === null && (
-                <div className="text-xs text-zinc-500 text-center py-4 border-2 border-dashed border-zinc-700 rounded-md">
-                  Drop here for unfiled notes
-                </div>
-              )}
-            </div>
-          )}
-          
-          {isMobile && unfiledNotes.length > 0 && (
-            <div>
+        {folders.map(folder => renderFolder(folder))}
+        
+        {!isMobile && (
+          <div
+            onDragOver={handleDragOver}
+            onDragEnter={(e) => handleDragEnter(e, null)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, null)}
+            className={`transition-all rounded-md ${
+              dragOverFolderId === null && draggedNoteId ? 'ring-2 ring-yellow-500/50 p-2' : ''
+            }`}
+          >
+            {unfiledNotes.length > 0 && (
               <div className={`text-xs text-zinc-500 px-2 pt-2 ${folders.length > 0 ? 'mt-2' : ''}`}>
                 Unfiled Notes
               </div>
-              {unfiledNotes.map(note => renderNote(note))}
+            )}
+            {unfiledNotes.map(note => renderNote(note))}
+              
+            {draggedNoteId && unfiledNotes.length === 0 && dragOverFolderId === null && (
+              <div className="text-xs text-zinc-500 text-center py-4 border-2 border-dashed border-zinc-700 rounded-md">
+                Drop here for unfiled notes
+              </div>
+            )}
+          </div>
+        )}
+        
+        {isMobile && unfiledNotes.length > 0 && (
+          <div>
+            <div className={`text-xs text-zinc-500 px-2 pt-2 ${folders.length > 0 ? 'mt-2' : ''}`}>
+              Unfiled Notes
             </div>
-          )}
-        </AnimatePresence>
+            {unfiledNotes.map(note => renderNote(note))}
+          </div>
+        )}
       </div>
 
       {deleteConfirm && (

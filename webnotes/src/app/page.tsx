@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CommandPalette from '@/app/components/CommandPalette';
 import LoadingScreen from '@/app/components/LoadingScreen';
 import { useSession } from 'next-auth/react';
+import { HelpModal } from '@/app/components/HelpModal'; // 1. Import HelpModal
 
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
@@ -29,6 +30,7 @@ export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false); // 2. Add Help state
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -191,6 +193,13 @@ export default function Home() {
                         target.contentEditable === 'true' ||
                         target.closest('.ProseMirror');
       
+      // 3. Global shortcut for Help (Cmd+/) works even when editing
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        setIsHelpOpen(prev => !prev);
+        return;
+      }
+
       if (isEditing) return;
       
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -266,6 +275,7 @@ export default function Home() {
             updateNoteLocally={updateNoteLocally}
             togglePin={togglePin}
             syncStatus={combinedStatus}
+            onOpenHelp={() => setIsHelpOpen(true)} // 4. Pass help trigger
           />
         )}
       </div>
@@ -303,6 +313,7 @@ export default function Home() {
                 updateNoteLocally={updateNoteLocally}
                 togglePin={togglePin}
                 syncStatus={combinedStatus}
+                onOpenHelp={() => setIsHelpOpen(true)} // 5. Pass help trigger (mobile)
               />
             )}
           </motion.div>
@@ -350,6 +361,9 @@ export default function Home() {
         deleteNote={deleteNote}
         togglePin={togglePin}
       />
+
+      {/* 6. Render Help Modal */}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </main>
   );
 }

@@ -11,10 +11,8 @@ import { SlashCommand } from './SlashCommandExtension';
 import { slashCommandSuggestion } from './SlashCommands';
 import { Toolbar } from './Toolbar';
 import NoteSettings from './NoteSettings';
-import { MathInline } from './extensions/MathInline';
-import { MathBlock } from './extensions/MathBlock';
-import { MathBubbleMenu } from './MathBubbleMenu';
-import { useEffect, useRef, useState } from 'react';
+import { MathInline, MathBlock } from './extensions/math';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
@@ -31,10 +29,14 @@ export default function NoteEditor({
 }: NoteEditorProps) {
   const [title, setTitle] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const lastNoteIdRef = useRef<string | null>(null);
 
+  // Track note changes
   useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title || '');
+      
+      // Focus title input for new empty notes
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
         setTimeout(() => titleInputRef.current?.focus(), 100);
       }
@@ -42,10 +44,12 @@ export default function NoteEditor({
   }, [activeNote?.id]);
 
   // Helper to get markdown from editor
-  const getMarkdown = (editor: any) => {
-    return editor.storage.markdown?.getMarkdown() || editor.getHTML();
-  };
+  const getMarkdown = useCallback((editorInstance: any) => {
+    if (!editorInstance) return '';
+    return editorInstance.storage.markdown?.getMarkdown() || editorInstance.getHTML();
+  }, []);
 
+  // Debounced save function
   const debouncedSave = useDebouncedCallback(
     async (noteId: string, newTitle: string, markdownContent: string) => {
       if (!noteId) return;
@@ -54,7 +58,12 @@ export default function NoteEditor({
       
       try {
         const finalTitle = newTitle.trim() || markdownContent.substring(0, 50).split('\n')[0] || 'Untitled';
-        const updatedNote = { ...activeNote!, title: finalTitle, content: markdownContent, updatedAt: new Date() };
+        const updatedNote = { 
+          ...activeNote!, 
+          title: finalTitle, 
+          content: markdownContent, 
+          updatedAt: new Date() 
+        };
         await onNoteUpdate(updatedNote);
       } catch (error) {
         console.error('Failed to save note:', error);
@@ -65,20 +74,23 @@ export default function NoteEditor({
     1500
   );
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle title changes
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
     if (activeNote && editor) {
       debouncedSave(activeNote.id, newTitle, getMarkdown(editor));
     }
-  };
+  }, [activeNote, debouncedSave, getMarkdown]);
 
-  const handleDelete = () => {
+  // Handle delete
+  const handleDelete = useCallback(() => {
     if (activeNote && onDeleteNote) {
       onDeleteNote(activeNote.id);
     }
-  };
+  }, [activeNote, onDeleteNote]);
 
+  // Initialize editor
   const editor = useEditor(
     {
       extensions: [
@@ -123,9 +135,9 @@ export default function NoteEditor({
           class: 'prose prose-invert prose-lg focus:outline-none max-w-none break-words',
         },
       },
-      onUpdate: ({ editor }) => {
+      onUpdate: ({ editor: editorInstance }) => {
         if (!activeNote?.id) return;
-        const markdown = getMarkdown(editor);
+        const markdown = getMarkdown(editorInstance);
         debouncedSave(activeNote.id, title, markdown);
       },
       immediatelyRender: false,
@@ -133,15 +145,37 @@ export default function NoteEditor({
     [activeNote?.id]
   );
 
+  // Sync content when note changes - fixed for React 19
   useEffect(() => {
-    if (editor && activeNote) {
-      const currentMarkdown = getMarkdown(editor);
-      if (currentMarkdown !== (activeNote.content || '')) {
-        editor.commands.setContent(activeNote.content || '', { emitUpdate: false });
-      }
-    }
-  }, [activeNote?.id, activeNote?.content, editor]);
+    if (!editor || !activeNote) return;
+    
+    // Only update if we're switching to a different note
+    if (lastNoteIdRef.current === activeNote.id) return;
+    lastNoteIdRef.current = activeNote.id;
 
+    // Use queueMicrotask to escape React's render cycle
+    // This prevents the flushSync error in React 19
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      
+      const currentContent = getMarkdown(editor);
+      const newContent = activeNote.content || '';
+      
+      if (currentContent !== newContent) {
+        editor.commands.setContent(newContent, { emitUpdate: false });
+      }
+    });
+  }, [activeNote?.id, activeNote?.content, editor, getMarkdown]);
+
+  // Handle title Enter key
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      editor?.commands.focus();
+    }
+  }, [editor]);
+
+  // Empty state
   if (!activeNote) {
     return (
       <div className="flex-1 flex items-center justify-center h-full bg-black text-zinc-700">
@@ -153,7 +187,7 @@ export default function NoteEditor({
   return (
     <div className="flex flex-col flex-1 h-full bg-black">
       {/* Settings button - positioned absolute top-right */}
-      <div className="absolute top-8 right-12 z-10">
+      <div className="absolute top-8 right-12 z-10 hidden md:block">
         <NoteSettings 
           note={activeNote} 
           onDelete={handleDelete}
@@ -161,41 +195,35 @@ export default function NoteEditor({
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto px-12 pt-8">
-        {/* Toolbar - inline-block so it hugs content */}
-        <div className="inline-block mb-6"> 
+      <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8">
+        {/* Toolbar */}
+        <div className="inline-block mb-4 md:mb-6"> 
           {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
         </div>
         
+        {/* Title input */}
         <input
           ref={titleInputRef}
           type="text"
           value={title}
           onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
           placeholder="Untitled"
-          className="w-full bg-transparent text-4xl font-bold text-white placeholder-zinc-600 focus:outline-none mb-8 leading-tight break-words"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              editor?.commands.focus();
-            }
-          }}
+          className="w-full bg-transparent text-3xl md:text-4xl font-bold text-white placeholder-zinc-600 focus:outline-none mb-6 md:mb-8 leading-tight break-words"
         />
         
+        {/* Editor content */}
         <div className="min-h-[500px] editor-wrapper pb-12">
           {editor ? (
-            <>
-              <EditorContent editor={editor} />
-              <MathBubbleMenu editor={editor} />
-            </>
+            <EditorContent editor={editor} />
           ) : (
             <div className="h-40 rounded-md bg-zinc-800/40 animate-pulse" />
           )}
         </div>
       </div>
       
+      {/* Global editor styles */}
       <style jsx global>{`
-        /* Text wrapping fix for Tiptap editor */
         .ProseMirror {
           word-wrap: break-word !important;
           word-break: break-word !important;
@@ -214,7 +242,6 @@ export default function NoteEditor({
           word-wrap: break-word !important;
         }
 
-        /* Placeholder styling */
         .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
@@ -223,7 +250,6 @@ export default function NoteEditor({
           height: 0;
         }
 
-        /* Markdown element styling */
         .ProseMirror h1 {
           font-size: 2.25em;
           font-weight: 700;
@@ -285,7 +311,6 @@ export default function NoteEditor({
           margin: 2em 0;
         }
 
-        /* Tippy.js tooltip styling */
         .tippy-box[data-theme~='dark'] {
           background-color: transparent;
           border: none;

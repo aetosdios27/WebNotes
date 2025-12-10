@@ -30,6 +30,7 @@ interface SidebarProps {
   updateNoteLocally?: (noteId: string, updates: Partial<Note>) => void;
   togglePin: (noteId: string) => Promise<void>;
   syncStatus: SyncStatus;
+  onOpenHelp: () => void; // 1. Added prop
 }
 
 export default function Sidebar({ 
@@ -45,7 +46,8 @@ export default function Sidebar({
   onDataChange,
   updateNoteLocally,
   togglePin,
-  syncStatus
+  syncStatus,
+  onOpenHelp // 2. Destructure prop
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -196,6 +198,23 @@ export default function Sidebar({
             </TooltipTrigger>
             <TooltipContent side={isOpen ? "top" : "right"}>
               <p>Search</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* 3. Added Help Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onOpenHelp}
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
+              >
+                <span className="text-lg font-bold font-mono">?</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side={isOpen ? "top" : "right"}>
+              <p>Shortcuts & Math Guide (⌘/)</p>
             </TooltipContent>
           </Tooltip>
         </div>
