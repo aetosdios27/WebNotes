@@ -17,10 +17,10 @@ interface HeadingData {
 export function TableOfContents({ editor }: TableOfContentsProps) {
   const [headings, setHeadings] = useState<HeadingData[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [railHeight, setRailHeight] = useState<number>(0); // Dynamic height
+  const [railHeight, setRailHeight] = useState<number>(0);
   const isUpdating = useRef(false);
 
-  // 1. Calculate Headings & Rail Height
+  // 1. Calculate Headings & Positions
   const calculateHeadings = () => {
     if (!editor || isUpdating.current) return;
     
@@ -30,11 +30,6 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
     const totalHeight = scrollContainer.scrollHeight || 1;
     const viewportHeight = window.innerHeight;
 
-    // SCALING LOGIC:
-    // We map 1px of content to roughly 0.15px of rail (15% scale).
-    // But we cap the rail at 60% of the screen height (60vh).
-    // This ensures short docs have short rails (bars close together),
-    // and long docs utilize the full available space.
     const calculatedHeight = Math.min(viewportHeight * 0.6, totalHeight * 0.15);
     setRailHeight(calculatedHeight);
     
@@ -42,10 +37,10 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
     
     editor.state.doc.descendants((node, pos) => {
       if (node.type.name === 'heading') {
-        const domNode = editor.view.nodeDOM(pos) as HTMLElement;
+        const domNode = editor.view.nodeDOM(pos);
         
-        if (domNode) {
-          // Calculate percentage relative to the total document height
+        // FIX: Strict check for HTMLElement
+        if (domNode && domNode instanceof HTMLElement) {
           const percent = (domNode.offsetTop / totalHeight) * 100;
 
           newHeadings.push({
@@ -94,14 +89,16 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
 
     const handleScroll = () => {
       const containerRect = scrollContainer.getBoundingClientRect();
-      const targetY = containerRect.top + 100; 
+      const targetY = containerRect.top + 100;
 
       let closestIndex = 0;
       let minDistance = Infinity;
 
       headings.forEach((h, index) => {
-        const domNode = editor?.view.nodeDOM(h.pos) as HTMLElement;
-        if (!domNode) return;
+        const domNode = editor?.view.nodeDOM(h.pos);
+        
+        // FIX: Strict check for HTMLElement before calling getBoundingClientRect
+        if (!domNode || !(domNode instanceof HTMLElement)) return;
 
         const rect = domNode.getBoundingClientRect();
         const distance = Math.abs(rect.top - targetY);
@@ -129,14 +126,9 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
   if (!editor || headings.length === 0) return null;
 
   return (
-    // Fixed Container Position
     <div className="hidden xl:block fixed right-6 top-1/2 -translate-y-1/2 z-50 w-16 group pointer-events-none">
       
-      {/* 
-        RIGHT: The Minimap Rail
-        - Height is now dynamic based on content length
-        - min-h-[100px] ensures it doesn't get too cramped for very short docs
-      */}
+      {/* RIGHT: The Minimap Rail */}
       <div 
         className="absolute right-0 top-1/2 -translate-y-1/2 w-full pointer-events-auto transition-[height] duration-300"
         style={{ height: `${Math.max(100, railHeight)}px` }}
@@ -144,7 +136,6 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
         {headings.map((heading, index) => {
           const isActive = activeIndex === index;
           
-          // Thinner width config as requested
           const baseWidth = heading.level === 1 ? 'w-3' : heading.level === 2 ? 'w-2' : 'w-1.5';
           const activeWidth = 'w-5';
 
@@ -173,10 +164,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
         })}
       </div>
 
-      {/* 
-        LEFT: Pop-up TOC Card
-        - Aligned to the center of the rail
-      */}
+      {/* LEFT: Pop-up TOC Card */}
       <div 
         className={`
           absolute right-10 top-1/2 -translate-y-1/2 max-h-[60vh] w-64 

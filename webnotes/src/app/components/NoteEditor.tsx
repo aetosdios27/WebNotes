@@ -12,6 +12,7 @@ import { slashCommandSuggestion } from './SlashCommands';
 import { Toolbar } from './Toolbar';
 import NoteSettings from './NoteSettings';
 import { MathInline, MathBlock } from './extensions/math';
+import { CodeBlock } from './extensions/CodeBlock'; // 1. Import Custom CodeBlock
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { TableOfContents } from './TableOfContents';
 
@@ -99,14 +100,11 @@ export default function NoteEditor({
           heading: {
             levels: [1, 2, 3, 4, 5, 6],
           },
+          // 2. DISABLE default code block so we can use our custom one
+          codeBlock: false,
           code: {
             HTMLAttributes: {
               class: 'bg-zinc-800 text-yellow-400 px-1 py-0.5 rounded text-sm',
-            },
-          },
-          codeBlock: {
-            HTMLAttributes: {
-              class: 'bg-zinc-800 text-zinc-200 p-4 rounded-lg my-4 font-mono text-sm',
             },
           },
           blockquote: {
@@ -129,6 +127,8 @@ export default function NoteEditor({
         }),
         MathInline,
         MathBlock,
+        // 3. ADD Custom CodeBlock
+        CodeBlock,
       ],
       content: activeNote?.content ?? '',
       editorProps: {
@@ -194,23 +194,13 @@ export default function NoteEditor({
         />
       </div>
 
-      {/* 
-        Floating Minimap / TOC 
-        Placed here to sit on top of content
-      */}
+      {/* Floating Minimap / TOC */}
       <TableOfContents editor={editor} />
 
-      {/* 
-        Main Content Area 
-        - 'editor-scroll-container': Class for scrollspy
-        - 'relative': Required for offsetTop calculations in TOC to work correctly
-      */}
+      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
         
-        {/* 
-          Container for centering 
-          - pr-16: Padding right prevents text from going under the minimap rail
-        */}
+        {/* Container for centering */}
         <div className="max-w-4xl mx-auto pr-16">
           
           {/* Toolbar */}

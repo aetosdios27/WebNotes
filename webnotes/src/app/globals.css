@@ -274,7 +274,6 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   vertical-align: middle;
-  /* Clean by default - no background or border */
 }
 
 .math-inline-render:hover {
@@ -286,7 +285,6 @@ body {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.4);
 }
 
-/* Error state */
 .math-inline-render.border-red-500\/50 {
   background: rgba(239, 68, 68, 0.1);
 }
@@ -309,7 +307,6 @@ body {
   text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
-  /* Subtle border only - transparent by default */
   border: 1px solid transparent;
 }
 
@@ -324,7 +321,6 @@ body {
   border-color: transparent;
 }
 
-/* Error state */
 .math-block-render.border-red-500\/50 {
   border-color: rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.05);
@@ -396,26 +392,15 @@ body {
   white-space: normal;
 }
 
-/* All text elements */
-.katex .mord,
-.katex .mbin,
-.katex .mrel,
-.katex .mop,
-.katex .mopen,
-.katex .mclose,
-.katex .mpunct,
-.katex .minner,
-.katex .mtext {
+.katex .mord, .katex .mbin, .katex .mrel, .katex .mop, .katex .mopen, .katex .mclose, .katex .mpunct, .katex .minner, .katex .mtext {
   color: #fafafa !important;
 }
 
-/* Fraction lines */
 .katex .frac-line {
   border-bottom-color: #fafafa !important;
   background: #fafafa !important;
 }
 
-/* Square root */
 .katex .sqrt-line {
   border-bottom-color: #fafafa !important;
   background: #fafafa !important;
@@ -425,9 +410,7 @@ body {
   color: #fafafa !important;
 }
 
-/* Delimiters (parentheses, brackets) */
-.katex .delimsizing,
-.katex .delimsizinginner {
+.katex .delimsizing, .katex .delimsizinginner {
   color: #fafafa !important;
 }
 
@@ -435,7 +418,6 @@ body {
   color: #fafafa !important;
 }
 
-/* Matrix/table separators */
 .katex .vertical-separator {
   background: #fafafa !important;
 }
@@ -448,13 +430,10 @@ body {
   border-bottom-color: #fafafa !important;
 }
 
-/* Overline & underline */
-.katex .overline-line,
-.katex .underline-line {
+.katex .overline-line, .katex .underline-line {
   border-bottom-color: #fafafa !important;
 }
 
-/* Arrows */
 .katex .arrow-tip {
   color: #fafafa !important;
 }
@@ -464,46 +443,35 @@ body {
   stroke: #fafafa !important;
 }
 
-/* Cancel/strikethrough */
 .katex .cancel-stroke {
   stroke: #fafafa !important;
 }
 
-/* Boxed equations */
-.katex .boxpad,
-.katex .fbox,
-.katex .colorbox {
+.katex .boxpad, .katex .fbox, .katex .colorbox {
   border-color: #fafafa !important;
 }
 
-/* Accent marks */
 .katex .accent-body {
   color: #fafafa !important;
 }
 
-/* Vector arrows above letters */
 .katex .accent-vec {
   color: #fafafa !important;
 }
 
-/* Rule (horizontal lines in fractions, etc) */
 .katex .rule {
   background-color: #fafafa !important;
   border-color: #fafafa !important;
 }
 
-/* Sizing */
-.katex .sizing,
-.katex .fontsize-ensurer {
+.katex .sizing, .katex .fontsize-ensurer {
   color: inherit !important;
 }
 
-/* Text mode */
 .katex .text {
   color: #fafafa !important;
 }
 
-/* Special operators */
 .katex .op-symbol {
   color: #fafafa !important;
 }
@@ -512,9 +480,7 @@ body {
   color: #fafafa !important;
 }
 
-/* Large operators (sum, product, integral) */
-.katex .mop.op-symbol.large-op,
-.katex .mop.op-symbol.small-op {
+.katex .mop.op-symbol.large-op, .katex .mop.op-symbol.small-op {
   color: #fafafa !important;
 }
 
@@ -545,41 +511,26 @@ body {
     color: black !important;
   }
   
-  .katex,
-  .katex .mord,
-  .katex .mbin,
-  .katex .mrel,
-  .katex .mop,
-  .katex .mopen,
-  .katex .mclose,
-  .katex .mpunct,
-  .katex .minner,
-  .katex .mtext {
+  .katex, .katex .mord, .katex .mbin, .katex .mrel, .katex .mop, .katex .mopen, .katex .mclose, .katex .mpunct, .katex .minner, .katex .mtext {
     color: black !important;
   }
   
-  .katex .frac-line,
-  .katex .sqrt-line,
-  .katex .rule {
+  .katex .frac-line, .katex .sqrt-line, .katex .rule {
     border-bottom-color: black !important;
     background: black !important;
   }
   
-  .katex .sqrt-sign,
-  .katex .delimsizing,
-  .katex .delimsizinginner {
+  .katex .sqrt-sign, .katex .delimsizing, .katex .delimsizinginner {
     color: black !important;
   }
   
-  .math-inline-render,
-  .math-block-render {
+  .math-inline-render, .math-block-render {
     background: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
   }
   
-  .math-block-editor,
-  .math-inline-editor {
+  .math-block-editor, .math-inline-editor {
     display: none !important;
   }
 }
@@ -647,4 +598,79 @@ body {
 .math-inline-render.just-created,
 .math-block-render.just-created {
   animation: math-highlight 0.6s ease-out;
+}
+
+/*
+============================================================
+ Syntax Highlighting (Code Blocks) - One Dark Pro Style
+============================================================
+*/
+
+.hljs-comment,
+.hljs-quote {
+  color: #7f848e; /* Grayish */
+  font-style: italic;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula {
+  color: #c678dd; /* Purple */
+}
+
+.hljs-section,
+.hljs-name,
+.hljs-selector-tag,
+.hljs-deletion,
+.hljs-subst {
+  color: #e06c75; /* Red */
+}
+
+.hljs-literal {
+  color: #56b6c2; /* Cyan */
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta-string {
+  color: #98c379; /* Green */
+}
+
+.hljs-built_in,
+.hljs-class .hljs-title {
+  color: #e6c07b; /* Yellow/Gold */
+}
+
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-number {
+  color: #d19a66; /* Orange */
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-title {
+  color: #61aeee; /* Blue */
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-link {
+  text-decoration: underline;
 }
