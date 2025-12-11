@@ -13,6 +13,7 @@ import { Toolbar } from './Toolbar';
 import NoteSettings from './NoteSettings';
 import { MathInline, MathBlock } from './extensions/math';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { TableOfContents } from './TableOfContents';
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
@@ -154,7 +155,6 @@ export default function NoteEditor({
     lastNoteIdRef.current = activeNote.id;
 
     // Use queueMicrotask to escape React's render cycle
-    // This prevents the flushSync error in React 19
     queueMicrotask(() => {
       if (editor.isDestroyed) return;
       
@@ -185,7 +185,7 @@ export default function NoteEditor({
   }
 
   return (
-    <div className="flex flex-col flex-1 h-full bg-black">
+    <div className="flex flex-col flex-1 h-full bg-black relative">
       {/* Settings button - positioned absolute top-right */}
       <div className="absolute top-8 right-12 z-10 hidden md:block">
         <NoteSettings 
@@ -194,31 +194,49 @@ export default function NoteEditor({
         />
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8">
-        {/* Toolbar */}
-        <div className="inline-block mb-4 md:mb-6"> 
-          {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
-        </div>
+      {/* 
+        Floating Minimap / TOC 
+        Placed here to sit on top of content
+      */}
+      <TableOfContents editor={editor} />
+
+      {/* 
+        Main Content Area 
+        - 'editor-scroll-container': Class for scrollspy
+        - 'relative': Required for offsetTop calculations in TOC to work correctly
+      */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
         
-        {/* Title input */}
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          onKeyDown={handleTitleKeyDown}
-          placeholder="Untitled"
-          className="w-full bg-transparent text-3xl md:text-4xl font-bold text-white placeholder-zinc-600 focus:outline-none mb-6 md:mb-8 leading-tight break-words"
-        />
-        
-        {/* Editor content */}
-        <div className="min-h-[500px] editor-wrapper pb-12">
-          {editor ? (
-            <EditorContent editor={editor} />
-          ) : (
-            <div className="h-40 rounded-md bg-zinc-800/40 animate-pulse" />
-          )}
+        {/* 
+          Container for centering 
+          - pr-16: Padding right prevents text from going under the minimap rail
+        */}
+        <div className="max-w-4xl mx-auto pr-16">
+          
+          {/* Toolbar */}
+          <div className="inline-block mb-4 md:mb-6"> 
+            {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
+          </div>
+          
+          {/* Title input */}
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            onKeyDown={handleTitleKeyDown}
+            placeholder="Untitled"
+            className="w-full bg-transparent text-3xl md:text-4xl font-bold text-white placeholder-zinc-600 focus:outline-none mb-6 md:mb-8 leading-tight break-words"
+          />
+          
+          {/* Editor content */}
+          <div className="min-h-[500px] editor-wrapper pb-32">
+            {editor ? (
+              <EditorContent editor={editor} />
+            ) : (
+              <div className="h-40 rounded-md bg-zinc-800/40 animate-pulse" />
+            )}
+          </div>
         </div>
       </div>
       
@@ -248,6 +266,11 @@ export default function NoteEditor({
           color: #52525b;
           pointer-events: none;
           height: 0;
+        }
+
+        /* Important for Scroll Spy accuracy: offset headings when scrolling to them */
+        .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 {
+          scroll-margin-top: 100px;
         }
 
         .ProseMirror h1 {
