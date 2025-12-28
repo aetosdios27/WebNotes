@@ -18,13 +18,37 @@ export async function PUT(
   const userId = session.user.id;
   const { id } = await params;
 
-  const { htmlContent, textContent } = await request.json();
-  const title = (textContent?.split('\n')[0]?.trim() || 'New Note').slice(0, 200);
+  // 1. Get the full request body
+  const body = await request.json();
+
+  // 2. Prepare the update data object dynamically
+  // Always update the timestamp
+  const updateData: any = {
+    updatedAt: new Date(),
+  };
+
+  // 3. Map specific fields if they exist in the request body
+  
+  // Handle Content Updates (Editor saves)
+  if (body.htmlContent !== undefined) {
+    updateData.content = body.htmlContent;
+  }
+  
+  // Handle Title Updates (derived from textContent during editor save)
+  if (body.textContent !== undefined) {
+    updateData.title = (body.textContent.split('\n')[0]?.trim() || 'New Note').slice(0, 200);
+  }
+
+  // Handle Metadata Updates (Font, Pinning, Folders)
+  if (body.font !== undefined) updateData.font = body.font;
+  if (body.isPinned !== undefined) updateData.isPinned = body.isPinned;
+  if (body.pinnedAt !== undefined) updateData.pinnedAt = body.pinnedAt;
+  if (body.folderId !== undefined) updateData.folderId = body.folderId;
 
   try {
     const result = await prisma.note.updateMany({
       where: { id, userId }, // Ensures ownership
-      data: { title, content: htmlContent, updatedAt: new Date() },
+      data: updateData,
     });
 
     if (result.count === 0) {
@@ -33,7 +57,8 @@ export async function PUT(
 
     const note = await prisma.note.findUnique({ where: { id } });
     return NextResponse.json(note);
-  } catch {
+  } catch (error) {
+    console.error("Update error:", error);
     return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
   }
 }
@@ -51,7 +76,6 @@ export async function DELETE(
   }
   const userId = session.user.id;
   
-  // THE FIX: Await the params Promise to get the id
   const { id } = await params;
 
   try {

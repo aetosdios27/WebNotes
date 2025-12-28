@@ -1,4 +1,5 @@
 // src/lib/storage/types.ts
+
 export interface Note {
   id: string;
   title: string | null;
@@ -9,6 +10,7 @@ export interface Note {
   updatedAt: Date;
   isPinned?: boolean;
   pinnedAt?: Date | null;
+  font?: string | null; // 👈 Added font field (optional/nullable)
 }
 
 export interface Folder {

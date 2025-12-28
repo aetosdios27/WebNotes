@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CommandPalette from '@/app/components/CommandPalette';
 import LoadingScreen from '@/app/components/LoadingScreen';
 import { useSession } from 'next-auth/react';
-import { HelpModal } from '@/app/components/HelpModal'; // 1. Import HelpModal
+import { HelpModal } from '@/app/components/HelpModal'; 
 
 export type FolderWithNotes = Omit<Folder, 'notes'> & { 
   notes: Note[] 
@@ -30,7 +30,7 @@ export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false); // 2. Add Help state
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -165,11 +165,16 @@ export default function Home() {
     }
   }, [storageCreateFolder]);
 
+  // FIX: Include all properties (including font) in the update
   const handleNoteUpdate = useCallback(async (updatedNote: Note) => {
     try {
       await storageUpdateNote(updatedNote.id, {
         title: updatedNote.title,
         content: updatedNote.content,
+        font: updatedNote.font, // 👈 Ensures font changes are saved
+        isPinned: updatedNote.isPinned,
+        pinnedAt: updatedNote.pinnedAt,
+        folderId: updatedNote.folderId,
       });
     } catch (error) {
       toast.error('Failed to update note');
@@ -193,7 +198,7 @@ export default function Home() {
                         target.contentEditable === 'true' ||
                         target.closest('.ProseMirror');
       
-      // 3. Global shortcut for Help (Cmd+/) works even when editing
+      // Global shortcut for Help (Cmd+/) works even when editing
       if ((e.metaKey || e.ctrlKey) && e.key === '/') {
         e.preventDefault();
         setIsHelpOpen(prev => !prev);
@@ -275,7 +280,7 @@ export default function Home() {
             updateNoteLocally={updateNoteLocally}
             togglePin={togglePin}
             syncStatus={combinedStatus}
-            onOpenHelp={() => setIsHelpOpen(true)} // 4. Pass help trigger
+            onOpenHelp={() => setIsHelpOpen(true)}
           />
         )}
       </div>
@@ -313,7 +318,7 @@ export default function Home() {
                 updateNoteLocally={updateNoteLocally}
                 togglePin={togglePin}
                 syncStatus={combinedStatus}
-                onOpenHelp={() => setIsHelpOpen(true)} // 5. Pass help trigger (mobile)
+                onOpenHelp={() => setIsHelpOpen(true)}
               />
             )}
           </motion.div>
@@ -362,7 +367,6 @@ export default function Home() {
         togglePin={togglePin}
       />
 
-      {/* 6. Render Help Modal */}
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </main>
   );

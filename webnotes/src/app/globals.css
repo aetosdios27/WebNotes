@@ -674,3 +674,26 @@ body {
 .hljs-link {
   text-decoration: underline;
 }
+
+/* ... existing code ... */
+
+/* 
+   FORCE FONT OVERRIDES 
+   Tailwind Typography ('prose') fights against inherited fonts.
+   We explicitly override it here.
+*/
+
+.font-serif .ProseMirror, 
+.font-serif .ProseMirror * {
+  font-family: var(--font-serif), ui-serif, Georgia, serif !important;
+}
+
+.font-mono .ProseMirror, 
+.font-mono .ProseMirror * {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace !important;
+}
+
+.font-sans .ProseMirror, 
+.font-sans .ProseMirror * {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif !important;
+}

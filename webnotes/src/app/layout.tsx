@@ -1,12 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import Providers from "@/app/components/Providers";
 import { Toaster } from "@/app/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const inter = Inter({ subsets: ["latin"] });
+// 1. Serif: Instrument Serif (Display font, perfect for headers/reading mode)
+const instrument = Instrument_Serif({ 
+  weight: "400", 
+  subsets: ["latin"],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+// 2. Mono: JetBrains Mono (Best coding font)
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "WebNotes",
@@ -39,7 +53,19 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      {/* 
+         Font Stack:
+         Sans -> Geist Sans (Default)
+         Serif -> Instrument Serif
+         Mono -> JetBrains Mono
+      */}
+      <body 
+        className={`
+          ${GeistSans.variable} ${instrument.variable} ${jetbrains.variable}
+          font-sans antialiased bg-black text-zinc-200
+        `} 
+        suppressHydrationWarning
+      >
         <Providers>{children}</Providers>
         <Toaster />
         <Analytics />

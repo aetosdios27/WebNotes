@@ -17,7 +17,8 @@ import {
   Download,
   Trash2,
   FileText,
-  BookOpen
+  BookOpen,
+  Settings
 } from 'lucide-react';
 import type { Note } from '@/lib/storage/types';
 import { toast } from 'sonner';
@@ -26,10 +27,14 @@ import { motion } from 'framer-motion';
 interface NoteSettingsProps {
   note: Note | null;
   onDelete?: () => void;
+  onUpdate: (updates: Partial<Note>) => void; // Added onUpdate prop
 }
 
-export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
+export default function NoteSettings({ note, onDelete, onUpdate }: NoteSettingsProps) {
   const [open, setOpen] = useState(false);
+  
+  // Default to sans if not set
+  const currentFont = note?.font || 'sans';
 
   // 🧮 Compute stats
   const stats = useMemo(() => {
@@ -96,7 +101,7 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
     setOpen(false);
   };
 
-  // 🧾 Export as PDF (server-side via /api/notes/[id]/export-pdf)
+  // 🧾 Export as PDF
   const exportAsPDF = async () => {
     if (!note?.id) return;
     toast.loading('Generating PDF...');
@@ -134,72 +139,111 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
           size="icon"
           className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
         >
-          <Info className="h-4 w-4" />
+          <Settings className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
 
       <PopoverContent className="w-80 p-0 bg-zinc-900 border-zinc-800" align="end">
-        <div className="p-4 space-y-4">
-          {/* Title */}
+        <div className="p-4 space-y-5">
+          {/* Header */}
           <div className="flex items-center gap-2 pb-2 border-b border-zinc-800">
-            <FileText className="h-4 w-4 text-zinc-400" />
-            <h3 className="font-medium text-white">Note Information</h3>
+            <Info className="h-4 w-4 text-zinc-400" />
+            <h3 className="font-medium text-white">Page Settings</h3>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <Type className="h-3 w-3" />
-                Words
-              </div>
-              <div className="text-lg font-semibold text-white">
-                {stats.words.toLocaleString()}
-              </div>
-            </motion.div>
+          {/* 1. TYPOGRAPHY */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wider">Typography</div>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Sans (Geist) */}
+              <button
+                onClick={() => onUpdate({ font: 'sans' })}
+                className={`
+                  flex flex-col items-center justify-center gap-1 p-2 rounded-md border transition-all
+                  ${currentFont === 'sans' 
+                    ? 'bg-zinc-800 border-yellow-500 text-white' 
+                    : 'border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300'
+                  }
+                `}
+              >
+                <span className="text-xl font-sans font-semibold">Ag</span>
+                <span className="text-[10px]">Sans</span>
+              </button>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <BookOpen className="h-3 w-3" />
-                Reading Time
-              </div>
-              <div className="text-lg font-semibold text-white">
-                {stats.readingTime} min
-              </div>
-            </motion.div>
+              {/* Serif (Instrument) */}
+              <button
+                onClick={() => onUpdate({ font: 'serif' })}
+                className={`
+                  flex flex-col items-center justify-center gap-1 p-2 rounded-md border transition-all
+                  ${currentFont === 'serif' 
+                    ? 'bg-zinc-800 border-yellow-500 text-white' 
+                    : 'border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300'
+                  }
+                `}
+              >
+                <span className="text-xl font-serif font-semibold">Ag</span>
+                <span className="text-[10px]">Serif</span>
+              </button>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <Hash className="h-3 w-3" />
-                Characters
-              </div>
-              <div className="text-lg font-semibold text-white">
-                {stats.characters.toLocaleString()}
-              </div>
-            </motion.div>
+              {/* Mono (JetBrains) */}
+              <button
+                onClick={() => onUpdate({ font: 'mono' })}
+                className={`
+                  flex flex-col items-center justify-center gap-1 p-2 rounded-md border transition-all
+                  ${currentFont === 'mono' 
+                    ? 'bg-zinc-800 border-yellow-500 text-white' 
+                    : 'border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300'
+                  }
+                `}
+              >
+                <span className="text-xl font-mono font-semibold">Ag</span>
+                <span className="text-[10px]">Mono</span>
+              </button>
+            </div>
+          </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                <FileText className="h-3 w-3" />
-                Lines
+          {/* 2. STATS */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <div className="text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wider">Statistics</div>
+            <div className="grid grid-cols-2 gap-3 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <Type className="h-3 w-3" /> Words
+                </div>
+                <div className="text-base font-medium text-white">{stats.words.toLocaleString()}</div>
               </div>
-              <div className="text-lg font-semibold text-white">
-                {stats.lines.toLocaleString()}
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <BookOpen className="h-3 w-3" /> Time
+                </div>
+                <div className="text-base font-medium text-white">{stats.readingTime} min</div>
               </div>
-            </motion.div>
-          </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <Hash className="h-3 w-3" /> Chars
+                </div>
+                <div className="text-base font-medium text-white">{stats.characters.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <FileText className="h-3 w-3" /> Lines
+                </div>
+                <div className="text-base font-medium text-white">{stats.lines.toLocaleString()}</div>
+              </div>
+            </div>
+          </motion.div>
 
-          {/* Dates */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-            <div className="space-y-2 pt-2 border-t border-zinc-800">
-              <div className="flex items-center justify-between text-sm">
+          {/* 3. DATES */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <div className="space-y-2 py-3 border-t border-b border-zinc-800">
+              <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5 text-zinc-500">
                   <Calendar className="h-3 w-3" />
                   Created
                 </span>
                 <span className="text-zinc-300">{formatDate(note.createdAt)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5 text-zinc-500">
                   <Clock className="h-3 w-3" />
                   Modified
@@ -209,9 +253,9 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
             </div>
           </motion.div>
 
-          {/* Actions */}
+          {/* 4. ACTIONS */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <div className="space-y-1 pt-2 border-t border-zinc-800">
+            <div className="space-y-1">
               <Button
                 variant="ghost"
                 size="sm"
@@ -243,7 +287,7 @@ export default function NoteSettings({ note, onDelete }: NoteSettingsProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-zinc-800"
+                  className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
                   onClick={() => {
                     onDelete();
                     setOpen(false);
