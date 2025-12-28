@@ -1,20 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { ChevronsLeft, FolderPlus, FilePlus, Search } from 'lucide-react';
-import { Collapsible, CollapsibleTrigger } from '@/app/components/ui/collapsible';
-import { Button } from '@/app/components/ui/button';
-import NoteList from './NoteList';
-import AuthButton from './AuthButton';
-import type { Note } from '@/lib/storage/types';
-import type { FolderWithNotes } from '../page';
+import { useState, useEffect, useMemo } from "react";
+import { ChevronsLeft, FolderPlus, FilePlus, Search } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+} from "@/app/components/ui/collapsible";
+import { Button } from "@/app/components/ui/button";
+import NoteList from "./NoteList";
+import AuthButton from "./AuthButton";
+import { CreateFolderModal } from "@/app/components/CreateFolderModal"; // Import the new Modal
+import type { Note } from "@/lib/storage/types";
+import type { FolderWithNotes } from "../page";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/app/components/ui/tooltip';
-import type { SyncStatus } from '@/lib/storage/types';
+} from "@/app/components/ui/tooltip";
+import type { SyncStatus } from "@/lib/storage/types";
 
 interface SidebarProps {
   notes: Note[];
@@ -25,46 +29,54 @@ interface SidebarProps {
   deleteNote: (id: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   moveNote: (noteId: string, folderId: string | null) => void;
-  createFolder: () => void;
+  createFolder: () => void; // Kept for prop interface compatibility, but we use internal modal now
   onDataChange: () => void;
   updateNoteLocally?: (noteId: string, updates: Partial<Note>) => void;
   togglePin: (noteId: string) => Promise<void>;
   syncStatus: SyncStatus;
-  onOpenHelp: () => void; // 1. Added prop
+  onOpenHelp: () => void;
 }
 
-export default function Sidebar({ 
-  notes, 
+export default function Sidebar({
+  notes,
   folders,
-  activeNoteId, 
-  setActiveNoteId, 
+  activeNoteId,
+  setActiveNoteId,
   createNote,
   deleteNote,
   deleteFolder,
   moveNote,
-  createFolder,
+  createFolder: _createFolderProp, // Renamed unused prop
   onDataChange,
   updateNoteLocally,
   togglePin,
   syncStatus,
-  onOpenHelp // 2. Destructure prop
+  onOpenHelp,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
+
+  // New State for the Folder Modal
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('expandedFolders');
+    const saved = localStorage.getItem("expandedFolders");
     if (saved) {
       setExpandedFolders(new Set(JSON.parse(saved)));
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('expandedFolders', JSON.stringify(Array.from(expandedFolders)));
+    localStorage.setItem(
+      "expandedFolders",
+      JSON.stringify(Array.from(expandedFolders))
+    );
   }, [expandedFolders]);
 
   const toggleFolder = (folderId: string) => {
-    setExpandedFolders(prev => {
+    setExpandedFolders((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(folderId)) {
         newSet.delete(folderId);
@@ -79,7 +91,7 @@ export default function Sidebar({
     const notesInFolders = new Map<string, Note[]>();
     const unfiledNotes: Note[] = [];
 
-    notes.forEach(note => {
+    notes.forEach((note) => {
       if (note.folderId) {
         const folderNotes = notesInFolders.get(note.folderId) || [];
         folderNotes.push(note);
@@ -90,36 +102,41 @@ export default function Sidebar({
     });
 
     notesInFolders.forEach((folderNotes, folderId) => {
-      notesInFolders.set(folderId, folderNotes.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        
-        if (a.isPinned && b.isPinned) {
-          const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-          const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-          return bTime - aTime;
-        }
-        
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      }));
+      notesInFolders.set(
+        folderId,
+        folderNotes.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+
+          if (a.isPinned && b.isPinned) {
+            const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+            const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+            return bTime - aTime;
+          }
+
+          return (
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+        })
+      );
     });
 
     const sortedUnfiled = unfiledNotes.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      
+
       if (a.isPinned && b.isPinned) {
         const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
         const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
         return bTime - aTime;
       }
-      
+
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
 
-    return { 
-      notesInFolders, 
-      unfiledNotes: sortedUnfiled
+    return {
+      notesInFolders,
+      unfiledNotes: sortedUnfiled,
     };
   }, [notes]);
 
@@ -129,36 +146,46 @@ export default function Sidebar({
         open={isOpen}
         onOpenChange={setIsOpen}
         className={`
-          h-full flex flex-col bg-zinc-900 border-r border-zinc-800 
+          h-full flex flex-col bg-zinc-900 border-r border-zinc-800
           transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-full md:w-80' : 'w-full md:w-[68px]'}
+          ${isOpen ? "w-full md:w-80" : "w-full md:w-[68px]"}
         `}
       >
-        <div className={`
-          p-4 flex items-center border-b border-zinc-800 flex-shrink-0 
-          ${isOpen ? 'justify-between' : 'justify-center'}
-        `}>
-          {isOpen && <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>}
+        <div
+          className={`
+          p-4 flex items-center border-b border-zinc-800 flex-shrink-0
+          ${isOpen ? "justify-between" : "justify-center"}
+        `}
+        >
+          {isOpen && (
+            <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>
+          )}
           <CollapsibleTrigger asChild>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className="hidden md:flex text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
-              <ChevronsLeft className={`h-5 w-5 transition-transform duration-300 ${isOpen ? '' : 'rotate-180'}`} />
+              <ChevronsLeft
+                className={`h-5 w-5 transition-transform duration-300 ${
+                  isOpen ? "" : "rotate-180"
+                }`}
+              />
             </Button>
           </CollapsibleTrigger>
         </div>
 
-        <div className={`
+        <div
+          className={`
           p-2 border-b border-zinc-800 flex items-center
-          ${isOpen ? 'flex-row justify-around' : 'flex-col justify-start gap-2'}
-        `}>
+          ${isOpen ? "flex-row justify-around" : "flex-col justify-start gap-2"}
+        `}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => createNote()}
                 className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
@@ -169,13 +196,14 @@ export default function Sidebar({
               <p>New Note</p>
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={createFolder}
+              <Button
+                variant="ghost"
+                size="icon"
+                // UPDATED: Now opens the Modal instead of using the prop
+                onClick={() => setIsFolderModalOpen(true)}
                 className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
                 <FolderPlus size={18} />
@@ -185,11 +213,11 @@ export default function Sidebar({
               <p>New Folder</p>
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
               >
@@ -201,11 +229,11 @@ export default function Sidebar({
             </TooltipContent>
           </Tooltip>
 
-          {/* 3. Added Help Button */}
+          {/* Help Button */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={onOpenHelp}
                 className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
@@ -221,11 +249,11 @@ export default function Sidebar({
 
         {isOpen && (
           <div className="flex-1 overflow-y-auto">
-            <NoteList 
+            <NoteList
               folders={folders}
               notesInFolders={notesInFolders}
               unfiledNotes={unfiledNotes}
-              activeNoteId={activeNoteId} 
+              activeNoteId={activeNoteId}
               setActiveNoteId={setActiveNoteId}
               expandedFolders={expandedFolders}
               toggleFolder={toggleFolder}
@@ -243,6 +271,12 @@ export default function Sidebar({
           <AuthButton isOpen={isOpen} syncStatus={syncStatus} />
         </div>
       </Collapsible>
+
+      {/* The Create Folder Modal */}
+      <CreateFolderModal
+        isOpen={isFolderModalOpen}
+        onClose={() => setIsFolderModalOpen(false)}
+      />
     </TooltipProvider>
   );
 }
