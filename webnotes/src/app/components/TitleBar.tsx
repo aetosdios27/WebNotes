@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 
 export default function TitleBar() {
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [render, setRender] = useState(false);
 
   useEffect(() => {
-    // Check if we're in Tauri
-    setIsDesktop(typeof window !== "undefined" && "__TAURI__" in window);
+    if (isTauri()) {
+      setRender(true);
+    }
   }, []);
 
-  if (!isDesktop) return null;
+  if (!render) return null;
 
   const handleMinimize = async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -32,32 +34,27 @@ export default function TitleBar() {
       data-tauri-drag-region
       className="h-10 bg-black border-b border-zinc-800 flex items-center justify-between px-4 select-none"
     >
-      {/* Left side - App name */}
+      {/* Left: App name / drag region */}
       <div className="flex items-center gap-2" data-tauri-drag-region>
         <span className="text-sm font-medium text-white">WebNotes</span>
       </div>
 
-      {/* Right side - Window controls */}
+      {/* Right: Window controls */}
       <div className="flex items-center gap-2">
-        {/* Close button */}
-        <button
-          onClick={handleClose}
-          className="w-3 h-3 rounded-full bg-[#4A3535] hover:bg-[#FF5F57] transition-colors duration-150"
-          aria-label="Close"
-        />
-
-        {/* Minimize button */}
         <button
           onClick={handleMinimize}
-          className="w-3 h-3 rounded-full bg-[#4A4533] hover:bg-[#FFBD2E] transition-colors duration-150"
+          className="w-3 h-3 rounded-full bg-[#4A4533] hover:bg-[#FFBD2E] transition-colors"
           aria-label="Minimize"
         />
-
-        {/* Maximize button */}
         <button
           onClick={handleMaximize}
-          className="w-3 h-3 rounded-full bg-[#354535] hover:bg-[#28C840] transition-colors duration-150"
+          className="w-3 h-3 rounded-full bg-[#354535] hover:bg-[#28C840] transition-colors"
           aria-label="Maximize"
+        />
+        <button
+          onClick={handleClose}
+          className="w-3 h-3 rounded-full bg-[#4A3535] hover:bg-[#FF5F57] transition-colors"
+          aria-label="Close"
         />
       </div>
     </div>
