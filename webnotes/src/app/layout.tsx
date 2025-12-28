@@ -6,13 +6,14 @@ import Providers from "@/app/components/Providers";
 import { Toaster } from "@/app/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import TitleBar from "@/app/components/TitleBar";
 
 // 1. Serif: Instrument Serif (Display font, perfect for headers/reading mode)
-const instrument = Instrument_Serif({ 
-  weight: "400", 
+const instrument = Instrument_Serif({
+  weight: "400",
   subsets: ["latin"],
-  variable: '--font-serif',
-  display: 'swap',
+  variable: "--font-serif",
+  display: "swap",
 });
 
 // 2. Mono: JetBrains Mono (Best coding font)
@@ -53,19 +54,20 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      {/* 
+      {/*
          Font Stack:
          Sans -> Geist Sans (Default)
          Serif -> Instrument Serif
          Mono -> JetBrains Mono
       */}
-      <body 
+      <body
         className={`
           ${GeistSans.variable} ${instrument.variable} ${jetbrains.variable}
           font-sans antialiased bg-black text-zinc-200
-        `} 
+        `}
         suppressHydrationWarning
       >
+        <TitleBar />
         <Providers>{children}</Providers>
         <Toaster />
         <Analytics />
