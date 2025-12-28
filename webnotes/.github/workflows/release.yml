@@ -1,97 +1,79 @@
-name: Release App
+name: Release Desktop App
 
 on:
   push:
     tags:
-      - "v*" # Trigger only when you push a tag like v0.1.0
+      - "v*"
 
 jobs:
-  create-release:
-    permissions:
-      contents: write
-    runs-on: ubuntu-20.04
-    outputs:
-      release_id: ${{ steps.create-release.outputs.id }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
-      - name: get version
-        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
-      - name: create release
-        id: create-release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: v${{ env.PACKAGE_VERSION }}
-          draft: true
-          prerelease: false
-
-  build-tauri:
-    needs: create-release
+  release:
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest" # Builds .dmg and .app
+          - platform: "macos-latest"
             args: "--target universal-apple-darwin"
-          - platform: "ubuntu-22.04" # Builds .deb and .AppImage
+          - platform: "ubuntu-22.04"
             args: ""
-          - platform: "windows-latest" # Builds .exe and .msi
+          - platform: "windows-latest"
             args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: setup node
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # Install Rust
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      # Install Linux Dependencies (Ubuntu Only)
-      - name: install dependencies (ubuntu)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
-
-      # Install Bun (We need it since you use it)
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: install frontend dependencies
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
         run: bun install
 
-      # THE HACK: Hide the API folder so Next.js build works
-      # We do this directly in the runner
-      - name: Hide API Folder
+      - name: Hide API folder for static export
         shell: bash
-        run: mv src/app/api src/app/_api_hidden
+        run: |
+          if [ -d "src/app/api" ]; then
+            mv src/app/api src/app/_api_hidden
+          fi
 
-      # Build the App using Tauri Action
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_IS_DESKTOP: "true"
-          NO_STRIP: "true" # For Linux safety
+          NO_STRIP: "true"
         with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseName: "WebNotes ${{ github.ref_name }}"
+          releaseBody: "Download the installer for your platform below."
+          releaseDraft: false
+          prerelease: false
           args: ${{ matrix.args }}
 
-      # Restore API Folder (Good practice, though VM dies anyway)
-      - name: Restore API Folder
+      - name: Restore API folder
         if: always()
         shell: bash
-        run: mv src/app/_api_hidden src/app/api
+        run: |
+          if [ -d "src/app/_api_hidden" ]; then
+            mv src/app/_api_hidden src/app/api
+          fi
