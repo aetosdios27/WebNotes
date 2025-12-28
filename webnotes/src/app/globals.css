@@ -1,6 +1,18 @@
 @import "tailwindcss";
-@import 'tippy.js/dist/tippy.css';
-@import 'katex/dist/katex.min.css';
+@import "tippy.js/dist/tippy.css";
+@import "katex/dist/katex.min.css";
+
+/*
+============================================================
+ ROOT / WINDOW BEHAVIOR (CRITICAL)
+============================================================
+*/
+
+html,
+body {
+  height: 100%;
+  overflow: hidden; /* window must NEVER scroll */
+}
 
 html {
   scroll-behavior: smooth;
@@ -332,368 +344,21 @@ body {
 
 /*
 ============================================================
- Math - Inline Editor
+ FORCE FONT OVERRIDES
 ============================================================
 */
 
-.math-inline-editor {
-  vertical-align: middle;
-}
-
-.math-inline-editor textarea {
-  line-height: 1.4;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-/*
-============================================================
- Math - Block Editor
-============================================================
-*/
-
-.math-block-editor {
-  font-family: inherit;
-}
-
-.math-block-editor textarea {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-/*
-============================================================
- Math - Error State
-============================================================
-*/
-
-.math-error {
-  color: #f87171 !important;
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 0.875rem;
-}
-
-/*
-============================================================
- KaTeX - Dark Theme Overrides
-============================================================
-*/
-
-.katex {
-  color: #fafafa !important;
-  font-size: 1.1em;
-}
-
-.katex-display {
-  margin: 0 !important;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.katex-display > .katex {
-  white-space: normal;
-}
-
-.katex .mord, .katex .mbin, .katex .mrel, .katex .mop, .katex .mopen, .katex .mclose, .katex .mpunct, .katex .minner, .katex .mtext {
-  color: #fafafa !important;
-}
-
-.katex .frac-line {
-  border-bottom-color: #fafafa !important;
-  background: #fafafa !important;
-}
-
-.katex .sqrt-line {
-  border-bottom-color: #fafafa !important;
-  background: #fafafa !important;
-}
-
-.katex .sqrt-sign {
-  color: #fafafa !important;
-}
-
-.katex .delimsizing, .katex .delimsizinginner {
-  color: #fafafa !important;
-}
-
-.katex .delimcenter {
-  color: #fafafa !important;
-}
-
-.katex .vertical-separator {
-  background: #fafafa !important;
-}
-
-.katex .hline {
-  border-bottom-color: #fafafa !important;
-}
-
-.katex .hdashline {
-  border-bottom-color: #fafafa !important;
-}
-
-.katex .overline-line, .katex .underline-line {
-  border-bottom-color: #fafafa !important;
-}
-
-.katex .arrow-tip {
-  color: #fafafa !important;
-}
-
-.katex .svg-arrow {
-  fill: #fafafa !important;
-  stroke: #fafafa !important;
-}
-
-.katex .cancel-stroke {
-  stroke: #fafafa !important;
-}
-
-.katex .boxpad, .katex .fbox, .katex .colorbox {
-  border-color: #fafafa !important;
-}
-
-.katex .accent-body {
-  color: #fafafa !important;
-}
-
-.katex .accent-vec {
-  color: #fafafa !important;
-}
-
-.katex .rule {
-  background-color: #fafafa !important;
-  border-color: #fafafa !important;
-}
-
-.katex .sizing, .katex .fontsize-ensurer {
-  color: inherit !important;
-}
-
-.katex .text {
-  color: #fafafa !important;
-}
-
-.katex .op-symbol {
-  color: #fafafa !important;
-}
-
-.katex .op-limits {
-  color: #fafafa !important;
-}
-
-.katex .mop.op-symbol.large-op, .katex .mop.op-symbol.small-op {
-  color: #fafafa !important;
-}
-
-/*
-============================================================
- Tippy.js Tooltip Styling
-============================================================
-*/
-
-.tippy-box[data-theme~='dark'] {
-  background-color: transparent;
-  border: none;
-}
-
-.tippy-content {
-  padding: 0;
-}
-
-/*
-============================================================
- Print Styles
-============================================================
-*/
-
-@media print {
-  body {
-    background: white !important;
-    color: black !important;
-  }
-  
-  .katex, .katex .mord, .katex .mbin, .katex .mrel, .katex .mop, .katex .mopen, .katex .mclose, .katex .mpunct, .katex .minner, .katex .mtext {
-    color: black !important;
-  }
-  
-  .katex .frac-line, .katex .sqrt-line, .katex .rule {
-    border-bottom-color: black !important;
-    background: black !important;
-  }
-  
-  .katex .sqrt-sign, .katex .delimsizing, .katex .delimsizinginner {
-    color: black !important;
-  }
-  
-  .math-inline-render, .math-block-render {
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-  }
-  
-  .math-block-editor, .math-inline-editor {
-    display: none !important;
-  }
-}
-
-/*
-============================================================
- Mobile Responsive Adjustments
-============================================================
-*/
-
-@media (max-width: 768px) {
-  .math-block-render {
-    padding: 16px;
-    margin: 12px 0;
-  }
-  
-  .math-block-editor {
-    margin: 12px 0;
-  }
-  
-  .katex {
-    font-size: 1em;
-  }
-  
-  .katex-display {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
-/*
-============================================================
- Animations
-============================================================
-*/
-
-@keyframes math-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.math-inline-render,
-.math-block-render {
-  animation: math-fade-in 0.2s ease-out;
-}
-
-@keyframes math-highlight {
-  0% {
-    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(250, 204, 21, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
-  }
-}
-
-.math-inline-render.just-created,
-.math-block-render.just-created {
-  animation: math-highlight 0.6s ease-out;
-}
-
-/*
-============================================================
- Syntax Highlighting (Code Blocks) - One Dark Pro Style
-============================================================
-*/
-
-.hljs-comment,
-.hljs-quote {
-  color: #7f848e; /* Grayish */
-  font-style: italic;
-}
-
-.hljs-doctag,
-.hljs-keyword,
-.hljs-formula {
-  color: #c678dd; /* Purple */
-}
-
-.hljs-section,
-.hljs-name,
-.hljs-selector-tag,
-.hljs-deletion,
-.hljs-subst {
-  color: #e06c75; /* Red */
-}
-
-.hljs-literal {
-  color: #56b6c2; /* Cyan */
-}
-
-.hljs-string,
-.hljs-regexp,
-.hljs-addition,
-.hljs-attribute,
-.hljs-meta-string {
-  color: #98c379; /* Green */
-}
-
-.hljs-built_in,
-.hljs-class .hljs-title {
-  color: #e6c07b; /* Yellow/Gold */
-}
-
-.hljs-attr,
-.hljs-variable,
-.hljs-template-variable,
-.hljs-type,
-.hljs-selector-class,
-.hljs-selector-attr,
-.hljs-selector-pseudo,
-.hljs-number {
-  color: #d19a66; /* Orange */
-}
-
-.hljs-symbol,
-.hljs-bullet,
-.hljs-link,
-.hljs-meta,
-.hljs-selector-id,
-.hljs-title {
-  color: #61aeee; /* Blue */
-}
-
-.hljs-emphasis {
-  font-style: italic;
-}
-
-.hljs-strong {
-  font-weight: bold;
-}
-
-.hljs-link {
-  text-decoration: underline;
-}
-
-/* ... existing code ... */
-
-/* 
-   FORCE FONT OVERRIDES 
-   Tailwind Typography ('prose') fights against inherited fonts.
-   We explicitly override it here.
-*/
-
-.font-serif .ProseMirror, 
+.font-serif .ProseMirror,
 .font-serif .ProseMirror * {
   font-family: var(--font-serif), ui-serif, Georgia, serif !important;
 }
 
-.font-mono .ProseMirror, 
+.font-mono .ProseMirror,
 .font-mono .ProseMirror * {
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace !important;
 }
 
-.font-sans .ProseMirror, 
+.font-sans .ProseMirror,
 .font-sans .ProseMirror * {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif !important;
 }
