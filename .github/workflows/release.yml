@@ -1,10 +1,8 @@
 name: Release Desktop App
-
 on:
   push:
     tags:
       - "v*"
-
 jobs:
   release:
     permissions:
@@ -19,43 +17,38 @@ jobs:
             args: ""
           - platform: "windows-latest"
             args: ""
-
     runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        working-directory: webnotes
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
       - name: Install frontend dependencies
         run: bun install
-
       - name: Hide API folder for static export
         shell: bash
         run: |
           if [ -d "src/app/api" ]; then
             mv src/app/api src/app/_api_hidden
           fi
-
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -63,13 +56,13 @@ jobs:
           NEXT_PUBLIC_IS_DESKTOP: "true"
           NO_STRIP: "true"
         with:
+          projectPath: webnotes
           tagName: ${{ github.ref_name }}
           releaseName: "WebNotes ${{ github.ref_name }}"
           releaseBody: "Download the installer for your platform below."
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
-
       - name: Restore API folder
         if: always()
         shell: bash
