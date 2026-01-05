@@ -1,170 +1,207 @@
 @import "tailwindcss";
-@plugin "tailwindcss-animate";
-
-@custom-variant dark (&:is(.dark *));
+@import "tippy.js/dist/tippy.css";
+@import "katex/dist/katex.min.css";
 
 /* ============================================================
-  V0 PREMIUM THEME (OKLCH - Deep Charcoal & Amber)
-============================================================ */
-@theme inline {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.75rem;
-
-  /* Sidebar Tokens */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-
-  /* Font Mapping Variables */
-  --font-sans-note: var(--font-geist-sans);
-  --font-serif-note: var(--font-serif);
-  --font-mono-note: var(--font-mono);
+  ROOT / WINDOW BEHAVIOR (CRITICAL)
+============================================================
+*/
+html,
+body {
+  height: 100%;
+  overflow: hidden; /* Window must NEVER scroll; only inner containers */
 }
 
-.dark {
-  /* High-End Dark Mode Scale */
-  --background: oklch(0.12 0 0); /* Deep Charcoal Base */
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.14 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+html {
+  scroll-behavior: smooth;
+}
 
-  /* Amber Accent (v0 Signature) */
-  --primary: oklch(0.75 0.15 70);
-  --primary-foreground: oklch(0.12 0 0);
-
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --border: oklch(0.22 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.45 0 0);
-
-  /* Dark Sidebar Overrides */
-  --sidebar: oklch(0.11 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.18 0 0);
-  --sidebar-ring: var(--primary);
+body {
+  @apply bg-black text-zinc-200;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ============================================================
-  BASE LAYOUT & TYPOGRAPHY
-============================================================ */
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  html,
-  body {
-    height: 100%;
-    overflow: hidden; /* Prevent body scrolling; allow Inset scrolling */
-    @apply bg-background text-foreground antialiased;
-  }
+  CUSTOM SCROLLBARS (ZINC THEME)
+============================================================
+*/
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-  /* Dynamic Font Assignments */
-  .font-sans {
-    font-family: var(--font-sans-note), ui-sans-serif, system-ui;
-  }
-  .font-serif {
-    font-family: var(--font-serif-note), ui-serif, Georgia;
-  }
-  .font-mono {
-    font-family: var(--font-mono-note), ui-monospace, monospace;
-  }
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-700;
 }
 
 /* ============================================================
-  TIPTAP EDITOR & PROSE
-============================================================ */
-.ProseMirror {
-  @apply outline-none min-h-[500px] text-[18px] leading-[1.8];
-  word-wrap: break-word !important;
-}
-
-/* Focused Typography - High Contrast Header Logic */
-.ProseMirror h1 {
-  @apply text-5xl font-bold mb-8 mt-12 tracking-tight text-foreground;
-}
-.ProseMirror h2 {
-  @apply text-3xl font-bold mb-6 mt-10 tracking-tight text-foreground/90;
-}
-.ProseMirror p {
-  @apply mb-6 text-foreground/80;
-}
-
-/* Placeholder Implementation */
-.ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  @apply text-muted-foreground/40 pointer-events-none h-0 font-sans;
-}
-
-/* Amber Selection Glow */
+  SELECTION STYLING (YELLOW GLOW)
+============================================================
+*/
 ::selection {
-  background: oklch(0.75 0.15 70 / 0.25);
+  background: rgba(250, 204, 21, 0.3);
   color: inherit;
 }
 
+.ProseMirror ::selection {
+  background: rgba(250, 204, 21, 0.3);
+}
+
 /* ============================================================
-  V2 COMPONENTS & UTILITIES
-============================================================ */
-@layer utilities {
-  /* The "Aero" Glass Material */
-  .glass {
-    @apply bg-background/60 backdrop-blur-xl border border-white/10 saturate-150;
-  }
+  TIPTAP EDITOR - BASE & TYPOGRAPHY
+============================================================
+*/
+.ProseMirror {
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+  outline: none;
+}
 
-  /* Math Rendering Logic */
-  .math-inline-render {
-    @apply inline-block px-1.5 py-0.5 rounded-md transition-colors cursor-pointer align-middle bg-primary/5 text-primary;
-  }
-  .math-inline-render:hover {
-    @apply bg-primary/15;
-  }
+.ProseMirror p {
+  margin-top: 0.25em !important;
+  margin-bottom: 0.25em !important;
+}
 
-  .math-block-render {
-    @apply block p-8 my-6 rounded-xl text-center border border-white/5 bg-white/5 transition-all cursor-pointer;
-  }
-  .math-block-render:hover {
-    @apply bg-white/10 border-primary/20;
-  }
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #52525b;
+  pointer-events: none;
+  height: 0;
+}
 
-  /* Subnote UI */
-  .subnote-item {
-    @apply border-b-2 border-dotted border-primary/40 transition-all cursor-pointer decoration-primary/40;
-  }
-  .subnote-item:hover {
-    @apply bg-primary/10 border-primary;
-  }
+/* Headings */
+.ProseMirror h1 {
+  font-size: 2.25em;
+  font-weight: 700;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.2;
+}
+.ProseMirror h2 {
+  font-size: 1.875em;
+  font-weight: 700;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+.ProseMirror h3 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.ProseMirror h4 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Lists */
+.ProseMirror ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+.ProseMirror ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+.ProseMirror li {
+  display: list-item !important;
+  margin: 0.125rem 0 !important;
+}
+.ProseMirror li p {
+  margin: 0 !important;
+}
+.ProseMirror ul > li::marker,
+.ProseMirror ol > li::marker {
+  color: #71717a !important;
+}
+
+/* Code & Blockquotes */
+.ProseMirror code {
+  @apply bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded text-sm;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ProseMirror pre {
+  @apply bg-zinc-900 text-zinc-300 p-4 rounded-lg overflow-x-auto my-4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-zinc-700 pl-4 italic text-zinc-400 my-4;
+}
+
+/* ============================================================
+  MATH RENDERING (KATEX)
+============================================================
+*/
+.math-inline-render {
+  display: inline-block;
+  padding: 2px 4px;
+  margin: 0 1px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.math-inline-render:hover {
+  background: rgba(250, 204, 21, 0.1);
+}
+.math-inline-render.ring-2 {
+  background: rgba(250, 204, 21, 0.15);
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.4);
+}
+
+.math-block-render {
+  display: block;
+  padding: 24px;
+  margin: 16px 0;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.math-block-render:hover {
+  background: rgba(250, 204, 21, 0.05);
+  border-color: rgba(250, 204, 21, 0.2);
+}
+
+/* ============================================================
+  FORCE FONT OVERRIDES (SYNCED WITH PAGE SETTINGS)
+============================================================
+*/
+.font-serif .ProseMirror,
+.font-serif .ProseMirror * {
+  font-family: var(--font-serif), ui-serif, Georgia, serif !important;
+}
+
+.font-mono .ProseMirror,
+.font-mono .ProseMirror * {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace !important;
+}
+
+.font-sans .ProseMirror,
+.font-sans .ProseMirror * {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif !important;
 }
