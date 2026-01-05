@@ -10,8 +10,9 @@ import {
 } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { useStorage } from "@/hooks/useStorage";
+import { useNotesStore } from "@/store/useNotesStore"; // <--- CHANGE IMPORT
 import { FolderPlus } from "lucide-react";
+import { toast } from "sonner"; // Assuming you use sonner for toasts
 
 interface CreateFolderModalProps {
   isOpen: boolean;
@@ -21,7 +22,9 @@ interface CreateFolderModalProps {
 export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { createFolder } = useStorage();
+
+  // <--- USE ZUSTAND STORE
+  const createFolder = useNotesStore((state) => state.createFolder);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +32,13 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
 
     setIsSubmitting(true);
     try {
-      await createFolder({ name });
+      await createFolder({ name: name.trim() });
+      toast.success("Folder created");
       setName("");
       onClose();
     } catch (error) {
       console.error("Failed to create folder", error);
+      toast.error("Failed to create folder");
     } finally {
       setIsSubmitting(false);
     }
@@ -96,15 +101,7 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
               type="button"
               variant="outline"
               onClick={onClose}
-              className="
-                border-zinc-800
-                bg-transparent
-                hover:bg-zinc-900
-                text-zinc-400
-                hover:text-white
-                h-11
-                px-6
-              "
+              className="border-zinc-800 bg-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white h-11 px-6"
             >
               Cancel
             </Button>
@@ -112,23 +109,7 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
             <Button
               type="submit"
               disabled={isSubmitting || !name.trim()}
-              className="
-                bg-yellow-500
-                hover:bg-yellow-400
-                text-zinc-950
-                font-bold
-                h-11
-                px-8
-                shadow-[0_0_20px_-5px_rgba(234,179,8,0.4)]
-                hover:shadow-[0_0_25px_-5px_rgba(234,179,8,0.6)]
-                transition-all
-                duration-200
-                hover:scale-[1.02]
-                active:scale-[0.98]
-                disabled:opacity-50
-                disabled:shadow-none
-                disabled:hover:scale-100
-              "
+              className="bg-yellow-500 hover:bg-yellow-400 text-zinc-950 font-bold h-11 px-8 shadow-[0_0_20px_-5px_rgba(234,179,8,0.4)] hover:shadow-[0_0_25px_-5px_rgba(234,179,8,0.6)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
             >
               {isSubmitting ? "Creating..." : "Create Folder"}
             </Button>

@@ -1,9 +1,7 @@
 use chrono::Utc;
-use rayon::prelude::*;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::{Manager, State};
 
 // --- DATA TYPES ---
@@ -57,7 +55,7 @@ fn init_db(state: State<DbState>) -> Result<String, String> {
     )
     .map_err(|e| e.to_string())?;
 
-    // 2. Create Folders Table (NEW)
+    // 2. Create Folders Table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS folders (
             id TEXT PRIMARY KEY,
@@ -81,7 +79,7 @@ fn init_db(state: State<DbState>) -> Result<String, String> {
 
 #[tauri::command]
 fn save_note(note: Note, state: State<DbState>) -> Result<(), String> {
-    println!("RUST: Saving Note: {:?}", note.title); // <--- DEBUG LOG
+    // println!("RUST: Saving Note: {:?}", note.title);
 
     let conn = state.conn();
 
@@ -100,11 +98,11 @@ fn save_note(note: Note, state: State<DbState>) -> Result<(), String> {
             note.content,
             note.folder_id,
             note.is_pinned,
-            Utc::now().to_rfc3339(),
+            Utc::now().to_rfc3339(), // Ensure server-side timestamp or trust client? Client sent one, but we update updated_at
             note.created_at
         ],
     )
-    .map_err(|e| format!("SQL Error: {}", e))?; // Return exact SQL error
+    .map_err(|e| format!("SQL Error: {}", e))?;
 
     // Update Search Index
     let _ = conn.execute(
@@ -118,7 +116,7 @@ fn save_note(note: Note, state: State<DbState>) -> Result<(), String> {
 
 #[tauri::command]
 fn save_folder(folder: Folder, state: State<DbState>) -> Result<(), String> {
-    println!("RUST: Saving Folder: {:?}", folder.name);
+    // println!("RUST: Saving Folder: {:?}", folder.name);
     let conn = state.conn();
     conn.execute(
         "INSERT INTO folders (id, name, created_at) VALUES (?1, ?2, ?3)
@@ -214,6 +212,38 @@ fn search_notes(query: String, state: State<DbState>) -> Result<Vec<Note>, Strin
     Ok(result)
 }
 
+// --- NEW COMMANDS (Must be here for deletions to persist!) ---
+
+#[tauri::command]
+fn delete_note(id: String, state: State<DbState>) -> Result<(), String> {
+    // println!("RUST: Deleting Note: {}", id);
+    let conn = state.conn();
+    conn.execute("DELETE FROM notes WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM notes_fts WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_folder(id: String, state: State<DbState>) -> Result<(), String> {
+    // println!("RUST: Deleting Folder: {}", id);
+    let conn = state.conn();
+
+    // 1. Unfile notes that were in this folder
+    conn.execute(
+        "UPDATE notes SET folder_id = NULL WHERE folder_id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 2. Delete the folder
+    conn.execute("DELETE FROM folders WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 // --- SETUP ---
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -230,12 +260,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             init_db,
             save_note,
-            save_folder, // NEW
+            save_folder,
             get_all_notes,
-            get_all_folders, // NEW
-            search_notes
+            get_all_folders,
+            search_notes,
+            delete_note,   // <--- Ensure registered
+            delete_folder  // <--- Ensure registered
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

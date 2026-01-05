@@ -1,245 +1,265 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import Sidebar from '@/app/components/Sidebar';
-import dynamic from 'next/dynamic';
-import { NoteListSkeleton } from '@/app/components/NoteListSkeleton';
-import { toast } from 'sonner';
-import { useStorage } from '@/hooks/useStorage';
-import type { Note, Folder } from '@/lib/storage/types';
-import { Button } from '@/app/components/ui/button';
-import { Menu, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import CommandPalette from '@/app/components/CommandPalette';
-import LoadingScreen from '@/app/components/LoadingScreen';
-import { useSession } from 'next-auth/react';
-import { HelpModal } from '@/app/components/HelpModal'; 
+import { useEffect, useMemo, useCallback, useState, useRef } from "react";
+// import { useStorage } from '@/hooks/useStorage';  <--- REMOVE THIS
+import { useNotesStore } from "@/store/useNotesStore"; // <--- ADD THIS
+import Sidebar from "@/app/components/Sidebar";
+import dynamic from "next/dynamic";
+import { NoteListSkeleton } from "@/app/components/NoteListSkeleton";
+import { toast } from "sonner";
+import type { Note, Folder } from "@/lib/storage/types";
+import { Button } from "@/app/components/ui/button";
+import { Menu, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import CommandPalette from "@/app/components/CommandPalette";
+import LoadingScreen from "@/app/components/LoadingScreen";
+import { HelpModal } from "@/app/components/HelpModal";
 
-export type FolderWithNotes = Omit<Folder, 'notes'> & { 
-  notes: Note[] 
+// Type definition helpers...
+export type FolderWithNotes = Omit<Folder, "notes"> & {
+  notes: Note[];
 };
 
-const NoteEditor = dynamic(() => import('@/app/components/NoteEditor'), {
+const NoteEditor = dynamic(() => import("@/app/components/NoteEditor"), {
   ssr: false,
   loading: () => null,
 });
 
 export default function Home() {
-  const { status } = useSession();
-  
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  // --- ZUSTAND STATE SELECTION ---
+  const {
+    notes,
+    folders,
+    activeNoteId,
+    isLoading,
+    syncStatus,
+    loadData,
+    createNote,
+    updateNote,
+    updateNoteLocally,
+    deleteNote,
+    togglePin,
+    moveNote,
+    setActiveNote,
+    createFolder,
+    deleteFolder,
+  } = useNotesStore();
+
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  
+
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [showExtendedMessage, setShowExtendedMessage] = useState(false);
-  
-  const {
-    notes,
-    folders,
-    settings,
-    isLoading,
-    createNote: storageCreateNote,
-    updateNote: storageUpdateNote,
-    updateNoteLocally,
-    togglePin: storageTogglePin,
-    deleteNote: storageDeleteNote,
-    deleteFolder: storageDeleteFolder,
-    createFolder: storageCreateFolder,
-    refresh,
-  } = useStorage();
 
+  // 1. Load Data on Mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinTimeElapsed(true);
-    }, 2800);
-    
+    loadData();
+  }, [loadData]);
+
+  // Loading Screen Logic
+  useEffect(() => {
+    const timer = setTimeout(() => setMinTimeElapsed(true), 2800);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (isLoading) {
-        setShowExtendedMessage(true);
-      }
+      if (isLoading) setShowExtendedMessage(true);
     }, 3500);
-    
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  const showLoading = !minTimeElapsed || isLoading;
-
+  // Mobile Sidebar logic
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (window.innerWidth < 768 && showMobileSidebar) {
-        if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        if (
+          sidebarRef.current &&
+          !sidebarRef.current.contains(event.target as Node)
+        ) {
           setShowMobileSidebar(false);
         }
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMobileSidebar]);
 
+  // Memoized Folder Structure
   const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
-    return folders.map(folder => ({
+    return folders.map((folder) => ({
       ...folder,
-      notes: notes.filter(note => note.folderId === folder.id)
+      notes: notes
+        .filter((note) => note.folderId === folder.id)
         .sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          
+
           if (a.isPinned && b.isPinned) {
             const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
             const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
             return bTime - aTime;
           }
-          
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        })
+
+          return (
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+        }),
     }));
   }, [folders, notes]);
 
-  const createNote = useCallback(async (folderId?: string | null, title?: string): Promise<string | null> => {
-    try {
-      const newNote = await storageCreateNote({ 
-        title: title || '',
-        content: '', 
-        folderId 
-      });
-      setActiveNoteId(newNote.id);
-      setShowMobileSidebar(false);
-      if (title) {
-        toast.success(`Created "${title}"`);
-      } else {
-        toast.success('Note created');
-      }
-      return newNote.id;
-    } catch (error) {
-      toast.error('Failed to create note');
-      return null;
-    }
-  }, [storageCreateNote]);
+  // WRAPPER HANDLERS (To add Toast notifications)
 
-  const deleteNote = useCallback(async (id: string) => {
-    if (activeNoteId === id) setActiveNoteId(null);
-    await storageDeleteNote(id);
-  }, [storageDeleteNote, activeNoteId]);
-
-  const deleteFolder = useCallback(async (id: string) => {
-    await storageDeleteFolder(id);
-  }, [storageDeleteFolder]);
-
-  const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
-    const originalNote = notes.find(n => n.id === noteId);
-    if (!originalNote) return;
-
-    if (updateNoteLocally) {
-      updateNoteLocally(noteId, { folderId });
-    }
-
-    try {
-      await storageUpdateNote(noteId, { folderId });
-      toast.success('Note moved');
-    } catch (error) {
-      console.error('Failed to move note:', error);
-      if (updateNoteLocally) {
-        updateNoteLocally(noteId, { folderId: originalNote.folderId });
-      }
-      toast.error('Failed to move note');
-    }
-  }, [notes, storageUpdateNote, updateNoteLocally]);
-
-  const createFolder = useCallback(async () => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName) {
+  const handleCreateNote = useCallback(
+    async (folderId?: string | null, title?: string) => {
       try {
-        await storageCreateFolder({ name: folderName });
-        toast.success('Folder created');
+        const note = await createNote({ folderId, title: title || "" });
+        // setActiveNote(note.id); // Zustand does this internally in createNote
+        setShowMobileSidebar(false);
+        toast.success(title ? `Created "${title}"` : "Note created");
+        return note.id;
       } catch (error) {
-        toast.error('Failed to create folder');
+        toast.error("Failed to create note");
+        return null;
+      }
+    },
+    [createNote]
+  );
+
+  const handleDeleteNote = useCallback(
+    async (id: string) => {
+      try {
+        await deleteNote(id);
+        toast.success("Note deleted");
+      } catch {
+        toast.error("Failed to delete note");
+      }
+    },
+    [deleteNote]
+  );
+
+  const handleDeleteFolder = useCallback(
+    async (id: string) => {
+      try {
+        await deleteFolder(id);
+        toast.success("Folder deleted");
+      } catch {
+        toast.error("Failed to delete folder");
+      }
+    },
+    [deleteFolder]
+  );
+
+  const handleCreateFolder = useCallback(async () => {
+    // This is for the keyboard shortcut fallback.
+    // Usually, the UI opens the Modal instead.
+    const name = prompt("Enter folder name:");
+    if (name) {
+      try {
+        await createFolder({ name });
+        toast.success("Folder created");
+      } catch {
+        toast.error("Failed to create folder");
       }
     }
-  }, [storageCreateFolder]);
+  }, [createFolder]);
 
-  // FIX: Include all properties (including font) in the update
-  const handleNoteUpdate = useCallback(async (updatedNote: Note) => {
-    try {
-      await storageUpdateNote(updatedNote.id, {
-        title: updatedNote.title,
-        content: updatedNote.content,
-        font: updatedNote.font, // 👈 Ensures font changes are saved
-        isPinned: updatedNote.isPinned,
-        pinnedAt: updatedNote.pinnedAt,
-        folderId: updatedNote.folderId,
-      });
-    } catch (error) {
-      toast.error('Failed to update note');
-    }
-  }, [storageUpdateNote]);
+  const handleNoteUpdate = useCallback(
+    async (updatedNote: Note) => {
+      try {
+        await updateNote(updatedNote.id, {
+          title: updatedNote.title,
+          content: updatedNote.content,
+          font: updatedNote.font,
+          isPinned: updatedNote.isPinned,
+          pinnedAt: updatedNote.pinnedAt,
+          folderId: updatedNote.folderId,
+        });
+      } catch {
+        toast.error("Failed to update note");
+      }
+    },
+    [updateNote]
+  );
 
-  const togglePin = useCallback(async (noteId: string) => {
-    try {
-      await storageTogglePin(noteId);
-    } catch (error) {
-      console.error('Failed to toggle pin:', error);
-      throw error;
-    }
-  }, [storageTogglePin]);
+  const handleTogglePin = useCallback(
+    async (noteId: string) => {
+      try {
+        await togglePin(noteId);
+      } catch {
+        toast.error("Failed to toggle pin");
+      }
+    },
+    [togglePin]
+  );
 
+  const handleMoveNote = useCallback(
+    async (noteId: string, folderId: string | null) => {
+      try {
+        await moveNote(noteId, folderId);
+        toast.success("Note moved");
+      } catch {
+        toast.error("Failed to move note");
+      }
+    },
+    [moveNote]
+  );
+
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyboard = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isEditing = target.tagName === 'INPUT' || 
-                        target.tagName === 'TEXTAREA' || 
-                        target.contentEditable === 'true' ||
-                        target.closest('.ProseMirror');
-      
-      // Global shortcut for Help (Cmd+/) works even when editing
-      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+      const isEditing =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true" ||
+        target.closest(".ProseMirror");
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
         e.preventDefault();
-        setIsHelpOpen(prev => !prev);
+        setIsHelpOpen((prev) => !prev);
         return;
       }
 
       if (isEditing) return;
-      
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
-      
-      if (modKey && e.key === 'e' && !e.shiftKey) {
+
+      if (modKey && e.key === "e" && !e.shiftKey) {
         e.preventDefault();
-        createNote();
+        handleCreateNote();
         return;
       }
-      
-      if (modKey && e.shiftKey && e.key === 'F') {
+
+      if (modKey && e.shiftKey && e.key === "F") {
         e.preventDefault();
-        createFolder();
+        // Here we might want to trigger the modal open state if accessible
+        // For now, prompt fallback:
+        handleCreateFolder();
         return;
       }
     };
-    
-    window.addEventListener('keydown', handleGlobalKeyboard);
-    return () => window.removeEventListener('keydown', handleGlobalKeyboard);
-  }, [createNote, createFolder]);
 
-  const handleSetActiveNoteForMobile = useCallback((noteId: string | null) => {
-    setActiveNoteId(noteId);
-    if (window.innerWidth < 768) {
-      setShowMobileSidebar(false);
-    }
-  }, []);
+    window.addEventListener("keydown", handleGlobalKeyboard);
+    return () => window.removeEventListener("keydown", handleGlobalKeyboard);
+  }, [handleCreateNote, handleCreateFolder]);
 
-  const activeNote = notes.find(n => n.id === activeNoteId);
+  const handleSetActiveNoteForMobile = useCallback(
+    (noteId: string | null) => {
+      setActiveNote(noteId);
+      if (window.innerWidth < 768) {
+        setShowMobileSidebar(false);
+      }
+    },
+    [setActiveNote]
+  );
 
-  const combinedStatus = useMemo(() => {
-    if (isSaving) return 'syncing';
-    return settings.syncStatus;
-  }, [isSaving, settings.syncStatus]);
+  const showLoading = !minTimeElapsed || isLoading;
+  const activeNote = notes.find((n) => n.id === activeNoteId);
+  const combinedStatus = isSaving ? "syncing" : syncStatus;
 
   if (showLoading) {
     return <LoadingScreen isExtended={showExtendedMessage} />;
@@ -260,71 +280,58 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Desktop Sidebar */}
       <div className="hidden md:block">
-        {isLoading ? (
-          <div className="w-80 h-full bg-zinc-900 border-r border-zinc-800">
-            <NoteListSkeleton />
-          </div>
-        ) : (
-          <Sidebar
-            notes={notes}
-            folders={foldersWithNotes}
-            activeNoteId={activeNoteId}
-            setActiveNoteId={setActiveNoteId}
-            createNote={createNote}
-            deleteNote={deleteNote}
-            deleteFolder={deleteFolder}
-            moveNote={moveNote}
-            createFolder={createFolder}
-            onDataChange={refresh}
-            updateNoteLocally={updateNoteLocally}
-            togglePin={togglePin}
-            syncStatus={combinedStatus}
-            onOpenHelp={() => setIsHelpOpen(true)}
-          />
-        )}
+        <Sidebar
+          notes={notes}
+          folders={foldersWithNotes}
+          activeNoteId={activeNoteId}
+          setActiveNoteId={setActiveNote}
+          createNote={handleCreateNote}
+          deleteNote={handleDeleteNote}
+          deleteFolder={handleDeleteFolder}
+          moveNote={handleMoveNote}
+          createFolder={handleCreateFolder}
+          onDataChange={loadData}
+          updateNoteLocally={updateNoteLocally}
+          togglePin={handleTogglePin}
+          syncStatus={combinedStatus}
+          onOpenHelp={() => setIsHelpOpen(true)}
+        />
       </div>
 
+      {/* Mobile Sidebar */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
             ref={sidebarRef}
-            initial={{ x: '-100%' }}
+            initial={{ x: "-100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{
-              type: 'spring',
-              stiffness: 300,
-              damping: 30,
-            }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed md:hidden inset-y-0 left-0 z-50 w-80"
           >
-            {isLoading ? (
-              <div className="w-full h-full bg-zinc-900 border-r border-zinc-800">
-                <NoteListSkeleton />
-              </div>
-            ) : (
-              <Sidebar
-                notes={notes}
-                folders={foldersWithNotes}
-                activeNoteId={activeNoteId}
-                setActiveNoteId={handleSetActiveNoteForMobile}
-                createNote={createNote}
-                deleteNote={deleteNote}
-                deleteFolder={deleteFolder}
-                moveNote={moveNote}
-                createFolder={createFolder}
-                onDataChange={refresh}
-                updateNoteLocally={updateNoteLocally}
-                togglePin={togglePin}
-                syncStatus={combinedStatus}
-                onOpenHelp={() => setIsHelpOpen(true)}
-              />
-            )}
+            <Sidebar
+              notes={notes}
+              folders={foldersWithNotes}
+              activeNoteId={activeNoteId}
+              setActiveNoteId={handleSetActiveNoteForMobile}
+              createNote={handleCreateNote}
+              deleteNote={handleDeleteNote}
+              deleteFolder={handleDeleteFolder}
+              moveNote={handleMoveNote}
+              createFolder={handleCreateFolder}
+              onDataChange={loadData}
+              updateNoteLocally={updateNoteLocally}
+              togglePin={handleTogglePin}
+              syncStatus={combinedStatus}
+              onOpenHelp={() => setIsHelpOpen(true)}
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Main Content Area */}
       <div className="flex-1 h-full flex flex-col">
         <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
           <Button
@@ -341,17 +348,17 @@ export default function Home() {
           </Button>
           {activeNote && (
             <h2 className="text-sm font-medium text-zinc-200 truncate">
-              {activeNote.title || 'Untitled Note'}
+              {activeNote.title || "Untitled Note"}
             </h2>
           )}
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <NoteEditor 
-            activeNote={activeNote} 
-            onNoteUpdate={handleNoteUpdate} 
+          <NoteEditor
+            activeNote={activeNote}
+            onNoteUpdate={handleNoteUpdate}
             onSavingStatusChange={setIsSaving}
-            onDeleteNote={deleteNote}
+            onDeleteNote={handleDeleteNote}
           />
         </div>
       </div>
@@ -360,11 +367,11 @@ export default function Home() {
         notes={notes}
         folders={folders}
         activeNoteId={activeNoteId}
-        setActiveNoteId={setActiveNoteId}
-        createNote={createNote}
-        createFolder={createFolder}
-        deleteNote={deleteNote}
-        togglePin={togglePin}
+        setActiveNoteId={setActiveNote}
+        createNote={handleCreateNote}
+        createFolder={handleCreateFolder}
+        deleteNote={handleDeleteNote}
+        togglePin={handleTogglePin}
       />
 
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
