@@ -2,7 +2,6 @@
 
 import type { Note } from "@/lib/storage/types";
 import { useDebouncedCallback } from "use-debounce";
-// FIX: Added InputRule to imports
 import {
   useEditor,
   EditorContent,
@@ -92,7 +91,6 @@ const Subnote = Mark.create({
   },
   addInputRules() {
     return [
-      // FIX: Wrapped in new InputRule to satisfy TypeScript types
       new InputRule({
         find: /\{([^}]+)\}\(([^)]+)\)$/,
         handler: ({ state, range, match }) => {
@@ -112,6 +110,7 @@ const Subnote = Mark.create({
   },
 });
 
+// Helper for Title Input (Tailwind classes)
 const getFontClass = (font: string) => {
   switch (font) {
     case "serif":
@@ -173,6 +172,7 @@ export default function NoteEditor({
     1500
   );
 
+  // Title still uses Tailwind class helper
   const fontClass = getFontClass(activeNote?.font || "sans");
 
   const editor = useEditor(
@@ -197,7 +197,7 @@ export default function NoteEditor({
       content: activeNote?.content ?? "",
       editorProps: {
         attributes: {
-          class: `prose prose-invert prose-lg focus:outline-none max-w-none break-words ${fontClass}`,
+          class: `prose prose-invert prose-lg focus:outline-none max-w-none break-words`,
         },
       },
       onUpdate: ({ editor: editorInstance }) => {
@@ -206,7 +206,7 @@ export default function NoteEditor({
       },
       immediatelyRender: false,
     },
-    [activeNote?.id, fontClass]
+    [activeNote?.id]
   );
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -237,7 +237,11 @@ export default function NoteEditor({
   if (!activeNote) return null;
 
   return (
+    // 1. DATA ATTRIBUTE STRATEGY (Notion Style)
+    // We attach the font setting to the DOM. CSS will read this.
     <div
+      id="note-editor-root"
+      data-font={activeNote.font || "sans"}
       className="flex flex-col flex-1 h-full bg-black relative"
       onClick={() => setActiveSubnote(null)}
     >
@@ -297,7 +301,6 @@ export default function NoteEditor({
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
             className="fixed z-[9999] p-4 bg-[#121212] backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-[280px] pointer-events-none"
             style={{
-              // Precise Math: Place top of box relative to word top, minus 15px for spacing
               top: activeSubnote.rect.top - 15,
               left: activeSubnote.rect.left + activeSubnote.rect.width / 2,
               transform: "translate(-50%, -100%)",
@@ -314,14 +317,39 @@ export default function NoteEditor({
                 "{activeSubnote.meaning}"
               </p>
             </div>
-
-            {/* Pointer with Outline Fix: Shares bg and border-right/bottom to create seamless point */}
             <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-[#121212] border-r border-b border-white/20 z-0" />
           </motion.div>
         )}
       </AnimatePresence>
 
       <style jsx global>{`
+        /*
+           THE NOTION FIX:
+           Target by ID + Attribute + Class.
+           This has Specificity: 0-2-1 (ID+Attr+Class).
+           Tailwind Prose has Specificity: 0-0-1 or 0-1-1.
+           WE WIN.
+        */
+        #note-editor-root[data-font="serif"] .ProseMirror,
+        #note-editor-root[data-font="serif"] .ProseMirror * {
+          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times,
+            serif !important;
+        }
+
+        #note-editor-root[data-font="mono"] .ProseMirror,
+        #note-editor-root[data-font="mono"] .ProseMirror * {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace !important;
+        }
+
+        #note-editor-root[data-font="sans"] .ProseMirror,
+        #note-editor-root[data-font="sans"] .ProseMirror * {
+          font-family: ui-sans-serif, system-ui, -apple-system,
+            BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+            sans-serif !important;
+        }
+
+        /* Basic Editor Resets */
         .ProseMirror {
           word-wrap: break-word !important;
           white-space: pre-wrap !important;
