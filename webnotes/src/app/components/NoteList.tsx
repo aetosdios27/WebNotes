@@ -77,7 +77,8 @@ export default function NoteList({
   deleteNote,
   deleteFolder,
 }: NoteListProps) {
-  // Drag State
+  // Drag State - Use REF for synchronous access, STATE for UI rendering
+  const draggedNoteIdRef = useRef<string | null>(null);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
@@ -117,20 +118,19 @@ export default function NoteList({
 
     // 2. Custom Overlay (To show our clean drag preview)
     const overlay = document.createElement("div");
-    // Base styles - content is injected on drag start
     overlay.style.cssText = `
       position: fixed;
       pointer-events: none;
       z-index: 99999;
       display: none;
       padding: 8px 12px;
-      background: #27272a; /* zinc-800 */
-      border: 1px solid #52525b; /* zinc-600 */
+      background: #27272a;
+      border: 1px solid #52525b;
       border-radius: 6px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.4);
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 13px;
-      will-change: top, left;
+      will-change: transform;
     `;
     document.body.appendChild(overlay);
     dragOverlayRef.current = overlay;
@@ -242,22 +242,28 @@ export default function NoteList({
   // --- DRAG HANDLERS ---
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, note: Note) => {
-    if (isMobile) return;
+    if (isMobile) {
+      e.preventDefault();
+      return;
+    }
 
     const title = note.title || "Untitled";
+
+    // Synchronous ref update - critical for Windows compatibility
+    draggedNoteIdRef.current = note.id;
     setDraggedNoteId(note.id);
 
-    e.dataTransfer.setData("noteId", note.id);
+    // Use proper custom MIME type
+    e.dataTransfer.setData("text/x-note-id", note.id);
     e.dataTransfer.effectAllowed = "move";
 
-    // 1. Hide native browser drag image
+    // Hide native drag image
     if (emptyDragImageRef.current) {
       e.dataTransfer.setDragImage(emptyDragImageRef.current, 0, 0);
     }
 
-    // 2. Setup Custom Overlay
+    // Setup custom overlay
     if (dragOverlayRef.current) {
-      // Inject SVG + Title matching the design
       dragOverlayRef.current.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -270,48 +276,74 @@ export default function NoteList({
           )}</span>
         </div>
       `;
-
       dragOverlayRef.current.style.display = "block";
       dragOverlayRef.current.style.left = `${e.clientX + 12}px`;
       dragOverlayRef.current.style.top = `${e.clientY - 18}px`;
     }
 
-    // 3. Track Mouse Movement (Direct DOM access for 0 lag)
+    // Track mouse for overlay position
     const onDrag = (ev: DragEvent) => {
-      if (ev.clientX === 0 && ev.clientY === 0) return; // Ignore invalid 0,0
+      if (ev.clientX === 0 && ev.clientY === 0) return;
       if (dragOverlayRef.current) {
         dragOverlayRef.current.style.left = `${ev.clientX + 12}px`;
         dragOverlayRef.current.style.top = `${ev.clientY - 18}px`;
       }
     };
 
-    window.addEventListener("drag", onDrag);
-    window.addEventListener("dragover", onDrag);
-
-    // Store cleanup for later
-    (e.target as any)._dragCleanup = () => {
-      window.removeEventListener("drag", onDrag);
-      window.removeEventListener("dragover", onDrag);
+    // Must preventDefault on window dragover for Windows compatibility
+    const onWindowDragOver = (ev: DragEvent) => {
+      if (draggedNoteIdRef.current) {
+        ev.preventDefault();
+        if (ev.dataTransfer) {
+          ev.dataTransfer.dropEffect = "move";
+        }
+      }
+      onDrag(ev);
     };
+
+    window.addEventListener("drag", onDrag);
+    window.addEventListener("dragover", onWindowDragOver);
+
+    // Store cleanup reference
+    (window as unknown as Record<string, () => void>).__noteDragCleanup =
+      () => {
+        window.removeEventListener("drag", onDrag);
+        window.removeEventListener("dragover", onWindowDragOver);
+      };
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    // Hide overlay immediately
+    e.preventDefault();
+
+    // Hide overlay
     if (dragOverlayRef.current) {
       dragOverlayRef.current.style.display = "none";
     }
 
-    // Cleanup listeners
-    const cleanup = (e.target as any)._dragCleanup;
-    if (cleanup) cleanup();
+    // Cleanup global listeners
+    const cleanup = (
+      window as unknown as Record<string, (() => void) | undefined>
+    ).__noteDragCleanup;
+    if (cleanup) {
+      cleanup();
+      delete (window as unknown as Record<string, unknown>).__noteDragCleanup;
+    }
 
+    // Reset state
+    draggedNoteIdRef.current = null;
     setDraggedNoteId(null);
     setDragOverFolderId(null);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (isMobile || !draggedNoteId) return;
+    if (isMobile) return;
+
+    // Check ref (synchronous) instead of state (async)
+    if (!draggedNoteIdRef.current) return;
+
+    // CRITICAL: Must call these for Windows to show "allowed" cursor
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
   };
 
@@ -319,10 +351,29 @@ export default function NoteList({
     e: React.DragEvent<HTMLDivElement>,
     folderId: string | null
   ) => {
-    if (isMobile || !draggedNoteId) return;
+    if (isMobile) return;
+
+    // Use ref for synchronous check
+    if (!draggedNoteIdRef.current) return;
+
     e.preventDefault();
     e.stopPropagation();
     setDragOverFolderId(folderId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (isMobile) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Only clear if leaving the actual target (not entering a child)
+    const relatedTarget = e.relatedTarget as Node | null;
+    const currentTarget = e.currentTarget;
+
+    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+      setDragOverFolderId(null);
+    }
   };
 
   const handleDrop = (
@@ -330,15 +381,16 @@ export default function NoteList({
     folderId: string | null
   ) => {
     if (isMobile) return;
+
     e.preventDefault();
     e.stopPropagation();
 
-    // Ensure overlay is hidden immediately
+    // Hide overlay immediately
     if (dragOverlayRef.current) {
       dragOverlayRef.current.style.display = "none";
     }
 
-    const noteId = e.dataTransfer.getData("noteId");
+    const noteId = e.dataTransfer.getData("text/x-note-id");
 
     if (noteId) {
       setJustDropped(folderId);
@@ -346,8 +398,10 @@ export default function NoteList({
       moveNote(noteId, folderId);
     }
 
-    setDragOverFolderId(null);
+    // Reset state
+    draggedNoteIdRef.current = null;
     setDraggedNoteId(null);
+    setDragOverFolderId(null);
   };
 
   // --- RENDERERS ---
@@ -540,8 +594,9 @@ export default function NoteList({
       <div
         onDragOver={handleDragOver}
         onDragEnter={(e) => handleDragEnter(e, folder.id)}
+        onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, folder.id)}
-        className={`rounded-md ${
+        className={`rounded-md transition-all duration-150 ${
           isDragOver
             ? "ring-2 ring-yellow-500/50 bg-yellow-500/10"
             : wasJustDropped
@@ -555,7 +610,7 @@ export default function NoteList({
               toggleFolder(folder.id);
             }
           }}
-          className={`flex items-center gap-2 p-3 md:p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer group
+          className={`flex items-center gap-2 p-3 md:p-2 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer group transition-colors duration-150
             ${
               isDragOver
                 ? "bg-yellow-500/20"
@@ -683,8 +738,9 @@ export default function NoteList({
           <div
             onDragOver={handleDragOver}
             onDragEnter={(e) => handleDragEnter(e, null)}
+            onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, null)}
-            className={`rounded-md ${
+            className={`rounded-md transition-all duration-150 ${
               dragOverFolderId === null && draggedNoteId
                 ? "ring-2 ring-yellow-500/50 p-2"
                 : ""
@@ -725,7 +781,7 @@ export default function NoteList({
         )}
       </div>
 
-      {/* Delete Modal */}
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -748,13 +804,13 @@ export default function NoteList({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-white"
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white transition-colors"
               >
                 Delete
               </button>
