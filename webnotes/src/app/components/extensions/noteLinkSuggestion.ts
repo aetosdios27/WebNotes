@@ -2,7 +2,10 @@ import { ReactRenderer } from "@tiptap/react";
 import tippy, { Instance as TippyInstance } from "tippy.js";
 import { NoteLinkSuggestion, NoteLinkItem } from "../ui/NoteLinkSuggestion";
 
-export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
+export const createNoteLinkSuggestion = (
+  getNotes: () => NoteLinkItem[],
+  onCreate?: (id: string, title: string) => Promise<void> // Add this 2nd argument
+) => ({
   items: ({ query }: { query: string }): NoteLinkItem[] => {
     const notes = getNotes();
     if (!query.trim()) return notes.slice(0, 8);
@@ -10,6 +13,13 @@ export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
     const lowerQuery = query.toLowerCase();
     return notes
       .filter((n) => (n.title || "").toLowerCase().includes(lowerQuery))
+      .sort((a, b) => {
+        const aStarts = a.title.toLowerCase().startsWith(lowerQuery);
+        const bStarts = b.title.toLowerCase().startsWith(lowerQuery);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return 0;
+      })
       .slice(0, 8);
   },
 
@@ -20,7 +30,10 @@ export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
     return {
       onStart: (props: any) => {
         component = new ReactRenderer(NoteLinkSuggestion, {
-          props,
+          props: {
+            ...props,
+            onCreate, // Pass it down
+          },
           editor: props.editor,
         });
 
@@ -36,11 +49,13 @@ export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
           placement: "bottom-start",
           maxWidth: "none",
           zIndex: 9999,
+          hideOnClick: false,
         });
       },
 
       onUpdate: (props: any) => {
-        if (component) component.updateProps(props);
+        if (!component) return;
+        component.updateProps({ ...props, onCreate });
         if (props.clientRect && popup?.[0]) {
           popup[0].setProps({ getReferenceClientRect: props.clientRect });
         }
@@ -57,6 +72,8 @@ export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
       onExit: () => {
         popup?.[0]?.destroy();
         component?.destroy();
+        popup = null;
+        component = null;
       },
     };
   },

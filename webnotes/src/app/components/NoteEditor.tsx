@@ -191,7 +191,7 @@ export default function NoteEditor({
           allNotesRef.current
             .filter((n) => n.id !== activeNoteIdRef.current)
             .map((n) => ({ id: n.id, title: n.title || "Untitled" })),
-        handleCreateNoteFromLink
+        (id: string, title: string) => handleCreateNoteFromLink(id, title)
       ),
     [handleCreateNoteFromLink]
   );
