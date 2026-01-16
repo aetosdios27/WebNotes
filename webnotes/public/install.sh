@@ -1,62 +1,100 @@
 #!/bin/sh
-# WebNotes Installer (Linux/macOS)
+# WebNotes Installer
+# Installs native packages (.deb, .rpm, .dmg) based on your OS.
 
 set -e
 
-# Detect OS
-OS="$(uname -s)"
-ARCH="$(uname -m)"
-
 REPO="aetosdios27/WebNotes"
-LATEST_URL="https://github.com/$REPO/releases/latest"
+BIN_NAME="webnotes"
 
-echo "🔍 Detecting platform..."
+# ANSI Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-case "$OS" in
-    Linux)
-        FILE_EXT=".deb"
-        echo "🐧 Detected Linux ($ARCH)"
-        ;;
-    Darwin)
-        FILE_EXT=".dmg"
-        echo "🍎 Detected macOS ($ARCH)"
-        ;;
-    *)
-        echo "❌ Unsupported OS: $OS"
-        exit 1
-        ;;
-esac
+echo "${BLUE}🔍 Detecting platform...${NC}"
 
-# Construct Download URL (This assumes standard Tauri naming convention)
-# You might need to adjust this if your release filenames are different
-# E.g. webnotes_0.1.0_amd64.deb
-# A smarter way is to fetch the release JSON and grep it.
+# Helper to fetch URL from GitHub API
+get_url() {
+    curl -s "https://api.github.com/repos/$REPO/releases/latest" \
+    | grep "browser_download_url" \
+    | grep "$1" \
+    | cut -d '"' -f 4 \
+    | head -n 1
+}
 
-echo "⬇️  Fetching latest release..."
-
-# Get the download URL for the asset ending in .deb or .dmg
-DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep "browser_download_url" | grep "$FILE_EXT" | cut -d '"' -f 4 | head -n 1)
-
-if [ -z "$DOWNLOAD_URL" ]; then
-    echo "❌ Could not find a suitable release asset."
-    exit 1
-fi
-
-echo "🚀 Downloading from: $DOWNLOAD_URL"
-
-TMP_FILE="/tmp/webnotes_install$FILE_EXT"
-curl -L -o "$TMP_FILE" "$DOWNLOAD_URL"
-
-echo "📦 Installing..."
+OS="$(uname -s)"
 
 if [ "$OS" = "Linux" ]; then
-    sudo dpkg -i "$TMP_FILE"
-    echo "✅ Installed! Run 'webnotes' to start."
-elif [ "$OS" = "Darwin" ]; then
-    hdiutil attach "$TMP_FILE" -nobrowse -mountpoint /Volumes/WebNotes
-    cp -R "/Volumes/WebNotes/WebNotes.app" /Applications/
-    hdiutil detach /Volumes/WebNotes
-    echo "✅ Installed to /Applications!"
-fi
+    # --- 1. DEBIAN / UBUNTU / MINT ---
+    if command -v dpkg >/dev/null 2>&1; then
+        echo "🐧 Detected Debian-based system."
+        URL=$(get_url ".deb")
 
-rm "$TMP_FILE"
+        if [ -z "$URL" ]; then echo "${RED}❌ Error: .deb not found in release.${NC}"; exit 1; fi
+
+        echo "${BLUE}⬇️  Downloading native package...${NC}"
+        curl -L -o "/tmp/webnotes.deb" "$URL"
+
+        echo "📦 Installing..."
+        sudo dpkg -i "/tmp/webnotes.deb" || sudo apt-get install -f -y
+        rm "/tmp/webnotes.deb"
+
+        echo "${GREEN}✅ Installed! Run 'webnotes' to start.${NC}"
+        exit 0
+    fi
+
+    # --- 2. FEDORA / RHEL / SUSE ---
+    if command -v rpm >/dev/null 2>&1; then
+        echo "🎩 Detected RPM-based system."
+        URL=$(get_url ".rpm")
+
+        if [ -z "$URL" ]; then echo "${RED}❌ Error: .rpm not found in release.${NC}"; exit 1; fi
+
+        echo "${BLUE}⬇️  Downloading native package...${NC}"
+        curl -L -o "/tmp/webnotes.rpm" "$URL"
+
+        echo "📦 Installing..."
+        sudo rpm -i "/tmp/webnotes.rpm" --force
+        rm "/tmp/webnotes.rpm"
+
+        echo "${GREEN}✅ Installed! Run 'webnotes' to start.${NC}"
+        exit 0
+    fi
+
+    # --- 3. ARCH / OTHER (AppImage Fallback) ---
+    echo "🐧 Detected Generic Linux (Arch/Void/Other)."
+    URL=$(get_url ".AppImage")
+
+    if [ -z "$URL" ]; then echo "${RED}❌ Error: .AppImage not found.${NC}"; exit 1; fi
+
+    echo "${BLUE}⬇️  Downloading AppImage...${NC}"
+    sudo curl -L -o "/usr/local/bin/$BIN_NAME" "$URL"
+    sudo chmod +x "/usr/local/bin/$BIN_NAME"
+
+    echo "${GREEN}✅ Installed to /usr/local/bin/$BIN_NAME${NC}"
+    exit 0
+
+elif [ "$OS" = "Darwin" ]; then
+    # --- 4. MACOS ---
+    echo "🍎 Detected macOS."
+    URL=$(get_url ".dmg")
+
+    if [ -z "$URL" ]; then echo "${RED}❌ Error: .dmg not found.${NC}"; exit 1; fi
+
+    echo "${BLUE}⬇️  Downloading .dmg...${NC}"
+    curl -L -o "/tmp/webnotes.dmg" "$URL"
+
+    echo "📦 Installing..."
+    hdiutil attach "/tmp/webnotes.dmg" -nobrowse -mountpoint "/Volumes/WebNotes"
+    cp -R "/Volumes/WebNotes/WebNotes.app" /Applications/
+    hdiutil detach "/Volumes/WebNotes"
+    rm "/tmp/webnotes.dmg"
+
+    echo "${GREEN}✅ Installed to /Applications/WebNotes.app${NC}"
+    exit 0
+else
+    echo "${RED}❌ Unsupported OS: $OS${NC}"
+    exit 1
+fi
