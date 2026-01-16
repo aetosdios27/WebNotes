@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Link2, ArrowUpRight } from "lucide-react";
+import { X, Link2, ArrowUpRight, ExternalLink } from "lucide-react";
 import type { Note } from "@/lib/storage/types";
 import { useMemo } from "react";
 
@@ -17,13 +17,30 @@ export default function RightSidebar({
   onNavigate,
   onClose,
 }: RightSidebarProps) {
-  // Only calculate backlinks
+  // 1. BACKLINKS: Who links TO me?
   const backlinks = useMemo(() => {
     if (!activeNote || !allNotes) return [];
     return allNotes.filter((n) =>
       n.content?.includes(`data-note-id="${activeNote.id}"`)
     );
   }, [activeNote, allNotes]);
+
+  // 2. OUTGOING LINKS: Who do I link TO?
+  const outgoingLinks = useMemo(() => {
+    if (!activeNote?.content || !allNotes) return [];
+
+    // Extract all UUIDs from data-note-id="..." tags in current content
+    const linkRegex = /data-note-id="([^"]+)"/g;
+    const linkedIds = new Set<string>();
+    let match;
+
+    while ((match = linkRegex.exec(activeNote.content)) !== null) {
+      linkedIds.add(match[1]);
+    }
+
+    // Return the actual Note objects
+    return allNotes.filter((n) => linkedIds.has(n.id));
+  }, [activeNote?.content, allNotes]);
 
   if (!activeNote) return null;
 
@@ -42,8 +59,8 @@ export default function RightSidebar({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Backlinks Section */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-8">
+        {/* SECTION 1: LINKED FROM (Backlinks) */}
         <section>
           <div className="flex items-center gap-2 mb-3 text-sm font-medium text-zinc-400">
             <Link2 size={14} />
@@ -51,16 +68,9 @@ export default function RightSidebar({
           </div>
 
           {backlinks.length === 0 ? (
-            <div className="p-4 rounded-lg border border-dashed border-zinc-800 text-center">
+            <div className="p-3 rounded-lg border border-dashed border-zinc-800 text-center">
               <p className="text-xs text-zinc-500">
-                No notes link to this one yet.
-              </p>
-              <p className="text-[10px] text-zinc-600 mt-1">
-                Type{" "}
-                <code className="bg-zinc-800 px-1 rounded">
-                  [[{activeNote.title}]]
-                </code>{" "}
-                in other notes to link here.
+                No notes link to this one.
               </p>
             </div>
           ) : (
@@ -75,6 +85,44 @@ export default function RightSidebar({
                     <span className="text-sm font-medium text-zinc-300 truncate max-w-[180px]">
                       {note.title || "Untitled"}
                     </span>
+                    {/* Arrow pointing IN (Backlink) */}
+                    <ArrowUpRight
+                      size={12}
+                      className="opacity-0 group-hover:opacity-100 text-zinc-500 transition-opacity rotate-180"
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* SECTION 2: LINKS TO (Outgoing) */}
+        <section>
+          <div className="flex items-center gap-2 mb-3 text-sm font-medium text-zinc-400">
+            <ExternalLink size={14} />
+            <span>Links To ({outgoingLinks.length})</span>
+          </div>
+
+          {outgoingLinks.length === 0 ? (
+            <div className="p-3 rounded-lg border border-dashed border-zinc-800 text-center">
+              <p className="text-xs text-zinc-500">
+                This note has no outgoing links.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {outgoingLinks.map((note) => (
+                <button
+                  key={note.id}
+                  onClick={() => onNavigate(note.id)}
+                  className="w-full text-left group p-3 rounded-md bg-zinc-900/50 hover:bg-zinc-800 transition-all border border-zinc-800/50 hover:border-zinc-700"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-zinc-300 truncate max-w-[180px]">
+                      {note.title || "Untitled"}
+                    </span>
+                    {/* Arrow pointing OUT (Outgoing) */}
                     <ArrowUpRight
                       size={12}
                       className="opacity-0 group-hover:opacity-100 text-zinc-500 transition-opacity"

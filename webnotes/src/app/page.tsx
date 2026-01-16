@@ -13,6 +13,7 @@ import CommandPalette from "@/app/components/CommandPalette";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
 import RightSidebar from "@/app/components/RightSidebar";
+import { isTauri } from "@/lib/tauri"; // Import isTauri check
 
 // Type definition helpers...
 export type FolderWithNotes = Omit<Folder, "notes"> & {
@@ -57,6 +58,32 @@ export default function Home() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // 2. Apply Windows Drag-Drop Fix (Tauri Only or Global safe)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // This prevents the "Red Cross" on Windows by forcing the browser to accept drops
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    // Apply global listener
+    window.addEventListener("dragover", handleDragOver);
+    window.addEventListener("drop", handleDrop);
+
+    return () => {
+      window.removeEventListener("dragover", handleDragOver);
+      window.removeEventListener("drop", handleDrop);
+    };
+  }, []);
 
   // Loading Screen Logic
   useEffect(() => {
