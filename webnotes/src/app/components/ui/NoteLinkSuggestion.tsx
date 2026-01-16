@@ -17,10 +17,11 @@ interface Props {
   items: NoteLinkItem[];
   command: (item: { id: string; label: string }) => void;
   query: string;
+  onClose?: () => void;
 }
 
 export const NoteLinkSuggestion = forwardRef((props: Props, ref) => {
-  const { items, command, query } = props;
+  const { items, command, query, onClose } = props;
   const [selected, setSelected] = useState(0);
 
   useEffect(() => setSelected(0), [items]);
@@ -34,22 +35,42 @@ export const NoteLinkSuggestion = forwardRef((props: Props, ref) => {
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelected((s) => (s <= 0 ? items.length - 1 : s - 1));
-        return true;
+      // 1. Navigation (only if items exist)
+      if (items.length > 0) {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setSelected((s) => (s <= 0 ? items.length - 1 : s - 1));
+          return true;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setSelected((s) => (s >= items.length - 1 ? 0 : s + 1));
+          return true;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+          event.preventDefault();
+          event.stopPropagation();
+          select(selected);
+          return true;
+        }
       }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelected((s) => (s >= items.length - 1 ? 0 : s + 1));
-        return true;
+      // 2. Empty List Handling
+      else {
+        if (event.key === "Enter") {
+          // If list is empty, Enter should just insert a newline
+          // We return FALSE to let Tiptap handle the event normally
+          if (onClose) onClose();
+          return false;
+        }
       }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        event.stopPropagation(); // Stop newline
-        select(selected);
-        return true;
+
+      // 3. Space Handling
+      if (event.key === " " && items.length === 0) {
+        // If list is empty and user types space, let them keep typing normally
+        if (onClose) onClose();
+        return false;
       }
+
       return false;
     },
   }));

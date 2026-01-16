@@ -12,10 +12,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import CommandPalette from "@/app/components/CommandPalette";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
-import RightSidebar from "@/app/components/RightSidebar";
-import { isTauri } from "@/lib/tauri"; // Import isTauri check
+import { isTauri } from "@/lib/tauri";
 
-// Type definition helpers...
 export type FolderWithNotes = Omit<Folder, "notes"> & {
   notes: Note[];
 };
@@ -26,7 +24,6 @@ const NoteEditor = dynamic(() => import("@/app/components/NoteEditor"), {
 });
 
 export default function Home() {
-  // --- ZUSTAND STATE SELECTION ---
   const {
     notes,
     folders,
@@ -54,38 +51,26 @@ export default function Home() {
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [showExtendedMessage, setShowExtendedMessage] = useState(false);
 
-  // 1. Load Data on Mount
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // 2. Apply Windows Drag-Drop Fix (Tauri Only or Global safe)
+  // Windows Drag Fix
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    // This prevents the "Red Cross" on Windows by forcing the browser to accept drops
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
-      if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = "move";
-      }
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
     };
-
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-    };
-
-    // Apply global listener
+    const handleDrop = (e: DragEvent) => e.preventDefault();
     window.addEventListener("dragover", handleDragOver);
     window.addEventListener("drop", handleDrop);
-
     return () => {
       window.removeEventListener("dragover", handleDragOver);
       window.removeEventListener("drop", handleDrop);
     };
   }, []);
 
-  // Loading Screen Logic
   useEffect(() => {
     const timer = setTimeout(() => setMinTimeElapsed(true), 2800);
     return () => clearTimeout(timer);
@@ -98,7 +83,6 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Mobile Sidebar logic
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (window.innerWidth < 768 && showMobileSidebar) {
@@ -114,7 +98,7 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMobileSidebar]);
 
-  // Memoized Folder Structure
+  // STABLE SORT: Created Date (Newest First)
   const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
     return folders.map((folder) => ({
       ...folder,
@@ -123,21 +107,17 @@ export default function Home() {
         .sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-
           if (a.isPinned && b.isPinned) {
             const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
             const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
             return bTime - aTime;
           }
-
           return (
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
         }),
     }));
   }, [folders, notes]);
-
-  // WRAPPER HANDLERS (To add Toast notifications)
 
   const handleCreateNote = useCallback(
     async (
@@ -146,19 +126,15 @@ export default function Home() {
       specificId?: string
     ): Promise<string | null> => {
       try {
-        // Zustand createNote returns Promise<Note>
         const note = await createNote({
           id: specificId,
           folderId,
           title: title || "",
         });
-
         setShowMobileSidebar(false);
-        // Only show toast if it's a direct user action (no specific ID passed)
-        if (!specificId) {
+        if (!specificId)
           toast.success(title ? `Created "${title}"` : "Note created");
-        }
-        return note.id; // Return ID string
+        return note.id;
       } catch (error) {
         toast.error("Failed to create note");
         return null;
@@ -293,9 +269,7 @@ export default function Home() {
   const handleSetActiveNoteForMobile = useCallback(
     (noteId: string | null) => {
       setActiveNote(noteId);
-      if (window.innerWidth < 768) {
-        setShowMobileSidebar(false);
-      }
+      if (window.innerWidth < 768) setShowMobileSidebar(false);
     },
     [setActiveNote]
   );
@@ -372,9 +346,8 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Main Content + Right Sidebar Wrapper */}
+      {/* Main Content (Editor handles Sidebar internally) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Editor Area */}
         <div className="flex-1 h-full flex flex-col min-w-0">
           <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
             <Button
@@ -412,28 +385,6 @@ export default function Home() {
             />
           </div>
         </div>
-
-        {/* Right Sidebar (Backlinks/Context) */}
-        <AnimatePresence mode="wait">
-          {showRightSidebar && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 300, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="border-l border-zinc-800 bg-zinc-900/50 flex-shrink-0 h-full overflow-hidden"
-            >
-              <div className="w-[300px] h-full">
-                <RightSidebar
-                  activeNote={activeNote}
-                  allNotes={notes}
-                  onNavigate={setActiveNote}
-                  onClose={() => setShowRightSidebar(false)}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <CommandPalette

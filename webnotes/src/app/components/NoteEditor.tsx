@@ -36,6 +36,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight } from "lucide-react";
+import RightSidebar from "./RightSidebar";
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
@@ -49,7 +50,8 @@ interface NoteEditorProps {
   onToggleRightSidebar: () => void;
 }
 
-// --- Custom Extensions ---
+// ... (Custom Extensions: CustomLink, Subnote getFontClass - SAME AS BEFORE) ...
+// Copy pasting the extensions here to keep the file complete for you
 const CustomLink = Mark.create({
   name: "link",
   priority: 1000,
@@ -158,13 +160,10 @@ export default function NoteEditor({
   } | null>(null);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
-
-  // Critical Refs for Stability
   const activeNoteIdRef = useRef<string | null>(activeNote?.id || null);
   const lastNoteIdRef = useRef<string | null>(null);
   const allNotesRef = useRef(allNotes);
 
-  // Sync refs
   useEffect(() => {
     allNotesRef.current = allNotes;
   }, [allNotes]);
@@ -173,27 +172,18 @@ export default function NoteEditor({
     activeNoteIdRef.current = activeNote?.id || null;
   }, [activeNote?.id]);
 
-  const handleCreateNoteFromLink = useCallback(
-    async (id: string, title: string) => {
-      if (onCreateNote) {
-        await onCreateNote(title, id);
-      }
-    },
-    [onCreateNote]
-  );
+  // FIX: Removed handleCreateNoteFromLink as it is no longer used in the simplified flow
 
-  // Memoized suggestion plugin configuration
-  // DEPENDENCIES must be minimal to prevent editor re-creation
   const noteLinkSuggestion = useMemo(
     () =>
       createNoteLinkSuggestion(
         () =>
           allNotesRef.current
             .filter((n) => n.id !== activeNoteIdRef.current)
-            .map((n) => ({ id: n.id, title: n.title || "Untitled" })),
-        (id: string, title: string) => handleCreateNoteFromLink(id, title)
+            .map((n) => ({ id: n.id, title: n.title || "Untitled" }))
+        // FIX: Removed second argument
       ),
-    [handleCreateNoteFromLink]
+    []
   );
 
   useEffect(() => {
@@ -214,7 +204,6 @@ export default function NoteEditor({
 
   const debouncedSave = useDebouncedCallback(
     async (noteId: string, newTitle: string, markdownContent: string) => {
-      // Guard: If we switched notes since this save was queued, cancel it.
       if (noteId !== activeNoteIdRef.current) return;
 
       onSavingStatusChange(true);
@@ -229,7 +218,6 @@ export default function NoteEditor({
       } catch (e) {
         console.error(e);
       } finally {
-        // Only turn off saving if we are still on the same note
         if (noteId === activeNoteIdRef.current) {
           onSavingStatusChange(false);
         }
@@ -248,9 +236,6 @@ export default function NoteEditor({
 
   const fontClass = getFontClass(activeNote?.font || "sans");
 
-  // The Editor Instance
-  // CRITICAL: Dependencies are minimized. `isRightSidebarOpen` is NOT a dependency.
-  // This ensures toggling the sidebar does NOT re-mount the editor.
   const editor = useEditor(
     {
       extensions: [
@@ -318,7 +303,7 @@ export default function NoteEditor({
       },
       immediatelyRender: false,
     },
-    [activeNote?.id] // ONLY recreates if note ID changes
+    [activeNote?.id]
   );
 
   useEffect(() => {
@@ -360,90 +345,112 @@ export default function NoteEditor({
     <div
       id="note-editor-root"
       data-font={activeNote.font || "sans"}
-      className="flex flex-col flex-1 h-full bg-black relative"
+      className="flex flex-row h-full bg-black relative overflow-hidden"
       onClick={() => setActiveSubnote(null)}
     >
-      {/* Top Right Controls */}
-      <div
-        className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ReadingModeToggle
-          isReading={isReadingMode}
-          onToggle={() => setIsReadingMode(!isReadingMode)}
-        />
-
-        {/* Right Sidebar Toggle */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleRightSidebar();
-          }}
-          className={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
-            isRightSidebarOpen
-              ? "text-yellow-500 bg-zinc-800"
-              : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-          }`}
-          title="Toggle Info Sidebar"
+      <div className="flex-1 flex flex-col min-w-0 relative h-full">
+        <div
+          className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
         >
-          <PanelRight className="h-4 w-4" />
-        </button>
-
-        <NoteSettings
-          note={activeNote}
-          onDelete={() => onDeleteNote?.(activeNote.id)}
-          onUpdate={(u) => onNoteUpdate({ ...activeNote, ...u })}
-        />
-      </div>
-
-      <TableOfContents editor={editor} />
-
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
-        <div className="max-w-4xl mx-auto pr-16">
-          {/* Toolbar */}
-          <div
-            className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
-              isReadingMode ? "opacity-0 pointer-events-none" : "opacity-100"
-            }`}
-          >
-            {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
-          </div>
-
-          {/* Title Input */}
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={title}
-            disabled={isReadingMode}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              debouncedSave(activeNote.id, e.target.value, getMarkdown(editor));
-            }}
-            onKeyDown={(e) => e.key === "Enter" && editor?.commands.focus()}
-            placeholder="Untitled"
-            className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words ${fontClass} ${
-              isReadingMode ? "cursor-default" : ""
-            }`}
+          <ReadingModeToggle
+            isReading={isReadingMode}
+            onToggle={() => setIsReadingMode(!isReadingMode)}
           />
 
-          {/* Editor Content */}
-          <div
-            className="min-h-[500px] relative pb-8"
+          <button
             onClick={(e) => {
               e.stopPropagation();
-              handleEditorClick(e);
+              onToggleRightSidebar();
             }}
+            className={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
+              isRightSidebarOpen
+                ? "text-yellow-500 bg-zinc-800"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+            }`}
+            title="Toggle Info Sidebar"
           >
-            {editor ? (
-              <EditorContent editor={editor} />
-            ) : (
-              <div className="h-40 rounded-md bg-zinc-800 animate-pulse" />
-            )}
+            <PanelRight className="h-4 w-4" />
+          </button>
+
+          <NoteSettings
+            note={activeNote}
+            onDelete={() => onDeleteNote?.(activeNote.id)}
+            onUpdate={(u) => onNoteUpdate({ ...activeNote, ...u })}
+          />
+        </div>
+
+        <TableOfContents editor={editor} />
+
+        <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
+          <div className="max-w-4xl mx-auto pr-16">
+            <div
+              className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
+                isReadingMode ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
+            </div>
+
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={title}
+              disabled={isReadingMode}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                debouncedSave(
+                  activeNote.id,
+                  e.target.value,
+                  getMarkdown(editor)
+                );
+              }}
+              onKeyDown={(e) => e.key === "Enter" && editor?.commands.focus()}
+              placeholder="Untitled"
+              className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words ${fontClass} ${
+                isReadingMode ? "cursor-default" : ""
+              }`}
+            />
+
+            <div
+              className="min-h-[500px] relative pb-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditorClick(e);
+              }}
+            >
+              {editor ? (
+                <EditorContent editor={editor} />
+              ) : (
+                <div className="h-40 rounded-md bg-zinc-800 animate-pulse" />
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Subnote Tooltip */}
+      <AnimatePresence mode="wait">
+        {isRightSidebarOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 300, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="border-l border-zinc-800 bg-zinc-900/50 flex-shrink-0 h-full overflow-hidden"
+          >
+            <div className="w-[300px] h-full">
+              <RightSidebar
+                activeNote={activeNote}
+                allNotes={allNotesRef.current}
+                editor={editor}
+                onNavigate={onNavigateNote}
+                onClose={onToggleRightSidebar}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {activeSubnote && (
           <motion.div
@@ -473,7 +480,6 @@ export default function NoteEditor({
         )}
       </AnimatePresence>
 
-      {/* Global Styles */}
       <style jsx global>{`
         /* FONT OVERRIDES */
         #note-editor-root[data-font="serif"] .ProseMirror,

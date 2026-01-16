@@ -24,6 +24,8 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
   const calculateHeadings = useCallback(() => {
     if (!editor) return;
 
+    // Use querySelector inside the editor wrapper to be safe
+    // Or just look for the editor-scroll-container which we know exists in NoteEditor
     const scrollContainer = document.querySelector(".editor-scroll-container");
     if (!scrollContainer) return;
 
@@ -43,6 +45,9 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
         const domNode = editor.view.nodeDOM(pos);
 
         if (domNode && domNode instanceof HTMLElement) {
+          // Calculate offset relative to the scroll container
+          // offsetTop returns the distance from the closest positioned ancestor
+          // If the container is relative, this is correct.
           const percent = (domNode.offsetTop / totalHeight) * 100;
 
           newHeadings.push({
@@ -103,6 +108,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
 
     const handleScroll = () => {
       const containerRect = scrollContainer.getBoundingClientRect();
+      // Target Y is slightly down from the top of the container
       const targetY = containerRect.top + 100;
 
       let closestIndex = 0;
@@ -113,6 +119,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
         let domNode: HTMLElement | null = null;
 
         // Find by data-id attribute
+        // Scope it to the editor to avoid potential conflicts
         const nodeById = document.querySelector(`[data-id="${h.id}"]`);
         if (nodeById instanceof HTMLElement) {
           domNode = nodeById;
@@ -148,16 +155,12 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
     (heading: HeadingData) => {
       if (!editor) return;
 
-      // Try to find by ID first (more reliable)
       const nodeById = document.querySelector(`[data-id="${heading.id}"]`);
 
       if (nodeById instanceof HTMLElement) {
         nodeById.scrollIntoView({ behavior: "smooth", block: "center" });
-
-        // Focus the editor at this position
         editor.chain().setTextSelection(heading.pos).focus().run();
       } else {
-        // Fallback to position-based navigation
         editor.chain().setTextSelection(heading.pos).scrollIntoView().run();
       }
     },
@@ -167,10 +170,13 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
   if (!editor || headings.length === 0) return null;
 
   return (
-    <div className="hidden xl:block fixed right-6 top-1/2 -translate-y-1/2 z-50 w-16 group pointer-events-none">
+    // FIX: Changed 'fixed' to 'absolute' so it stays inside the relative container
+    // Changed 'right-6' to 'right-4' to align better
+    // Added 'h-full' and 'flex flex-col justify-center' to center the rail vertically in the container
+    <div className="hidden xl:flex absolute right-4 top-0 bottom-0 z-50 w-16 group pointer-events-none flex-col justify-center">
       {/* RIGHT: The Minimap Rail */}
       <div
-        className="absolute right-0 top-1/2 -translate-y-1/2 w-full pointer-events-auto transition-[height] duration-300"
+        className="relative w-full pointer-events-auto transition-[height] duration-300"
         style={{ height: `${Math.max(100, railHeight)}px` }}
       >
         {headings.map((heading, index) => {
@@ -208,6 +214,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
       </div>
 
       {/* LEFT: Pop-up TOC Card */}
+      {/* This needs 'absolute' to position relative to the rail container */}
       <div
         className={`
           absolute right-10 top-1/2 -translate-y-1/2 max-h-[60vh] w-64

@@ -2,10 +2,7 @@ import { ReactRenderer } from "@tiptap/react";
 import tippy, { Instance as TippyInstance } from "tippy.js";
 import { NoteLinkSuggestion, NoteLinkItem } from "../ui/NoteLinkSuggestion";
 
-export const createNoteLinkSuggestion = (
-  getNotes: () => NoteLinkItem[],
-  onCreate?: (id: string, title: string) => Promise<void> // Add this 2nd argument
-) => ({
+export const createNoteLinkSuggestion = (getNotes: () => NoteLinkItem[]) => ({
   items: ({ query }: { query: string }): NoteLinkItem[] => {
     const notes = getNotes();
     if (!query.trim()) return notes.slice(0, 8);
@@ -13,13 +10,6 @@ export const createNoteLinkSuggestion = (
     const lowerQuery = query.toLowerCase();
     return notes
       .filter((n) => (n.title || "").toLowerCase().includes(lowerQuery))
-      .sort((a, b) => {
-        const aStarts = a.title.toLowerCase().startsWith(lowerQuery);
-        const bStarts = b.title.toLowerCase().startsWith(lowerQuery);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
-        return 0;
-      })
       .slice(0, 8);
   },
 
@@ -32,7 +22,9 @@ export const createNoteLinkSuggestion = (
         component = new ReactRenderer(NoteLinkSuggestion, {
           props: {
             ...props,
-            onCreate, // Pass it down
+            onClose: () => {
+              popup?.[0]?.hide();
+            },
           },
           editor: props.editor,
         });
@@ -49,13 +41,20 @@ export const createNoteLinkSuggestion = (
           placement: "bottom-start",
           maxWidth: "none",
           zIndex: 9999,
-          hideOnClick: false,
         });
       },
 
       onUpdate: (props: any) => {
-        if (!component) return;
-        component.updateProps({ ...props, onCreate });
+        if (component) {
+          // Explicitly pass onClose again to ensure it exists in updated props
+          component.updateProps({
+            ...props,
+            onClose: () => {
+              popup?.[0]?.hide();
+            },
+          });
+        }
+
         if (props.clientRect && popup?.[0]) {
           popup[0].setProps({ getReferenceClientRect: props.clientRect });
         }
@@ -66,6 +65,7 @@ export const createNoteLinkSuggestion = (
           popup?.[0]?.hide();
           return true;
         }
+        // Delegate key events to the React component
         return (component?.ref as any)?.onKeyDown?.(props) || false;
       },
 
