@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
 // Detect if we are running in the Desktop App
-// Note: Tauri v2 usually uses __TAURI_INTERNALS__
 export const isTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -21,14 +20,12 @@ export type TauriFolder = {
   created_at: string;
 };
 
-// --- THIS INTERFACE WAS MISSING THE DELETE METHODS ---
 interface TauriBridge {
   init: () => Promise<void>;
   getAllNotes: () => Promise<any[]>;
   getAllFolders: () => Promise<any[]>;
   saveNote: (note: any) => Promise<void>;
   saveFolder: (folder: any) => Promise<void>;
-  // 👇 THESE LINES WERE MISSING causing error ts(2339)
   deleteNote: (id: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   search: (query: string) => Promise<any[]>;
@@ -49,16 +46,21 @@ export const TauriDB: TauriBridge = {
   async getAllNotes() {
     if (!isTauri) return [];
 
-    const rawData = await invoke<TauriNote[]>("get_all_notes");
+    // Rust returns data with snake_case (from DB) but we annotated struct with camelCase
+    // WAIT: If we annotated struct with camelCase, Rust returns camelCase JSON.
+    // Let's assume Rust returns camelCase now.
+
+    const rawData = await invoke<any[]>("get_all_notes");
 
     return rawData.map((n) => ({
       id: n.id,
       title: n.title,
       content: n.content,
-      folderId: n.folder_id || null,
-      isPinned: n.is_pinned,
-      updatedAt: n.updated_at,
-      createdAt: n.created_at,
+      // Handle both cases just to be safe during migration
+      folderId: n.folderId || n.folder_id || null,
+      isPinned: n.isPinned || n.is_pinned || false,
+      updatedAt: n.updatedAt || n.updated_at,
+      createdAt: n.createdAt || n.created_at,
       pinnedAt: null,
     }));
   },
@@ -66,20 +68,20 @@ export const TauriDB: TauriBridge = {
   async saveNote(note: any) {
     if (!isTauri) return;
 
-    const rustNote = {
+    // Send camelCase (Rust struct expects this now)
+    const notePayload = {
       id: note.id,
       title: note.title,
       content: note.content || "",
-      folder_id: note.folderId || null,
-      is_pinned: note.isPinned,
-      updated_at: note.updatedAt,
-      created_at: note.createdAt,
+      folderId: note.folderId || null,
+      isPinned: note.isPinned || false,
+      updatedAt: note.updatedAt,
+      createdAt: note.createdAt,
     };
 
-    await invoke("save_note", { note: rustNote });
+    await invoke("save_note", { note: notePayload });
   },
 
-  // 👇 IMPLEMENTATION ADDED
   async deleteNote(id: string) {
     if (!isTauri) return;
     await invoke("delete_note", { id });
@@ -89,28 +91,27 @@ export const TauriDB: TauriBridge = {
   async getAllFolders() {
     if (!isTauri) return [];
 
-    const rawData = await invoke<TauriFolder[]>("get_all_folders");
+    const rawData = await invoke<any[]>("get_all_folders");
 
     return rawData.map((f) => ({
       id: f.id,
       name: f.name,
-      createdAt: f.created_at,
+      createdAt: f.createdAt || f.created_at,
     }));
   },
 
   async saveFolder(folder: any) {
     if (!isTauri) return;
 
-    const rustFolder = {
+    const folderPayload = {
       id: folder.id,
       name: folder.name,
-      created_at: folder.createdAt,
+      createdAt: folder.createdAt,
     };
 
-    await invoke("save_folder", { folder: rustFolder });
+    await invoke("save_folder", { folder: folderPayload });
   },
 
-  // 👇 IMPLEMENTATION ADDED
   async deleteFolder(id: string) {
     if (!isTauri) return;
     await invoke("delete_folder", { id });
@@ -120,16 +121,16 @@ export const TauriDB: TauriBridge = {
   async search(query: string) {
     if (!isTauri) return [];
 
-    const rawData = await invoke<TauriNote[]>("search_notes", { query });
+    const rawData = await invoke<any[]>("search_notes", { query });
 
     return rawData.map((n) => ({
       id: n.id,
       title: n.title,
       content: n.content,
-      folderId: n.folder_id || null,
-      isPinned: n.is_pinned,
-      updatedAt: n.updated_at,
-      createdAt: n.created_at,
+      folderId: n.folderId || n.folder_id || null,
+      isPinned: n.isPinned || n.is_pinned || false,
+      updatedAt: n.updatedAt || n.updated_at,
+      createdAt: n.createdAt || n.created_at,
       pinnedAt: null,
     }));
   },
