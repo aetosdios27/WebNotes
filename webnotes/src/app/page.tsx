@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useState, useRef } from "react";
-// import { useStorage } from '@/hooks/useStorage';  <--- REMOVE THIS
-import { useNotesStore } from "@/store/useNotesStore"; // <--- ADD THIS
+import { useNotesStore } from "@/store/useNotesStore";
 import Sidebar from "@/app/components/Sidebar";
 import dynamic from "next/dynamic";
-import { NoteListSkeleton } from "@/app/components/NoteListSkeleton";
 import { toast } from "sonner";
 import type { Note, Folder } from "@/lib/storage/types";
 import { Button } from "@/app/components/ui/button";
@@ -14,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CommandPalette from "@/app/components/CommandPalette";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
+import RightSidebar from "@/app/components/RightSidebar";
 
 // Type definition helpers...
 export type FolderWithNotes = Omit<Folder, "notes"> & {
@@ -48,6 +47,7 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -113,19 +113,40 @@ export default function Home() {
   // WRAPPER HANDLERS (To add Toast notifications)
 
   const handleCreateNote = useCallback(
-    async (folderId?: string | null, title?: string) => {
+    async (
+      folderId?: string | null,
+      title?: string,
+      specificId?: string
+    ): Promise<string | null> => {
       try {
-        const note = await createNote({ folderId, title: title || "" });
-        // setActiveNote(note.id); // Zustand does this internally in createNote
+        // Zustand createNote returns Promise<Note>
+        const note = await createNote({
+          id: specificId,
+          folderId,
+          title: title || "",
+        });
+
         setShowMobileSidebar(false);
-        toast.success(title ? `Created "${title}"` : "Note created");
-        return note.id;
+        // Only show toast if it's a direct user action (no specific ID passed)
+        if (!specificId) {
+          toast.success(title ? `Created "${title}"` : "Note created");
+        }
+        return note.id; // Return ID string
       } catch (error) {
         toast.error("Failed to create note");
         return null;
       }
     },
     [createNote]
+  );
+
+  const handleCreateNoteFromLink = useCallback(
+    async (title: string, id?: string): Promise<string | null> => {
+      const newId = id || crypto.randomUUID();
+      handleCreateNote(null, title, newId).catch((err) => console.error(err));
+      return newId;
+    },
+    [handleCreateNote]
   );
 
   const handleDeleteNote = useCallback(
@@ -153,8 +174,6 @@ export default function Home() {
   );
 
   const handleCreateFolder = useCallback(async () => {
-    // This is for the keyboard shortcut fallback.
-    // Usually, the UI opens the Modal instead.
     const name = prompt("Enter folder name:");
     if (name) {
       try {
@@ -207,7 +226,6 @@ export default function Home() {
     [moveNote]
   );
 
-  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyboard = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -236,8 +254,6 @@ export default function Home() {
 
       if (modKey && e.shiftKey && e.key === "F") {
         e.preventDefault();
-        // Here we might want to trigger the modal open state if accessible
-        // For now, prompt fallback:
         handleCreateFolder();
         return;
       }
@@ -280,7 +296,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar */}
       <div className="hidden md:block">
         <Sidebar
           notes={notes}
@@ -300,7 +315,6 @@ export default function Home() {
         />
       </div>
 
-      {/* Mobile Sidebar */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
@@ -331,36 +345,68 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
-      <div className="flex-1 h-full flex flex-col">
-        <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-            className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-9 w-9"
-          >
-            {showMobileSidebar ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
+      {/* Main Content + Right Sidebar Wrapper */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Editor Area */}
+        <div className="flex-1 h-full flex flex-col min-w-0">
+          <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+              className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-9 w-9"
+            >
+              {showMobileSidebar ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+            {activeNote && (
+              <h2 className="text-sm font-medium text-zinc-200 truncate">
+                {activeNote.title || "Untitled Note"}
+              </h2>
             )}
-          </Button>
-          {activeNote && (
-            <h2 className="text-sm font-medium text-zinc-200 truncate">
-              {activeNote.title || "Untitled Note"}
-            </h2>
-          )}
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <NoteEditor
+              activeNote={activeNote}
+              allNotes={notes}
+              onNoteUpdate={handleNoteUpdate}
+              onSavingStatusChange={setIsSaving}
+              onDeleteNote={handleDeleteNote}
+              onNavigateNote={setActiveNote}
+              onCreateNote={handleCreateNoteFromLink}
+              isRightSidebarOpen={showRightSidebar}
+              onToggleRightSidebar={() =>
+                setShowRightSidebar(!showRightSidebar)
+              }
+            />
+          </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <NoteEditor
-            activeNote={activeNote}
-            onNoteUpdate={handleNoteUpdate}
-            onSavingStatusChange={setIsSaving}
-            onDeleteNote={handleDeleteNote}
-          />
-        </div>
+        {/* Right Sidebar (Backlinks/Context) */}
+        <AnimatePresence mode="wait">
+          {showRightSidebar && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 300, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="border-l border-zinc-800 bg-zinc-900/50 flex-shrink-0 h-full overflow-hidden"
+            >
+              <div className="w-[300px] h-full">
+                <RightSidebar
+                  activeNote={activeNote}
+                  allNotes={notes}
+                  onNavigate={setActiveNote}
+                  onClose={() => setShowRightSidebar(false)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <CommandPalette

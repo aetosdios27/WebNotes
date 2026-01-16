@@ -13,25 +13,43 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import Typography from "@tiptap/extension-typography";
 import Placeholder from "@tiptap/extension-placeholder";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import { Markdown } from "tiptap-markdown";
 import { SlashCommand } from "./SlashCommandExtension";
 import { slashCommandSuggestion } from "./SlashCommands";
 import { Toolbar } from "./Toolbar";
 import NoteSettings from "./NoteSettings";
+import ReadingModeToggle from "./ReadingModeToggle";
 import { MathInline, MathBlock } from "./extensions/math";
 import { CodeBlock } from "./extensions/CodeBlock";
-import { useEffect, useRef, useState, useCallback } from "react";
+import UniqueID from "./extensions/UniqueID";
+import Callout from "./extensions/Callout";
+import NoteLink from "./extensions/NoteLink";
+import PlaceholderLink from "./extensions/PlaceholderLink";
+import { createNoteLinkSuggestion } from "./extensions/noteLinkSuggestion";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
+import { PanelRight } from "lucide-react";
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
+  allNotes: Note[];
   onNoteUpdate: (note: Note) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
+  onNavigateNote: (noteId: string) => void;
+  onCreateNote?: (title: string, id?: string) => Promise<string | null>;
+  isRightSidebarOpen: boolean;
+  onToggleRightSidebar: () => void;
 }
 
-// --- Extensions ---
+// --- Custom Extensions ---
 const CustomLink = Mark.create({
   name: "link",
   priority: 1000,
@@ -40,7 +58,7 @@ const CustomLink = Mark.create({
     return { href: { default: null }, target: { default: "_blank" } };
   },
   parseHTML() {
-    return [{ tag: "a[href]" }];
+    return [{ tag: "a[href]:not([data-note-id])" }];
   },
   renderHTML({ HTMLAttributes }) {
     return [
@@ -110,7 +128,6 @@ const Subnote = Mark.create({
   },
 });
 
-// Helper for Title Input (Tailwind classes)
 const getFontClass = (font: string) => {
   switch (font) {
     case "serif":
@@ -124,23 +141,66 @@ const getFontClass = (font: string) => {
 
 export default function NoteEditor({
   activeNote,
+  allNotes,
   onNoteUpdate,
   onSavingStatusChange,
   onDeleteNote,
+  onNavigateNote,
+  onCreateNote,
+  isRightSidebarOpen,
+  onToggleRightSidebar,
 }: NoteEditorProps) {
   const [title, setTitle] = useState("");
+  const [isReadingMode, setIsReadingMode] = useState(false);
   const [activeSubnote, setActiveSubnote] = useState<{
     meaning: string;
     rect: DOMRect;
   } | null>(null);
+
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Critical Refs for Stability
+  const activeNoteIdRef = useRef<string | null>(activeNote?.id || null);
   const lastNoteIdRef = useRef<string | null>(null);
+  const allNotesRef = useRef(allNotes);
+
+  // Sync refs
+  useEffect(() => {
+    allNotesRef.current = allNotes;
+  }, [allNotes]);
+
+  useEffect(() => {
+    activeNoteIdRef.current = activeNote?.id || null;
+  }, [activeNote?.id]);
+
+  const handleCreateNoteFromLink = useCallback(
+    async (id: string, title: string) => {
+      if (onCreateNote) {
+        await onCreateNote(title, id);
+      }
+    },
+    [onCreateNote]
+  );
+
+  // Memoized suggestion plugin configuration
+  // DEPENDENCIES must be minimal to prevent editor re-creation
+  const noteLinkSuggestion = useMemo(
+    () =>
+      createNoteLinkSuggestion(
+        () =>
+          allNotesRef.current
+            .filter((n) => n.id !== activeNoteIdRef.current)
+            .map((n) => ({ id: n.id, title: n.title || "Untitled" })),
+        handleCreateNoteFromLink
+      ),
+    [handleCreateNoteFromLink]
+  );
 
   useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title || "");
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
-        setTimeout(() => titleInputRef.current?.focus(), 100);
+        setTimeout(() => titleInputRef.current?.focus(), 50);
       }
     }
   }, [activeNote?.id]);
@@ -154,11 +214,14 @@ export default function NoteEditor({
 
   const debouncedSave = useDebouncedCallback(
     async (noteId: string, newTitle: string, markdownContent: string) => {
-      if (!noteId) return;
+      // Guard: If we switched notes since this save was queued, cancel it.
+      if (noteId !== activeNoteIdRef.current) return;
+
       onSavingStatusChange(true);
       try {
         await onNoteUpdate({
           ...activeNote!,
+          id: noteId,
           title: newTitle.trim() || "Untitled",
           content: markdownContent,
           updatedAt: new Date(),
@@ -166,29 +229,78 @@ export default function NoteEditor({
       } catch (e) {
         console.error(e);
       } finally {
-        onSavingStatusChange(false);
+        // Only turn off saving if we are still on the same note
+        if (noteId === activeNoteIdRef.current) {
+          onSavingStatusChange(false);
+        }
       }
     },
-    1500
+    1000
   );
 
-  // Title still uses Tailwind class helper
+  useEffect(() => {
+    return () => debouncedSave.cancel();
+  }, [debouncedSave]);
+
+  useEffect(() => {
+    debouncedSave.cancel();
+  }, [activeNote?.id, debouncedSave]);
+
   const fontClass = getFontClass(activeNote?.font || "sans");
 
+  // The Editor Instance
+  // CRITICAL: Dependencies are minimized. `isRightSidebarOpen` is NOT a dependency.
+  // This ensures toggling the sidebar does NOT re-mount the editor.
   const editor = useEditor(
     {
       extensions: [
-        CustomLink,
-        Subnote,
+        UniqueID.configure({
+          types: [
+            "heading",
+            "paragraph",
+            "bulletList",
+            "orderedList",
+            "taskList",
+            "listItem",
+            "taskItem",
+            "codeBlock",
+            "blockquote",
+            "horizontalRule",
+            "mathBlock",
+            "table",
+            "callout",
+          ],
+        }),
         StarterKit.configure({
           heading: { levels: [1, 2, 3, 4, 5, 6] },
           codeBlock: false,
         }),
         Typography,
         Placeholder.configure({
-          placeholder: "Type [link](url) or {text}(meaning)...",
+          placeholder: "Type / for commands, [[ to link notes...",
         }),
-        Markdown.configure({ html: true }),
+        CustomLink,
+        Subnote,
+        PlaceholderLink,
+        NoteLink.configure({
+          suggestion: noteLinkSuggestion,
+          onNavigate: onNavigateNote,
+        }),
+        Callout,
+        TaskList.configure({ HTMLAttributes: { class: "task-list" } }),
+        TaskItem.configure({
+          nested: true,
+          HTMLAttributes: { class: "task-item" },
+        }),
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        Markdown.configure({
+          html: true,
+          transformPastedText: true,
+          transformCopiedText: true,
+        }),
         SlashCommand.configure({ suggestion: slashCommandSuggestion }),
         MathInline,
         MathBlock,
@@ -206,8 +318,14 @@ export default function NoteEditor({
       },
       immediatelyRender: false,
     },
-    [activeNote?.id]
+    [activeNote?.id] // ONLY recreates if note ID changes
   );
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isReadingMode);
+    }
+  }, [editor, isReadingMode]);
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -225,7 +343,9 @@ export default function NoteEditor({
   useEffect(() => {
     if (!editor || !activeNote || lastNoteIdRef.current === activeNote.id)
       return;
+
     lastNoteIdRef.current = activeNote.id;
+
     queueMicrotask(() => {
       if (editor.isDestroyed) return;
       editor.commands.setContent(activeNote.content || "", {
@@ -237,18 +357,38 @@ export default function NoteEditor({
   if (!activeNote) return null;
 
   return (
-    // 1. DATA ATTRIBUTE STRATEGY (Notion Style)
-    // We attach the font setting to the DOM. CSS will read this.
     <div
       id="note-editor-root"
       data-font={activeNote.font || "sans"}
       className="flex flex-col flex-1 h-full bg-black relative"
       onClick={() => setActiveSubnote(null)}
     >
+      {/* Top Right Controls */}
       <div
-        className="absolute top-8 right-12 z-[60] hidden md:block"
+        className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
+        <ReadingModeToggle
+          isReading={isReadingMode}
+          onToggle={() => setIsReadingMode(!isReadingMode)}
+        />
+
+        {/* Right Sidebar Toggle */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleRightSidebar();
+          }}
+          className={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
+            isRightSidebarOpen
+              ? "text-yellow-500 bg-zinc-800"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+          }`}
+          title="Toggle Info Sidebar"
+        >
+          <PanelRight className="h-4 w-4" />
+        </button>
+
         <NoteSettings
           note={activeNote}
           onDelete={() => onDeleteNote?.(activeNote.id)}
@@ -260,25 +400,35 @@ export default function NoteEditor({
 
       <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
         <div className="max-w-4xl mx-auto pr-16">
-          <div className="inline-block mb-4 md:mb-6">
+          {/* Toolbar */}
+          <div
+            className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
+              isReadingMode ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          >
             {editor ? <Toolbar editor={editor} /> : <div className="h-10" />}
           </div>
 
+          {/* Title Input */}
           <input
             ref={titleInputRef}
             type="text"
             value={title}
+            disabled={isReadingMode}
             onChange={(e) => {
               setTitle(e.target.value);
               debouncedSave(activeNote.id, e.target.value, getMarkdown(editor));
             }}
             onKeyDown={(e) => e.key === "Enter" && editor?.commands.focus()}
             placeholder="Untitled"
-            className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words ${fontClass}`}
+            className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words ${fontClass} ${
+              isReadingMode ? "cursor-default" : ""
+            }`}
           />
 
+          {/* Editor Content */}
           <div
-            className="min-h-[500px] relative"
+            className="min-h-[500px] relative pb-8"
             onClick={(e) => {
               e.stopPropagation();
               handleEditorClick(e);
@@ -293,6 +443,7 @@ export default function NoteEditor({
         </div>
       </div>
 
+      {/* Subnote Tooltip */}
       <AnimatePresence>
         {activeSubnote && (
           <motion.div
@@ -314,7 +465,7 @@ export default function NoteEditor({
                 </span>
               </div>
               <p className="text-[14px] text-zinc-50 font-medium leading-relaxed italic font-sans">
-                "{activeSubnote.meaning}"
+                &quot;{activeSubnote.meaning}&quot;
               </p>
             </div>
             <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-[#121212] border-r border-b border-white/20 z-0" />
@@ -322,14 +473,9 @@ export default function NoteEditor({
         )}
       </AnimatePresence>
 
+      {/* Global Styles */}
       <style jsx global>{`
-        /*
-           THE NOTION FIX:
-           Target by ID + Attribute + Class.
-           This has Specificity: 0-2-1 (ID+Attr+Class).
-           Tailwind Prose has Specificity: 0-0-1 or 0-1-1.
-           WE WIN.
-        */
+        /* FONT OVERRIDES */
         #note-editor-root[data-font="serif"] .ProseMirror,
         #note-editor-root[data-font="serif"] .ProseMirror * {
           font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times,
@@ -349,18 +495,231 @@ export default function NoteEditor({
             sans-serif !important;
         }
 
-        /* Basic Editor Resets */
+        /* EDITOR RESETS */
         .ProseMirror {
           word-wrap: break-word !important;
           white-space: pre-wrap !important;
           outline: none !important;
+          padding-left: 2px !important;
         }
+
         .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
           color: #52525b;
           pointer-events: none;
           height: 0;
+        }
+
+        /* NOTE LINKS */
+        .ProseMirror a.note-link {
+          color: #60a5fa;
+          background: rgba(96, 165, 250, 0.1);
+          padding: 1px 6px;
+          border-radius: 4px;
+          text-decoration: none;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-weight: 500;
+        }
+
+        .ProseMirror a.note-link:hover {
+          background: rgba(96, 165, 250, 0.25);
+          color: #93c5fd;
+        }
+
+        .ProseMirror a.note-link:active {
+          transform: scale(0.98);
+        }
+
+        /* PLACEHOLDER / GHOST LINK */
+        .note-link-placeholder {
+          color: #fbbf24;
+          background: rgba(251, 191, 36, 0.1);
+          padding: 1px 6px;
+          border-radius: 4px;
+          opacity: 0.8;
+        }
+
+        /* TASK LIST */
+        .ProseMirror ul.task-list {
+          list-style: none !important;
+          padding-left: 0 !important;
+          margin: 0.5rem 0 !important;
+        }
+
+        .ProseMirror li.task-item {
+          display: flex !important;
+          align-items: flex-start !important;
+          gap: 0.5rem !important;
+          padding: 0.25rem 0 !important;
+          margin: 0 !important;
+        }
+
+        .ProseMirror li.task-item > label {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-shrink: 0 !important;
+          width: 1.25rem !important;
+          height: 1.25rem !important;
+          margin-top: 0.2rem !important;
+          cursor: pointer !important;
+        }
+
+        .ProseMirror li.task-item > label > input[type="checkbox"] {
+          appearance: none !important;
+          width: 1.125rem !important;
+          height: 1.125rem !important;
+          border: 2px solid #52525b !important;
+          border-radius: 4px !important;
+          background: transparent !important;
+          cursor: pointer !important;
+          transition: all 0.15s ease !important;
+          position: relative !important;
+        }
+
+        .ProseMirror li.task-item > label > input[type="checkbox"]:hover {
+          border-color: #eab308 !important;
+          background: rgba(234, 179, 8, 0.1) !important;
+        }
+
+        .ProseMirror li.task-item > label > input[type="checkbox"]:checked {
+          background: #eab308 !important;
+          border-color: #eab308 !important;
+        }
+
+        .ProseMirror
+          li.task-item
+          > label
+          > input[type="checkbox"]:checked::after {
+          content: "" !important;
+          position: absolute !important;
+          left: 5px !important;
+          top: 2px !important;
+          width: 4px !important;
+          height: 8px !important;
+          border: solid #000 !important;
+          border-width: 0 2px 2px 0 !important;
+          transform: rotate(45deg) !important;
+        }
+
+        .ProseMirror li.task-item > div {
+          flex: 1 !important;
+          min-width: 0 !important;
+        }
+
+        .ProseMirror li.task-item[data-checked="true"] > div {
+          text-decoration: line-through !important;
+          color: #71717a !important;
+        }
+
+        /* TABLES */
+        .ProseMirror table {
+          border-collapse: collapse;
+          margin: 1rem 0;
+          overflow: hidden;
+          table-layout: fixed;
+          width: 100%;
+          border: 1px solid #3f3f46;
+          border-radius: 6px;
+        }
+
+        .ProseMirror td,
+        .ProseMirror th {
+          border: 1px solid #3f3f46;
+          box-sizing: border-box;
+          min-width: 1em;
+          padding: 8px 12px;
+          position: relative;
+          vertical-align: top;
+        }
+
+        .ProseMirror th {
+          background-color: #27272a;
+          font-weight: 600;
+          text-align: left;
+        }
+
+        .ProseMirror .selectedCell:after {
+          background: rgba(234, 179, 8, 0.15);
+          border: 2px solid #eab308;
+          content: "";
+          left: 0;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          pointer-events: none;
+          position: absolute;
+          z-index: 2;
+        }
+
+        .callout-block {
+          padding: 1rem;
+          background: #18181b;
+          border-radius: 0.5rem;
+          border: 1px solid #3f3f46;
+          border-left: 4px solid #eab308;
+          display: flex;
+          gap: 0.75rem;
+          margin: 1rem 0;
+        }
+
+        .callout-icon {
+          font-size: 1.25rem;
+          line-height: 1.5rem;
+          user-select: none;
+          flex-shrink: 0;
+        }
+
+        .callout-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .callout-content p {
+          margin: 0 !important;
+        }
+
+        .ProseMirror pre {
+          background: #18181b;
+          border: 1px solid #3f3f46;
+          border-radius: 0.5rem;
+          padding: 1rem;
+          margin: 1rem 0;
+          overflow-x: auto;
+        }
+
+        .ProseMirror blockquote {
+          border-left: 4px solid #3f3f46;
+          padding-left: 1rem;
+          margin: 1rem 0;
+          color: #a1a1aa;
+          font-style: italic;
+        }
+
+        .ProseMirror hr {
+          border: none;
+          border-top: 1px solid #3f3f46;
+          margin: 2rem 0;
+        }
+
+        .ProseMirror ::selection {
+          background: rgba(234, 179, 8, 0.3);
+        }
+
+        .ProseMirror ul,
+        .ProseMirror ol {
+          padding-left: 1.5rem;
+          margin: 0.5rem 0;
+        }
+
+        .ProseMirror li {
+          margin: 0.25rem 0;
+        }
+
+        .ProseMirror li p {
+          margin: 0;
         }
       `}</style>
     </div>
