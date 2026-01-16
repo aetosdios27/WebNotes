@@ -6,6 +6,7 @@ use tauri::{Manager, State};
 
 // --- DATA TYPES ---
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")] // FIX: Matches JS object keys (folderId -> folder_id)
 pub struct Note {
     id: String,
     title: String,
@@ -17,6 +18,7 @@ pub struct Note {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")] // FIX: Matches JS object keys
 pub struct Folder {
     id: String,
     name: String,
@@ -98,7 +100,7 @@ fn save_note(note: Note, state: State<DbState>) -> Result<(), String> {
             note.content,
             note.folder_id,
             note.is_pinned,
-            Utc::now().to_rfc3339(), // Ensure server-side timestamp or trust client? Client sent one, but we update updated_at
+            Utc::now().to_rfc3339(), // Server-side update timestamp
             note.created_at
         ],
     )
@@ -212,8 +214,6 @@ fn search_notes(query: String, state: State<DbState>) -> Result<Vec<Note>, Strin
     Ok(result)
 }
 
-// --- NEW COMMANDS (Must be here for deletions to persist!) ---
-
 #[tauri::command]
 fn delete_note(id: String, state: State<DbState>) -> Result<(), String> {
     // println!("RUST: Deleting Note: {}", id);
@@ -264,8 +264,8 @@ pub fn run() {
             get_all_notes,
             get_all_folders,
             search_notes,
-            delete_note,   // <--- Ensure registered
-            delete_folder  // <--- Ensure registered
+            delete_note,
+            delete_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
