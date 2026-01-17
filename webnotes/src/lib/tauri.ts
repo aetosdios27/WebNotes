@@ -45,18 +45,11 @@ export const TauriDB: TauriBridge = {
   // 2. Notes
   async getAllNotes() {
     if (!isTauri) return [];
-
-    // Rust returns data with snake_case (from DB) but we annotated struct with camelCase
-    // WAIT: If we annotated struct with camelCase, Rust returns camelCase JSON.
-    // Let's assume Rust returns camelCase now.
-
     const rawData = await invoke<any[]>("get_all_notes");
-
     return rawData.map((n) => ({
       id: n.id,
       title: n.title,
       content: n.content,
-      // Handle both cases just to be safe during migration
       folderId: n.folderId || n.folder_id || null,
       isPinned: n.isPinned || n.is_pinned || false,
       updatedAt: n.updatedAt || n.updated_at,
@@ -68,7 +61,13 @@ export const TauriDB: TauriBridge = {
   async saveNote(note: any) {
     if (!isTauri) return;
 
-    // Send camelCase (Rust struct expects this now)
+    // DEBUG LOGGING - START
+    console.log("=== SAVE NOTE DEBUG ===");
+    console.log("Input note object:", note);
+    console.log("note.id:", note.id);
+    console.log("note.id type:", typeof note.id);
+    // DEBUG LOGGING - END
+
     const notePayload = {
       id: note.id,
       title: note.title,
@@ -78,6 +77,14 @@ export const TauriDB: TauriBridge = {
       updatedAt: note.updatedAt,
       createdAt: note.createdAt,
     };
+
+    // DEBUG LOGGING - START
+    console.log("notePayload object:", notePayload);
+    console.log("notePayload.id:", notePayload.id);
+    console.log("notePayload JSON:", JSON.stringify(notePayload));
+    console.log("Full invoke args:", JSON.stringify({ note: notePayload }));
+    console.log("======================");
+    // DEBUG LOGGING - END
 
     await invoke("save_note", { note: notePayload });
   },
@@ -90,9 +97,7 @@ export const TauriDB: TauriBridge = {
   // 3. Folders
   async getAllFolders() {
     if (!isTauri) return [];
-
     const rawData = await invoke<any[]>("get_all_folders");
-
     return rawData.map((f) => ({
       id: f.id,
       name: f.name,
@@ -102,13 +107,11 @@ export const TauriDB: TauriBridge = {
 
   async saveFolder(folder: any) {
     if (!isTauri) return;
-
     const folderPayload = {
       id: folder.id,
       name: folder.name,
       createdAt: folder.createdAt,
     };
-
     await invoke("save_folder", { folder: folderPayload });
   },
 
@@ -120,9 +123,7 @@ export const TauriDB: TauriBridge = {
   // 4. Search
   async search(query: string) {
     if (!isTauri) return [];
-
     const rawData = await invoke<any[]>("search_notes", { query });
-
     return rawData.map((n) => ({
       id: n.id,
       title: n.title,

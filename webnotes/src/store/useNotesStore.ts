@@ -8,6 +8,7 @@ import type {
   UserSettings,
   SyncStatus,
 } from "@/lib/storage/types";
+import { v4 as uuidv4 } from "uuid";
 
 interface NotesState {
   notes: Note[];
@@ -107,17 +108,20 @@ export const useNotesStore = create<NotesState>()(
 
     createNote: async (data = {}) => {
       const now = new Date();
+
+      // FIX: Spread data FIRST, then override with required fields
+      // This ensures id is always set even if data.id is undefined
       const newNote: Note = {
-        id: data.id || crypto.randomUUID(),
+        ...data,
+        id: data.id || uuidv4(), // Always generate if not provided
         title: data.title ?? "",
         content: data.content ?? "",
         folderId: data.folderId ?? null,
-        isPinned: false,
-        pinnedAt: null,
-        font: null,
-        createdAt: now,
-        updatedAt: now,
-        ...data,
+        isPinned: data.isPinned ?? false,
+        pinnedAt: data.pinnedAt ?? null,
+        font: data.font ?? null,
+        createdAt: data.createdAt || now,
+        updatedAt: data.updatedAt || now,
       };
 
       try {
@@ -140,17 +144,14 @@ export const useNotesStore = create<NotesState>()(
       } catch (error: any) {
         console.error("Failed to create note:", error);
 
-        // --- DEBUGGER TRAP ---
+        // DEBUGGER TRAP (Keep this until verified fixed)
         if (isTauri) {
-          // Using window.alert to force visibility in production build
-          // If error is an object, try to stringify it
           const msg =
             typeof error === "object"
               ? JSON.stringify(error, Object.getOwnPropertyNames(error))
               : String(error);
           alert(`RUST CREATE ERROR: ${msg}`);
         }
-        // ---------------------
 
         throw error;
       }
@@ -298,7 +299,7 @@ export const useNotesStore = create<NotesState>()(
 
     createFolder: async (data) => {
       const newFolder: Folder = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         name: data.name || "New Folder",
         createdAt: new Date(),
       };
