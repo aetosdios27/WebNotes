@@ -34,19 +34,13 @@ interface NotesState {
 // Helper: Stable Sort (Pinned top, then Created Date)
 const sortNotes = (notes: Note[]): Note[] => {
   return [...notes].sort((a, b) => {
-    // 1. Pinned logic
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
-
-    // 2. Pinned Sort order (Newest pin first)
     if (a.isPinned && b.isPinned) {
       const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
       const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
       return bTime - aTime;
     }
-
-    // 3. STABLE SORT: Created Date (Newest First)
-    // This ensures notes don't jump around while editing
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 };
@@ -67,7 +61,6 @@ export const useNotesStore = create<NotesState>()(
 
     loadData: async () => {
       set({ isLoading: true, syncStatus: "syncing" });
-
       try {
         if (isTauri) {
           await TauriDB.init();
@@ -75,7 +68,6 @@ export const useNotesStore = create<NotesState>()(
             TauriDB.getAllNotes(),
             TauriDB.getAllFolders(),
           ]);
-
           set({
             notes: sortNotes(
               notes.map((n) => ({
@@ -99,7 +91,6 @@ export const useNotesStore = create<NotesState>()(
             storage.getFolders(),
             storage.getSettings(),
           ]);
-
           set({
             notes: sortNotes(notes),
             folders,
@@ -116,7 +107,6 @@ export const useNotesStore = create<NotesState>()(
 
     createNote: async (data = {}) => {
       const now = new Date();
-      // Allow specific ID for optimistic linking
       const newNote: Note = {
         id: data.id || crypto.randomUUID(),
         title: data.title ?? "",
@@ -147,8 +137,21 @@ export const useNotesStore = create<NotesState>()(
         }));
 
         return newNote;
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to create note:", error);
+
+        // --- DEBUGGER TRAP ---
+        if (isTauri) {
+          // Using window.alert to force visibility in production build
+          // If error is an object, try to stringify it
+          const msg =
+            typeof error === "object"
+              ? JSON.stringify(error, Object.getOwnPropertyNames(error))
+              : String(error);
+          alert(`RUST CREATE ERROR: ${msg}`);
+        }
+        // ---------------------
+
         throw error;
       }
     },
@@ -178,8 +181,6 @@ export const useNotesStore = create<NotesState>()(
         }
 
         set((state) => ({
-          // IMPORTANT: If pinning changes, re-sort.
-          // If just editing content, DO NOT re-sort (keep position stable).
           notes:
             data.isPinned !== undefined
               ? sortNotes(
