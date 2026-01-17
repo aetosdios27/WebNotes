@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "webnotes",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "identifier": "com.webnotes.app",
 
   "build": {
@@ -21,7 +21,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
-        "transparent": true
+        "transparent": true,
+        "fileDropEnabled": false
       }
     ],
 

@@ -77,7 +77,7 @@ export default function NoteList({
   deleteNote,
   deleteFolder,
 }: NoteListProps) {
-  // Drag State - Use REF for synchronous access, STATE for UI rendering
+  // Drag State
   const draggedNoteIdRef = useRef<string | null>(null);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export default function NoteList({
   );
   const [isMobile, setIsMobile] = useState(false);
 
-  // Refs for Manual DOM Manipulation (Performance)
+  // Refs for Manual DOM Manipulation
   const dragOverlayRef = useRef<HTMLDivElement | null>(null);
   const emptyDragImageRef = useRef<HTMLDivElement | null>(null);
 
@@ -109,14 +109,12 @@ export default function NoteList({
 
   // --- INITIALIZE DOM ELEMENTS ---
   useEffect(() => {
-    // 1. Invisible Element (To hide default browser drag image)
     const empty = document.createElement("div");
     empty.style.cssText =
       "width:1px;height:1px;position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;";
     document.body.appendChild(empty);
     emptyDragImageRef.current = empty;
 
-    // 2. Custom Overlay (To show our clean drag preview)
     const overlay = document.createElement("div");
     overlay.style.cssText = `
       position: fixed;
@@ -249,20 +247,19 @@ export default function NoteList({
 
     const title = note.title || "Untitled";
 
-    // Synchronous ref update - critical for Windows compatibility
     draggedNoteIdRef.current = note.id;
     setDraggedNoteId(note.id);
 
-    // Use proper custom MIME type
+    // DUAL WRITE: Write both custom (for us) and plain (for Windows)
     e.dataTransfer.setData("text/x-note-id", note.id);
+    e.dataTransfer.setData("text/plain", note.id);
+
     e.dataTransfer.effectAllowed = "move";
 
-    // Hide native drag image
     if (emptyDragImageRef.current) {
       e.dataTransfer.setDragImage(emptyDragImageRef.current, 0, 0);
     }
 
-    // Setup custom overlay
     if (dragOverlayRef.current) {
       dragOverlayRef.current.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -281,7 +278,7 @@ export default function NoteList({
       dragOverlayRef.current.style.top = `${e.clientY - 18}px`;
     }
 
-    // Track mouse for overlay position
+    // Force cursor tracking
     const onDrag = (ev: DragEvent) => {
       if (ev.clientX === 0 && ev.clientY === 0) return;
       if (dragOverlayRef.current) {
@@ -290,7 +287,6 @@ export default function NoteList({
       }
     };
 
-    // Must preventDefault on window dragover for Windows compatibility
     const onWindowDragOver = (ev: DragEvent) => {
       if (draggedNoteIdRef.current) {
         ev.preventDefault();
@@ -304,7 +300,6 @@ export default function NoteList({
     window.addEventListener("drag", onDrag);
     window.addEventListener("dragover", onWindowDragOver);
 
-    // Store cleanup reference
     (window as unknown as Record<string, () => void>).__noteDragCleanup =
       () => {
         window.removeEventListener("drag", onDrag);
@@ -315,12 +310,10 @@ export default function NoteList({
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
 
-    // Hide overlay
     if (dragOverlayRef.current) {
       dragOverlayRef.current.style.display = "none";
     }
 
-    // Cleanup global listeners
     const cleanup = (
       window as unknown as Record<string, (() => void) | undefined>
     ).__noteDragCleanup;
@@ -329,7 +322,6 @@ export default function NoteList({
       delete (window as unknown as Record<string, unknown>).__noteDragCleanup;
     }
 
-    // Reset state
     draggedNoteIdRef.current = null;
     setDraggedNoteId(null);
     setDragOverFolderId(null);
@@ -337,11 +329,8 @@ export default function NoteList({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     if (isMobile) return;
-
-    // Check ref (synchronous) instead of state (async)
     if (!draggedNoteIdRef.current) return;
 
-    // CRITICAL: Must call these for Windows to show "allowed" cursor
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
@@ -352,8 +341,6 @@ export default function NoteList({
     folderId: string | null
   ) => {
     if (isMobile) return;
-
-    // Use ref for synchronous check
     if (!draggedNoteIdRef.current) return;
 
     e.preventDefault();
@@ -367,7 +354,6 @@ export default function NoteList({
     e.preventDefault();
     e.stopPropagation();
 
-    // Only clear if leaving the actual target (not entering a child)
     const relatedTarget = e.relatedTarget as Node | null;
     const currentTarget = e.currentTarget;
 
@@ -385,12 +371,15 @@ export default function NoteList({
     e.preventDefault();
     e.stopPropagation();
 
-    // Hide overlay immediately
     if (dragOverlayRef.current) {
       dragOverlayRef.current.style.display = "none";
     }
 
-    const noteId = e.dataTransfer.getData("text/x-note-id");
+    // FALLBACK READ
+    let noteId = e.dataTransfer.getData("text/x-note-id");
+    if (!noteId) {
+      noteId = e.dataTransfer.getData("text/plain");
+    }
 
     if (noteId) {
       setJustDropped(folderId);
@@ -398,7 +387,6 @@ export default function NoteList({
       moveNote(noteId, folderId);
     }
 
-    // Reset state
     draggedNoteIdRef.current = null;
     setDraggedNoteId(null);
     setDragOverFolderId(null);
@@ -423,7 +411,7 @@ export default function NoteList({
               setActiveNoteId(note.id);
             }
           }}
-          className={`flex items-start gap-3 p-3 md:p-2 rounded-md cursor-pointer relative group
+          className={`flex items-start gap-3 p-3 md:p-2 rounded-md cursor-pointer relative group transition-colors duration-150
             ${
               note.id === activeNoteId
                 ? "bg-zinc-800 text-white"
@@ -781,7 +769,7 @@ export default function NoteList({
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {deleteConfirm && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"

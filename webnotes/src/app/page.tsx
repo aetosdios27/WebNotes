@@ -112,6 +112,7 @@ export default function Home() {
             const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
             return bTime - aTime;
           }
+          // Fix: Sort by createdAt to avoid jumping
           return (
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -145,8 +146,13 @@ export default function Home() {
 
   const handleCreateNoteFromLink = useCallback(
     async (title: string, id?: string): Promise<string | null> => {
+      // Logic for instant link creation
+      // If ID is provided (by NoteLinkSuggestion), use it. If not, generate it.
       const newId = id || crypto.randomUUID();
+
+      // Fire and forget creation
       handleCreateNote(null, title, newId).catch((err) => console.error(err));
+
       return newId;
     },
     [handleCreateNote]
@@ -346,7 +352,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Main Content (Editor handles Sidebar internally) */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 h-full flex flex-col min-w-0">
           <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
