@@ -8,21 +8,21 @@ use tauri::{Manager, State};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")] // FIX: Matches JS object keys (folderId -> folder_id)
 pub struct Note {
-    id: String,
-    title: String,
-    content: String,
-    folder_id: Option<String>,
-    is_pinned: bool,
-    updated_at: String,
-    created_at: String,
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub folder_id: Option<String>,
+    pub is_pinned: bool,
+    pub updated_at: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")] // FIX: Matches JS object keys
 pub struct Folder {
-    id: String,
-    name: String,
-    created_at: String,
+    pub id: String,
+    pub name: String,
+    pub created_at: String,
 }
 
 // --- STATE ---
