@@ -10,6 +10,13 @@ import type {
 } from "@/lib/storage/types";
 import { v4 as uuidv4 } from "uuid";
 
+// Define User Type
+interface User {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
 interface NotesState {
   notes: Note[];
   folders: Folder[];
@@ -17,6 +24,12 @@ interface NotesState {
   activeNoteId: string | null;
   isLoading: boolean;
   syncStatus: SyncStatus;
+
+  // Auth State
+  user: User | null;
+  setUser: (user: User | null) => void;
+  logout: () => void;
+
   loadData: () => Promise<void>;
   createNote: (data?: Partial<Note>) => Promise<Note>;
   updateNote: (id: string, data: Partial<Note>) => Promise<Note>;
@@ -32,7 +45,6 @@ interface NotesState {
   setSyncStatus: (status: SyncStatus) => void;
 }
 
-// Helper: Stable Sort (Pinned top, then Created Date)
 const sortNotes = (notes: Note[]): Note[] => {
   return [...notes].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
@@ -59,11 +71,32 @@ export const useNotesStore = create<NotesState>()(
     activeNoteId: null,
     isLoading: true,
     syncStatus: "syncing",
+    user: null,
+
+    setUser: (user) => {
+      set({ user });
+      if (typeof window !== "undefined" && isTauri) {
+        localStorage.setItem("webnotes_user", JSON.stringify(user));
+      }
+    },
+
+    logout: () => {
+      set({ user: null });
+      if (typeof window !== "undefined" && isTauri) {
+        localStorage.removeItem("webnotes_user");
+      }
+    },
 
     loadData: async () => {
       set({ isLoading: true, syncStatus: "syncing" });
       try {
         if (isTauri) {
+          // Restore User
+          if (typeof window !== "undefined") {
+            const savedUser = localStorage.getItem("webnotes_user");
+            if (savedUser) set({ user: JSON.parse(savedUser) });
+          }
+
           await TauriDB.init();
           const [notes, folders] = await Promise.all([
             TauriDB.getAllNotes(),
@@ -108,12 +141,10 @@ export const useNotesStore = create<NotesState>()(
 
     createNote: async (data = {}) => {
       const now = new Date();
-
-      // FIX: Spread data FIRST, then override with required fields
-      // This ensures id is always set even if data.id is undefined
+      // FIX: Spread FIRST, then ID
       const newNote: Note = {
         ...data,
-        id: data.id || uuidv4(), // Always generate if not provided
+        id: data.id || uuidv4(),
         title: data.title ?? "",
         content: data.content ?? "",
         folderId: data.folderId ?? null,
@@ -143,16 +174,11 @@ export const useNotesStore = create<NotesState>()(
         return newNote;
       } catch (error: any) {
         console.error("Failed to create note:", error);
-
-        // DEBUGGER TRAP (Keep this until verified fixed)
         if (isTauri) {
           const msg =
-            typeof error === "object"
-              ? JSON.stringify(error, Object.getOwnPropertyNames(error))
-              : String(error);
+            typeof error === "object" ? JSON.stringify(error) : String(error);
           alert(`RUST CREATE ERROR: ${msg}`);
         }
-
         throw error;
       }
     },

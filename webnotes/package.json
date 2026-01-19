@@ -34,6 +34,8 @@
     "@sentry/react": "^10.32.1",
     "@sparticuz/chromium": "^141.0.0",
     "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-deep-link": "~2",
+    "@tauri-apps/plugin-shell": "~2",
     "@tiptap/extension-bubble-menu": "^3.11.0",
     "@tiptap/extension-code-block-lowlight": "^3.13.0",
     "@tiptap/extension-image": "^3.3.0",

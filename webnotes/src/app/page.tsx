@@ -60,9 +60,13 @@ export default function Home() {
     if (typeof window === "undefined") return;
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
     };
-    const handleDrop = (e: DragEvent) => e.preventDefault();
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener("dragover", handleDragOver);
     window.addEventListener("drop", handleDrop);
     return () => {
@@ -112,7 +116,7 @@ export default function Home() {
             const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
             return bTime - aTime;
           }
-          // Fix: Sort by createdAt to avoid jumping
+          // Sort by createdAt to avoid jumping
           return (
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -132,6 +136,7 @@ export default function Home() {
           folderId,
           title: title || "",
         });
+
         setShowMobileSidebar(false);
         if (!specificId)
           toast.success(title ? `Created "${title}"` : "Note created");
@@ -146,13 +151,8 @@ export default function Home() {
 
   const handleCreateNoteFromLink = useCallback(
     async (title: string, id?: string): Promise<string | null> => {
-      // Logic for instant link creation
-      // If ID is provided (by NoteLinkSuggestion), use it. If not, generate it.
       const newId = id || crypto.randomUUID();
-
-      // Fire and forget creation
       handleCreateNote(null, title, newId).catch((err) => console.error(err));
-
       return newId;
     },
     [handleCreateNote]
@@ -275,7 +275,9 @@ export default function Home() {
   const handleSetActiveNoteForMobile = useCallback(
     (noteId: string | null) => {
       setActiveNote(noteId);
-      if (window.innerWidth < 768) setShowMobileSidebar(false);
+      if (window.innerWidth < 768) {
+        setShowMobileSidebar(false);
+      }
     },
     [setActiveNote]
   );
