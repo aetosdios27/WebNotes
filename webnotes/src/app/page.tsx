@@ -116,7 +116,6 @@ export default function Home() {
             const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
             return bTime - aTime;
           }
-          // Sort by createdAt to avoid jumping
           return (
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -149,9 +148,11 @@ export default function Home() {
     [createNote]
   );
 
+  // FIX: Argument order restored to (title, id)
   const handleCreateNoteFromLink = useCallback(
     async (title: string, id?: string): Promise<string | null> => {
       const newId = id || crypto.randomUUID();
+      // Fire and forget creation
       handleCreateNote(null, title, newId).catch((err) => console.error(err));
       return newId;
     },
@@ -305,7 +306,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <div className="hidden md:block">
+      <div className="hidden md:block h-full">
         <Sidebar
           notes={notes}
           folders={foldersWithNotes}
