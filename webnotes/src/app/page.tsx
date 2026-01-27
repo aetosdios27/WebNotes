@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CommandPalette from "@/app/components/CommandPalette";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
+import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { isTauri } from "@/lib/tauri";
 
 export type FolderWithNotes = Omit<Folder, "notes"> & {
@@ -48,9 +49,6 @@ export default function Home() {
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
-  const [showExtendedMessage, setShowExtendedMessage] = useState(false);
-
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -74,18 +72,6 @@ export default function Home() {
       window.removeEventListener("drop", handleDrop);
     };
   }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setMinTimeElapsed(true), 2800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isLoading) setShowExtendedMessage(true);
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -148,11 +134,9 @@ export default function Home() {
     [createNote]
   );
 
-  // FIX: Argument order restored to (title, id)
   const handleCreateNoteFromLink = useCallback(
     async (title: string, id?: string): Promise<string | null> => {
       const newId = id || crypto.randomUUID();
-      // Fire and forget creation
       handleCreateNote(null, title, newId).catch((err) => console.error(err));
       return newId;
     },
@@ -283,12 +267,11 @@ export default function Home() {
     [setActiveNote]
   );
 
-  const showLoading = !minTimeElapsed || isLoading;
   const activeNote = notes.find((n) => n.id === activeNoteId);
   const combinedStatus = isSaving ? "syncing" : syncStatus;
 
-  if (showLoading) {
-    return <LoadingScreen isExtended={showExtendedMessage} />;
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
   return (
@@ -378,19 +361,21 @@ export default function Home() {
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <NoteEditor
-              activeNote={activeNote}
-              allNotes={notes}
-              onNoteUpdate={handleNoteUpdate}
-              onSavingStatusChange={setIsSaving}
-              onDeleteNote={handleDeleteNote}
-              onNavigateNote={setActiveNote}
-              onCreateNote={handleCreateNoteFromLink}
-              isRightSidebarOpen={showRightSidebar}
-              onToggleRightSidebar={() =>
-                setShowRightSidebar(!showRightSidebar)
-              }
-            />
+            <ErrorBoundary>
+              <NoteEditor
+                activeNote={activeNote}
+                allNotes={notes}
+                onNoteUpdate={handleNoteUpdate}
+                onSavingStatusChange={setIsSaving}
+                onDeleteNote={handleDeleteNote}
+                onNavigateNote={setActiveNote}
+                onCreateNote={handleCreateNoteFromLink}
+                isRightSidebarOpen={showRightSidebar}
+                onToggleRightSidebar={() =>
+                  setShowRightSidebar(!showRightSidebar)
+                }
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </div>
