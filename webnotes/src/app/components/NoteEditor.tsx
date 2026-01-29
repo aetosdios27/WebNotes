@@ -15,10 +15,6 @@ import Typography from "@tiptap/extension-typography";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { Table } from "@tiptap/extension-table";
-import { TableCell } from "@tiptap/extension-table-cell";
-import { TableHeader } from "@tiptap/extension-table-header";
-import { TableRow } from "@tiptap/extension-table-row";
 import { Markdown } from "tiptap-markdown";
 import { SlashCommand } from "./SlashCommandExtension";
 import { slashCommandSuggestion } from "./SlashCommands";
@@ -32,12 +28,22 @@ import Callout from "./extensions/Callout";
 import NoteLink from "./extensions/NoteLink";
 import PlaceholderLink from "./extensions/PlaceholderLink";
 import { createNoteLinkSuggestion } from "./extensions/noteLinkSuggestion";
-import { Backlinks } from "@/app/components/ui/BackLinks";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight } from "lucide-react";
 import RightSidebar from "./RightSidebar";
+
+// Import custom table extensions
+import {
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableControls,
+  TableGripHandles,
+  TableCellMenu,
+} from "./extensions/table";
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
@@ -49,6 +55,7 @@ interface NoteEditorProps {
   onCreateNote?: (title: string, id?: string) => Promise<string | null>;
   isRightSidebarOpen: boolean;
   onToggleRightSidebar: () => void;
+  onPreviewVersion: (versionId: string) => void; // Added this prop
 }
 
 // --- Custom Extensions ---
@@ -151,6 +158,7 @@ export default function NoteEditor({
   onCreateNote,
   isRightSidebarOpen,
   onToggleRightSidebar,
+  onPreviewVersion, // Destructure this
 }: NoteEditorProps) {
   const [title, setTitle] = useState("");
   const [isReadingMode, setIsReadingMode] = useState(false);
@@ -171,9 +179,6 @@ export default function NoteEditor({
   useEffect(() => {
     activeNoteIdRef.current = activeNote?.id || null;
   }, [activeNote?.id]);
-
-  // FIX: Removed handleCreateNoteFromLink logic as we simplified the suggestion engine
-  // to only search existing notes (1-argument version).
 
   const noteLinkSuggestion = useMemo(
     () =>
@@ -276,7 +281,10 @@ export default function NoteEditor({
           nested: true,
           HTMLAttributes: { class: "task-item" },
         }),
-        Table.configure({ resizable: true }),
+        // Table extensions - no HTMLAttributes
+        Table.configure({
+          resizable: true,
+        }),
         TableRow,
         TableHeader,
         TableCell,
@@ -347,6 +355,15 @@ export default function NoteEditor({
       className="flex flex-col flex-1 h-full bg-black relative"
       onClick={() => setActiveSubnote(null)}
     >
+      {/* Table Controls - Hover buttons for adding rows/columns */}
+      <TableControls editor={editor} />
+
+      {/* Table Grip Handles - Row/column drag handles */}
+      <TableGripHandles editor={editor} />
+
+      {/* Table Cell Menu - Right-click context menu */}
+      <TableCellMenu editor={editor} />
+
       {/* MAIN LAYOUT ROW: Editor Left | Sidebar Right */}
       <div className="flex-1 flex flex-row overflow-hidden w-full h-full">
         {/* LEFT COLUMN: The actual Editor Interface */}
@@ -455,6 +472,7 @@ export default function NoteEditor({
                   editor={editor}
                   onNavigate={onNavigateNote}
                   onClose={onToggleRightSidebar}
+                  onPreviewVersion={onPreviewVersion} // Pass it down
                 />
               </div>
             </motion.div>
@@ -632,46 +650,90 @@ export default function NoteEditor({
           color: #71717a !important;
         }
 
-        /* TABLES */
+        /* ============================================ */
+        /* TABLES - Simple visible borders */
+        /* ============================================ */
+
         .ProseMirror table {
           border-collapse: collapse;
           margin: 1rem 0;
-          overflow: hidden;
           table-layout: fixed;
           width: 100%;
-          border: 1px solid #3f3f46;
-          border-radius: 6px;
+          border: 1px solid #52525b;
         }
 
         .ProseMirror td,
         .ProseMirror th {
-          border: 1px solid #3f3f46;
-          box-sizing: border-box;
-          min-width: 1em;
+          border: 1px solid #52525b;
           padding: 8px 12px;
           position: relative;
           vertical-align: top;
+          background: transparent;
+          min-width: 80px;
         }
 
         .ProseMirror th {
-          background-color: #27272a;
-          font-weight: 600;
+          background: transparent;
+          font-weight: 400;
           text-align: left;
         }
 
-        .ProseMirror .selectedCell:after {
-          background: rgba(234, 179, 8, 0.15);
-          border: 2px solid #eab308;
+        /* Selected cell */
+        .ProseMirror .selectedCell {
+          background-color: rgba(234, 179, 8, 0.15) !important;
+        }
+
+        .ProseMirror .selectedCell::after {
           content: "";
+          position: absolute;
           left: 0;
           right: 0;
           top: 0;
           bottom: 0;
+          border: 2px solid #eab308;
           pointer-events: none;
-          position: absolute;
           z-index: 2;
         }
 
+        /* Table wrapper */
+        .ProseMirror .tableWrapper {
+          overflow-x: auto;
+          margin: 1rem 0;
+        }
+
+        /* Column resize handle */
+        .ProseMirror .column-resize-handle {
+          position: absolute;
+          right: -2px;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background-color: #eab308;
+          cursor: col-resize;
+          z-index: 10;
+        }
+
+        .ProseMirror.resize-cursor {
+          cursor: col-resize;
+        }
+
+        /* Hover effect on cells */
+        .ProseMirror td:hover,
+        .ProseMirror th:hover {
+          background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        /* Cell with custom background color */
+        .ProseMirror td[data-bg-color],
+        .ProseMirror th[data-bg-color] {
+          /* Background color is set via inline style */
+        }
+
+        /* ============================================ */
+        /* END TABLES */
+        /* ============================================ */
+
+        /* CALLOUT */
         .callout-block {
           padding: 1rem;
           background: #18181b;
@@ -699,6 +761,7 @@ export default function NoteEditor({
           margin: 0 !important;
         }
 
+        /* CODE BLOCK */
         .ProseMirror pre {
           background: #18181b;
           border: 1px solid #3f3f46;
@@ -708,6 +771,7 @@ export default function NoteEditor({
           overflow-x: auto;
         }
 
+        /* BLOCKQUOTE */
         .ProseMirror blockquote {
           border-left: 4px solid #3f3f46;
           padding-left: 1rem;
@@ -716,16 +780,19 @@ export default function NoteEditor({
           font-style: italic;
         }
 
+        /* HORIZONTAL RULE */
         .ProseMirror hr {
           border: none;
           border-top: 1px solid #3f3f46;
           margin: 2rem 0;
         }
 
+        /* SELECTION */
         .ProseMirror ::selection {
           background: rgba(234, 179, 8, 0.3);
         }
 
+        /* LISTS */
         .ProseMirror ul,
         .ProseMirror ol {
           padding-left: 1.5rem;

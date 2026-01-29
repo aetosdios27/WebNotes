@@ -22,6 +22,7 @@ import {
   Braces,
   ArrowRight,
   PlusCircle,
+  Table,
 } from "lucide-react";
 import { mathTemplates } from "./extensions/math";
 
@@ -235,6 +236,52 @@ export const slashCommandItems = (): CommandItem[] => [
     keywords: ["hr", "horizontal", "line", "separator", "divider"],
     command: ({ editor, range }: any) => {
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+    },
+  },
+
+  // ============================================
+  // TABLES (Notion-style, no header by default)
+  // ============================================
+  {
+    title: "Table",
+    description: "Insert a 3×3 table",
+    icon: <Table className="h-4 w-4" />,
+    keywords: ["table", "grid", "rows", "columns", "spreadsheet", "data"],
+    command: ({ editor, range }: any) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: false })
+        .run();
+    },
+  },
+  {
+    title: "Table 2×2",
+    description: "Insert a small 2×2 table",
+    icon: <Grid3X3 className="h-4 w-4" />,
+    keywords: ["table", "grid", "small", "2x2"],
+    command: ({ editor, range }: any) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 2, cols: 2, withHeaderRow: false })
+        .run();
+    },
+  },
+  {
+    title: "Table 4×4",
+    description: "Insert a larger 4×4 table",
+    icon: <Grid3X3 className="h-4 w-4" />,
+    keywords: ["table", "grid", "large", "4x4"],
+    command: ({ editor, range }: any) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 4, cols: 4, withHeaderRow: false })
+        .run();
     },
   },
 

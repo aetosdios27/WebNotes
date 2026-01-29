@@ -1,8 +1,6 @@
 // prisma/schema.prisma
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -11,20 +9,17 @@ generator client {
 
 // AUTH MODELS
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime? @map("email_verified")
-  name          String?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-
-  // Add relations to Note and Folder
-  notes         Note[]
-  folders       Folder[]
-
-  // Welcome notes flag
-  hasSeenWelcome Boolean @default(false) @map("has_seen_welcome")
+  id             String        @id @default(cuid())
+  email          String        @unique
+  emailVerified  DateTime?     @map("email_verified")
+  name           String?
+  image          String?
+  accounts       Account[]
+  sessions       Session[]
+  notes          Note[]
+  folders        Folder[]
+  noteVersions   NoteVersion[]
+  hasSeenWelcome Boolean       @default(false) @map("has_seen_welcome")
 
   @@map("users")
 }
@@ -41,8 +36,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
   @@map("accounts")
@@ -53,8 +47,7 @@ model Session {
   sessionToken String   @unique @map("session_token")
   userId       String   @map("user_id")
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -73,30 +66,43 @@ model Folder {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @map("user_id")
-
   notes     Note[]
 
   @@map("folders")
 }
 
 model Note {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   title     String?
   content   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  isPinned  Boolean  @default(false) @map("is_pinned")
-  pinnedAt  DateTime? @map("pinned_at")
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @map("user_id")
-
-  folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  folderId  String?  @map("folder_id")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  isPinned  Boolean       @default(false) @map("is_pinned")
+  pinnedAt  DateTime?     @map("pinned_at")
+  font      String?
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  folder    Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folderId  String?       @map("folder_id")
+  versions  NoteVersion[]
 
   @@map("notes")
+}
+
+// VERSION HISTORY
+model NoteVersion {
+  id         String   @id @default(cuid())
+  noteId     String   @map("note_id")
+  content    String   @db.Text
+  title      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  changeType String   @default("auto") @map("change_type")
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([noteId, createdAt])
+  @@map("note_versions")
 }

@@ -1,7 +1,16 @@
+// src/store/useNotesStore.ts
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
+import { Effect, Queue, Ref, Fiber } from "effect";
 import { isTauri, TauriDB } from "@/lib/tauri";
 import { storage } from "@/lib/storage";
+import {
+  createSyncQueue,
+  enqueueCreate,
+  enqueueUpdate,
+  enqueueDelete,
+} from "@/lib/effect/sync-queue";
+import { runEffect } from "@/lib/effect/runtime";
 import type {
   Note,
   Folder,
@@ -10,7 +19,14 @@ import type {
 } from "@/lib/storage/types";
 import { v4 as uuidv4 } from "uuid";
 
-// Define User Type
+// Sync queue state type
+interface SyncQueueState {
+  queue: Queue.Queue<any>;
+  processing: Ref.Ref<boolean>;
+  fiber: Fiber.Fiber<never, never> | null;
+}
+
+// User type
 interface User {
   name?: string | null;
   email?: string | null;
@@ -24,12 +40,15 @@ interface NotesState {
   activeNoteId: string | null;
   isLoading: boolean;
   syncStatus: SyncStatus;
+  isOnline: boolean;
+  pendingOperations: number;
 
   // Auth State
   user: User | null;
   setUser: (user: User | null) => void;
   logout: () => void;
 
+  // Data operations
   loadData: () => Promise<void>;
   createNote: (data?: Partial<Note>) => Promise<Note>;
   updateNote: (id: string, data: Partial<Note>) => Promise<Note>;
@@ -43,6 +62,10 @@ interface NotesState {
   deleteFolder: (id: string) => Promise<void>;
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   setSyncStatus: (status: SyncStatus) => void;
+
+  // Internal
+  _syncQueue: SyncQueueState | null;
+  _initSyncQueue: () => Promise<void>;
 }
 
 const sortNotes = (notes: Note[]): Note[] => {
@@ -71,7 +94,35 @@ export const useNotesStore = create<NotesState>()(
     activeNoteId: null,
     isLoading: true,
     syncStatus: "syncing",
+    isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+    pendingOperations: 0,
     user: null,
+    _syncQueue: null,
+
+    // Initialize the Effect sync queue
+    _initSyncQueue: async () => {
+      if (get()._syncQueue) return; // Already initialized
+      if (isTauri) return; // Tauri doesn't use the sync queue (yet)
+
+      try {
+        const queue = await runEffect(createSyncQueue);
+        set({ _syncQueue: queue });
+
+        // Listen for online/offline
+        if (typeof window !== "undefined") {
+          window.addEventListener("online", () => {
+            set({ isOnline: true, syncStatus: "syncing" });
+          });
+          window.addEventListener("offline", () => {
+            set({ isOnline: false, syncStatus: "unsynced" });
+          });
+        }
+
+        console.log("[Effect] Sync queue initialized");
+      } catch (error) {
+        console.error("[Effect] Failed to initialize sync queue:", error);
+      }
+    },
 
     setUser: (user) => {
       set({ user });
@@ -89,6 +140,10 @@ export const useNotesStore = create<NotesState>()(
 
     loadData: async () => {
       set({ isLoading: true, syncStatus: "syncing" });
+
+      // Initialize sync queue for web
+      await get()._initSyncQueue();
+
       try {
         if (isTauri) {
           // Restore User
@@ -141,7 +196,6 @@ export const useNotesStore = create<NotesState>()(
 
     createNote: async (data = {}) => {
       const now = new Date();
-      // FIX: Spread FIRST, then ID
       const newNote: Note = {
         ...data,
         id: data.id || uuidv4(),
@@ -155,6 +209,13 @@ export const useNotesStore = create<NotesState>()(
         updatedAt: data.updatedAt || now,
       };
 
+      // Optimistic update
+      set((state) => ({
+        notes: sortNotes([newNote, ...state.notes]),
+        activeNoteId: newNote.id,
+        pendingOperations: state.pendingOperations + 1,
+      }));
+
       try {
         if (isTauri) {
           await TauriDB.saveNote({
@@ -162,23 +223,33 @@ export const useNotesStore = create<NotesState>()(
             createdAt: newNote.createdAt.toISOString(),
             updatedAt: newNote.updatedAt.toISOString(),
           });
+          set((state) => ({ pendingOperations: state.pendingOperations - 1 }));
         } else {
-          await storage.createNote(newNote);
-        }
+          const { _syncQueue, isOnline } = get();
 
-        set((state) => ({
-          notes: sortNotes([newNote, ...state.notes]),
-          activeNoteId: newNote.id,
-        }));
+          if (isOnline) {
+            // Online: Save directly
+            await storage.createNote(newNote);
+            set((state) => ({
+              pendingOperations: state.pendingOperations - 1,
+              syncStatus: "synced",
+            }));
+          } else if (_syncQueue) {
+            // Offline: Queue for later
+            await runEffect(enqueueCreate(_syncQueue, newNote));
+            set({ syncStatus: "unsynced" });
+          }
+        }
 
         return newNote;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to create note:", error);
-        if (isTauri) {
-          const msg =
-            typeof error === "object" ? JSON.stringify(error) : String(error);
-          alert(`RUST CREATE ERROR: ${msg}`);
-        }
+        // Rollback optimistic update
+        set((state) => ({
+          notes: state.notes.filter((n) => n.id !== newNote.id),
+          pendingOperations: state.pendingOperations - 1,
+          syncStatus: "unsynced",
+        }));
         throw error;
       }
     },
@@ -193,6 +264,15 @@ export const useNotesStore = create<NotesState>()(
         updatedAt: new Date(),
       };
 
+      // Optimistic update
+      set((state) => ({
+        notes:
+          data.isPinned !== undefined
+            ? sortNotes(state.notes.map((n) => (n.id === id ? updatedNote : n)))
+            : state.notes.map((n) => (n.id === id ? updatedNote : n)),
+        pendingOperations: state.pendingOperations + 1,
+      }));
+
       try {
         if (isTauri) {
           await TauriDB.saveNote({
@@ -203,22 +283,31 @@ export const useNotesStore = create<NotesState>()(
                 : updatedNote.createdAt,
             updatedAt: updatedNote.updatedAt.toISOString(),
           });
+          set((state) => ({ pendingOperations: state.pendingOperations - 1 }));
         } else {
-          await storage.updateNote(id, data);
-        }
+          const { _syncQueue, isOnline } = get();
 
-        set((state) => ({
-          notes:
-            data.isPinned !== undefined
-              ? sortNotes(
-                  state.notes.map((n) => (n.id === id ? updatedNote : n))
-                )
-              : state.notes.map((n) => (n.id === id ? updatedNote : n)),
-        }));
+          if (isOnline) {
+            await storage.updateNote(id, data);
+            set((state) => ({
+              pendingOperations: state.pendingOperations - 1,
+              syncStatus: "synced",
+            }));
+          } else if (_syncQueue) {
+            await runEffect(enqueueUpdate(_syncQueue, id, data));
+            set({ syncStatus: "unsynced" });
+          }
+        }
 
         return updatedNote;
       } catch (error) {
         console.error("Failed to update note:", error);
+        // Rollback
+        set((state) => ({
+          notes: state.notes.map((n) => (n.id === id ? note : n)),
+          pendingOperations: state.pendingOperations - 1,
+          syncStatus: "unsynced",
+        }));
         throw error;
       }
     },
@@ -233,20 +322,40 @@ export const useNotesStore = create<NotesState>()(
 
     deleteNote: async (id) => {
       const previousNotes = get().notes;
+      const note = previousNotes.find((n) => n.id === id);
+
+      // Optimistic update
       set((state) => ({
         notes: state.notes.filter((n) => n.id !== id),
         activeNoteId: state.activeNoteId === id ? null : state.activeNoteId,
+        pendingOperations: state.pendingOperations + 1,
       }));
 
       try {
         if (isTauri) {
           await TauriDB.deleteNote(id);
+          set((state) => ({ pendingOperations: state.pendingOperations - 1 }));
         } else {
-          await storage.deleteNote(id);
+          const { _syncQueue, isOnline } = get();
+
+          if (isOnline) {
+            await storage.deleteNote(id);
+            set((state) => ({
+              pendingOperations: state.pendingOperations - 1,
+              syncStatus: "synced",
+            }));
+          } else if (_syncQueue) {
+            await runEffect(enqueueDelete(_syncQueue, id));
+            set({ syncStatus: "unsynced" });
+          }
         }
       } catch (error) {
         console.error("Failed to delete note:", error);
-        set({ notes: previousNotes });
+        set({
+          notes: previousNotes,
+          pendingOperations: get().pendingOperations - 1,
+          syncStatus: "unsynced",
+        });
         throw error;
       }
     },
@@ -262,6 +371,7 @@ export const useNotesStore = create<NotesState>()(
         updatedAt: new Date(),
       };
 
+      // Optimistic update
       set((state) => ({
         notes: sortNotes(
           state.notes.map((n) => (n.id === id ? updatedNote : n))
@@ -280,6 +390,7 @@ export const useNotesStore = create<NotesState>()(
         }
         return updatedNote;
       } catch (error) {
+        // Rollback
         set((state) => ({
           notes: sortNotes(state.notes.map((n) => (n.id === id ? note : n))),
         }));
@@ -293,6 +404,7 @@ export const useNotesStore = create<NotesState>()(
 
       const originalFolderId = note.folderId;
 
+      // Optimistic update
       set((state) => ({
         notes: state.notes.map((n) =>
           n.id === noteId ? { ...n, folderId } : n

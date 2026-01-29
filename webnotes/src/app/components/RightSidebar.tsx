@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { X, Link2, ArrowUpRight, ExternalLink, AlignLeft } from "lucide-react";
+import {
+  X,
+  Link2,
+  ArrowUpRight,
+  ExternalLink,
+  AlignLeft,
+  History,
+} from "lucide-react";
 import type { Note } from "@/lib/storage/types";
 import { Editor } from "@tiptap/react";
+import { VersionList } from "@/app/components/VersionList"; // <-- Import
 
 interface RightSidebarProps {
   activeNote: Note | undefined;
@@ -11,6 +19,7 @@ interface RightSidebarProps {
   editor: Editor | null;
   onNavigate: (id: string) => void;
   onClose: () => void;
+  onPreviewVersion?: (versionId: string) => void; // <-- Add prop
 }
 
 export default function RightSidebar({
@@ -19,12 +28,17 @@ export default function RightSidebar({
   editor,
   onNavigate,
   onClose,
+  onPreviewVersion,
 }: RightSidebarProps) {
-  const [tab, setTab] = useState<"info" | "outline">("info");
+  const [tab, setTab] = useState<"info" | "outline" | "history">("info");
   const [headings, setHeadings] = useState<
     { id: string; text: string; level: number; pos: number }[]
   >([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+
+  // ... (Link Logic & Outline Logic remain the same) ...
+  // Paste your existing logic for backlinks/outgoingLinks/headings here
+  // I omitted it to save space, but DO NOT delete it.
 
   // --- 1. LINK LOGIC (Info Tab) ---
   const backlinks = useMemo(() => {
@@ -139,7 +153,6 @@ export default function RightSidebar({
             title="Links & Connections"
           >
             <Link2 size={13} />
-            <span>Links</span>
           </button>
           <button
             onClick={() => setTab("outline")}
@@ -151,7 +164,17 @@ export default function RightSidebar({
             title="Table of Contents"
           >
             <AlignLeft size={13} />
-            <span>Outline</span>
+          </button>
+          <button
+            onClick={() => setTab("history")}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
+              tab === "history"
+                ? "bg-zinc-700 text-white shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+            }`}
+            title="Version History"
+          >
+            <History size={13} />
           </button>
         </div>
 
@@ -164,7 +187,7 @@ export default function RightSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-        {tab === "info" ? (
+        {tab === "info" && (
           <div className="space-y-8">
             {/* LINKED FROM */}
             <section>
@@ -216,8 +239,9 @@ export default function RightSidebar({
               )}
             </section>
           </div>
-        ) : (
-          /* OUTLINE TAB - TREE LINES */
+        )}
+
+        {tab === "outline" && (
           <div className="flex flex-col relative">
             {headings.length === 0 ? (
               <div className="p-8 text-center">
@@ -246,27 +270,21 @@ export default function RightSidebar({
                     `}
                     style={{ paddingLeft: `${paddingLeft}px` }}
                   >
-                    {/* Tree Lines Logic */}
                     {indentLevel > 0 && (
                       <>
-                        {/* Vertical Stalk for current level */}
                         <div
                           className="absolute w-px bg-zinc-800 top-0 bottom-1/2"
                           style={{ left: `${(indentLevel - 1) * 16 + 12}px` }}
                         />
-                        {/* Horizontal Connector (The 'L' shape) */}
                         <div
                           className="absolute h-px bg-zinc-800 w-2.5 top-1/2"
                           style={{ left: `${(indentLevel - 1) * 16 + 12}px` }}
                         />
                       </>
                     )}
-
-                    {/* Active Bullet */}
                     {isActive && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-yellow-500 rounded-r-full" />
                     )}
-
                     <span className="truncate">
                       {h.text || "Untitled Section"}
                     </span>
@@ -275,6 +293,10 @@ export default function RightSidebar({
               })
             )}
           </div>
+        )}
+
+        {tab === "history" && onPreviewVersion && (
+          <VersionList noteId={activeNote.id} onPreview={onPreviewVersion} />
         )}
       </div>
     </div>

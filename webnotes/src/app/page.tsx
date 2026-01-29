@@ -14,6 +14,7 @@ import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { isTauri } from "@/lib/tauri";
+import VersionPreview from "@/app/components/VersionPreview";
 
 export type FolderWithNotes = Omit<Folder, "notes"> & {
   notes: Note[];
@@ -47,6 +48,10 @@ export default function Home() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
+
+  // New State: Version History Preview
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,6 +128,7 @@ export default function Home() {
         });
 
         setShowMobileSidebar(false);
+        setPreviewVersionId(null);
         if (!specificId)
           toast.success(title ? `Created "${title}"` : "Note created");
         return note.id;
@@ -148,11 +154,14 @@ export default function Home() {
       try {
         await deleteNote(id);
         toast.success("Note deleted");
+        if (activeNoteId === id) {
+          setPreviewVersionId(null);
+        }
       } catch {
         toast.error("Failed to delete note");
       }
     },
-    [deleteNote]
+    [deleteNote, activeNoteId]
   );
 
   const handleDeleteFolder = useCallback(
@@ -220,6 +229,7 @@ export default function Home() {
     [moveNote]
   );
 
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyboard = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -257,14 +267,38 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleGlobalKeyboard);
   }, [handleCreateNote, handleCreateFolder]);
 
-  const handleSetActiveNoteForMobile = useCallback(
+  const handleSetActiveNote = useCallback(
     (noteId: string | null) => {
+      if (noteId !== activeNoteId) {
+        setPreviewVersionId(null);
+      }
       setActiveNote(noteId);
       if (window.innerWidth < 768) {
         setShowMobileSidebar(false);
       }
     },
-    [setActiveNote]
+    [setActiveNote, activeNoteId]
+  );
+
+  const handlePreviewVersion = useCallback((versionId: string) => {
+    setPreviewVersionId(versionId);
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewVersionId(null);
+  }, []);
+
+  // UPDATED: Optimistic update instead of full reload
+  const handleRestoreComplete = useCallback(
+    (restoredNote: Note) => {
+      updateNoteLocally(restoredNote.id, {
+        content: restoredNote.content,
+        title: restoredNote.title,
+        updatedAt: new Date(restoredNote.updatedAt),
+      });
+      setPreviewVersionId(null);
+    },
+    [updateNoteLocally]
   );
 
   const activeNote = notes.find((n) => n.id === activeNoteId);
@@ -275,7 +309,8 @@ export default function Home() {
   }
 
   return (
-    <main className="flex w-screen h-screen overflow-hidden">
+    <main className="flex w-screen h-screen overflow-hidden bg-black text-white">
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
@@ -289,12 +324,13 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <div className="hidden md:block h-full">
+      {/* Desktop Left Sidebar */}
+      <div className="hidden md:block h-full flex-shrink-0">
         <Sidebar
           notes={notes}
           folders={foldersWithNotes}
           activeNoteId={activeNoteId}
-          setActiveNoteId={setActiveNote}
+          setActiveNoteId={handleSetActiveNote}
           createNote={handleCreateNote}
           deleteNote={handleDeleteNote}
           deleteFolder={handleDeleteFolder}
@@ -308,6 +344,7 @@ export default function Home() {
         />
       </div>
 
+      {/* Mobile Sidebar */}
       <AnimatePresence>
         {showMobileSidebar && (
           <motion.div
@@ -322,7 +359,7 @@ export default function Home() {
               notes={notes}
               folders={foldersWithNotes}
               activeNoteId={activeNoteId}
-              setActiveNoteId={handleSetActiveNoteForMobile}
+              setActiveNoteId={handleSetActiveNote}
               createNote={handleCreateNote}
               deleteNote={handleDeleteNote}
               deleteFolder={handleDeleteFolder}
@@ -338,9 +375,10 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 h-full flex flex-col min-w-0">
-          <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3">
+          <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
@@ -361,21 +399,31 @@ export default function Home() {
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <ErrorBoundary>
-              <NoteEditor
-                activeNote={activeNote}
-                allNotes={notes}
-                onNoteUpdate={handleNoteUpdate}
-                onSavingStatusChange={setIsSaving}
-                onDeleteNote={handleDeleteNote}
-                onNavigateNote={setActiveNote}
-                onCreateNote={handleCreateNoteFromLink}
-                isRightSidebarOpen={showRightSidebar}
-                onToggleRightSidebar={() =>
-                  setShowRightSidebar(!showRightSidebar)
-                }
+            {previewVersionId && activeNote ? (
+              <VersionPreview
+                versionId={previewVersionId}
+                currentNote={activeNote}
+                onClose={handleClosePreview}
+                onRestore={handleRestoreComplete}
               />
-            </ErrorBoundary>
+            ) : (
+              <ErrorBoundary>
+                <NoteEditor
+                  activeNote={activeNote}
+                  allNotes={notes}
+                  onNoteUpdate={handleNoteUpdate}
+                  onSavingStatusChange={setIsSaving}
+                  onDeleteNote={handleDeleteNote}
+                  onNavigateNote={handleSetActiveNote}
+                  onCreateNote={handleCreateNoteFromLink}
+                  isRightSidebarOpen={showRightSidebar}
+                  onToggleRightSidebar={() =>
+                    setShowRightSidebar(!showRightSidebar)
+                  }
+                  onPreviewVersion={handlePreviewVersion}
+                />
+              </ErrorBoundary>
+            )}
           </div>
         </div>
       </div>
@@ -384,7 +432,7 @@ export default function Home() {
         notes={notes}
         folders={folders}
         activeNoteId={activeNoteId}
-        setActiveNoteId={setActiveNote}
+        setActiveNoteId={handleSetActiveNote}
         createNote={handleCreateNote}
         createFolder={handleCreateFolder}
         deleteNote={handleDeleteNote}

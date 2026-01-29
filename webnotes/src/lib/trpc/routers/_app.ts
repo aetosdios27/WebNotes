@@ -2,12 +2,12 @@
 import { router } from "../init";
 import { notesRouter } from "./notes";
 import { foldersRouter } from "./folders";
+import { versionsRouter } from "./versions"; // <-- Import
 
 export const appRouter = router({
   notes: notesRouter,
   folders: foldersRouter,
+  versions: versionsRouter, // <-- Add to router
 });
 
-// This type is used by the client
-// It's how TypeScript knows what procedures exist
 export type AppRouter = typeof appRouter;

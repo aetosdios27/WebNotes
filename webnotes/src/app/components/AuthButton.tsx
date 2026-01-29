@@ -2,7 +2,15 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
-import { LogIn, LogOut, Check, X } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Check,
+  X,
+  Cloud,
+  CloudOff,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
   Tooltip,
@@ -20,42 +28,71 @@ interface AuthButtonProps {
   syncStatus: SyncStatus;
 }
 
-const statusConfig = {
-  synced: {
-    color: "bg-green-500",
-    tooltip: "All changes saved to cloud.",
-    icon: <Check className="w-2 h-2 text-zinc-900" />,
-  },
-  syncing: {
-    color: "bg-yellow-500",
-    tooltip: "Saving changes...",
-    icon: (
-      <div className="w-2.5 h-2.5 border-2 border-zinc-900 border-t-yellow-300 rounded-full animate-spin" />
-    ),
-  },
-  unsynced: {
-    color: "bg-red-500",
-    tooltip: "Offline. Changes are saved locally.",
-    icon: <X className="w-2 h-2 text-zinc-900" />,
-  },
-};
-
 export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
   // Web Session
   const { data: session, status } = useSession();
 
-  // Desktop Session
-  const { user, logout } = useNotesStore();
-
-  const config = statusConfig[syncStatus] || statusConfig.unsynced;
+  // Desktop Session + Sync State
+  const { user, logout, isOnline, pendingOperations } = useNotesStore();
 
   // Determine active user based on platform
   const activeUser = isTauri ? user : session?.user;
   const isLoading = !isTauri && status === "loading";
 
+  // Build status config dynamically based on network + pending ops
+  const getStatusConfig = () => {
+    if (!isOnline) {
+      return {
+        color: "bg-yellow-500",
+        tooltip: `Offline${
+          pendingOperations > 0 ? ` • ${pendingOperations} pending` : ""
+        }`,
+        icon: <CloudOff className="w-2 h-2 text-zinc-900" />,
+      };
+    }
+
+    if (pendingOperations > 0) {
+      return {
+        color: "bg-blue-500",
+        tooltip: `Syncing ${pendingOperations} change${
+          pendingOperations > 1 ? "s" : ""
+        }...`,
+        icon: <Loader2 className="w-2 h-2 text-zinc-900 animate-spin" />,
+      };
+    }
+
+    switch (syncStatus) {
+      case "synced":
+        return {
+          color: "bg-green-500",
+          tooltip: "All changes saved",
+          icon: <Check className="w-2 h-2 text-zinc-900" />,
+        };
+      case "syncing":
+        return {
+          color: "bg-blue-500",
+          tooltip: "Saving...",
+          icon: <Loader2 className="w-2 h-2 text-zinc-900 animate-spin" />,
+        };
+      case "unsynced":
+        return {
+          color: "bg-red-500",
+          tooltip: "Changes not saved",
+          icon: <X className="w-2 h-2 text-zinc-900" />,
+        };
+      default:
+        return {
+          color: "bg-zinc-500",
+          tooltip: "Unknown status",
+          icon: <Cloud className="w-2 h-2 text-zinc-900" />,
+        };
+    }
+  };
+
+  const config = getStatusConfig();
+
   const handleLogin = async () => {
     if (isTauri) {
-      // Open system browser for handshake
       try {
         await open("https://web-notes-lyart.vercel.app/auth/desktop");
       } catch (e) {
@@ -94,14 +131,14 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
               <TooltipTrigger asChild>
                 <div className="relative">
                   <Image
-                    src={activeUser.image || "/placeholder-user.png"} // Fallback if no image
+                    src={activeUser.image || "/placeholder-user.png"}
                     alt={activeUser.name || "User"}
                     width={32}
                     height={32}
                     className="rounded-full bg-zinc-800"
                   />
                   <div
-                    className={`absolute bottom-0 right-0 w-3 h-3 rounded-full flex items-center justify-center
+                    className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full flex items-center justify-center
                                 ${config.color} ring-2 ring-zinc-900`}
                   >
                     {config.icon}
@@ -112,12 +149,22 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
                 <p>{config.tooltip}</p>
               </TooltipContent>
             </Tooltip>
+
             {isOpen && (
-              <span className="text-sm font-medium truncate text-zinc-300">
-                {activeUser.name}
-              </span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium truncate text-zinc-300">
+                  {activeUser.name}
+                </span>
+                {/* Show pending count when offline */}
+                {!isOnline && pendingOperations > 0 && (
+                  <span className="text-xs text-yellow-500">
+                    {pendingOperations} pending
+                  </span>
+                )}
+              </div>
             )}
           </div>
+
           {isOpen && (
             <Button
               variant="ghost"
