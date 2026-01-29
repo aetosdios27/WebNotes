@@ -8,6 +8,7 @@ export const Table = TiptapTable.extend({
   addOptions() {
     const parentOptions = this.parent?.() || {};
     return {
+      ...parentOptions,
       HTMLAttributes: {},
       renderWrapper: true,
       resizable: true,
@@ -15,7 +16,6 @@ export const Table = TiptapTable.extend({
       cellMinWidth: 80,
       lastColumnResizable: true,
       allowTableNodeSelection: true,
-      ...parentOptions,
     };
   },
   addProseMirrorPlugins() {
