@@ -8,6 +8,7 @@ export const tablePluginKey = new PluginKey("tableControls");
 export const Table = TiptapTable.extend({
   addOptions() {
     return {
+      HTMLAttributes: {}, // <--- FIX: Provide default so it's never undefined
       ...this.parent?.(),
       resizable: true,
       handleWidth: 5,
