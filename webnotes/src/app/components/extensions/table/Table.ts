@@ -6,21 +6,20 @@ export const tablePluginKey = new PluginKey("tableControls");
 
 export const Table = TiptapTable.extend({
   addOptions() {
+    const parentOptions = this.parent?.() || {};
     return {
       HTMLAttributes: {},
-      renderWrapper: true, // Explicit default
-      ...this.parent?.(),
+      renderWrapper: true,
       resizable: true,
       handleWidth: 5,
       cellMinWidth: 80,
       lastColumnResizable: true,
       allowTableNodeSelection: true,
+      ...parentOptions,
     };
   },
-
   addProseMirrorPlugins() {
     const plugins = this.parent?.() || [];
-
     plugins.push(
       new Plugin({
         key: tablePluginKey,
@@ -43,7 +42,6 @@ export const Table = TiptapTable.extend({
           decorations(state) {
             const { doc, selection } = state;
             const decorations: Decoration[] = [];
-
             const $pos = selection.$from;
             for (let d = $pos.depth; d > 0; d--) {
               const node = $pos.node(d);
@@ -57,13 +55,11 @@ export const Table = TiptapTable.extend({
                 break;
               }
             }
-
             return DecorationSet.create(doc, decorations);
           },
         },
       })
     );
-
     return plugins;
   },
 });
