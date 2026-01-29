@@ -1,14 +1,13 @@
-import { Table as TiptapTable } from "@tiptap/extension-table";
+import { Table as TiptapTable, TableOptions } from "@tiptap/extension-table";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 export const tablePluginKey = new PluginKey("tableControls");
 
 export const Table = TiptapTable.extend({
-  addOptions() {
-    const parentOptions = this.parent?.() || {};
+  addOptions(): TableOptions {
     return {
-      ...parentOptions,
+      ...(this.parent?.() || {}),
       HTMLAttributes: {},
       renderWrapper: true,
       resizable: true,
@@ -16,7 +15,7 @@ export const Table = TiptapTable.extend({
       cellMinWidth: 80,
       lastColumnResizable: true,
       allowTableNodeSelection: true,
-    };
+    } as TableOptions;
   },
   addProseMirrorPlugins() {
     const plugins = this.parent?.() || [];
