@@ -1,4 +1,3 @@
-// src/lib/trpc/routers/notes.ts
 import { z } from "zod";
 import { router, protectedProcedure } from "../init";
 import { TRPCError } from "@trpc/server";
@@ -9,7 +8,7 @@ export const notesRouter = router({
     .input(
       z
         .object({
-          folderId: z.string().nullish(), // nullish = null | undefined
+          folderId: z.string().nullish(),
         })
         .optional()
     )
@@ -51,6 +50,7 @@ export const notesRouter = router({
   create: protectedProcedure
     .input(
       z.object({
+        id: z.string().optional(), // ✅ FIX: Accept client ID
         title: z
           .string()
           .nullish()
@@ -65,6 +65,7 @@ export const notesRouter = router({
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.note.create({
         data: {
+          id: input.id, // ✅ FIX: Use client ID if provided
           title: input.title,
           content: input.content,
           folderId: input.folderId ?? null,
@@ -90,6 +91,7 @@ export const notesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, htmlContent, textContent, ...metadata } = input;
 
+      // Note: Use Prisma types ideally, but keeping logic consistent for now
       const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
       };
@@ -211,39 +213,25 @@ export const notesRouter = router({
   togglePin: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const note = await ctx.prisma.note.findFirst({
+      // Optimized to 2 queries using update + return
+      const existing = await ctx.prisma.note.findFirst({
         where: { id: input.id, userId: ctx.userId },
-        select: { isPinned: true },
+        select: { id: true, isPinned: true },
       });
 
-      if (!note) {
+      if (!existing) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Note not found or access denied",
         });
       }
 
-      const newPinnedStatus = !note.isPinned;
-
-      await ctx.prisma.note.updateMany({
-        where: { id: input.id, userId: ctx.userId },
+      return ctx.prisma.note.update({
+        where: { id: input.id },
         data: {
-          isPinned: newPinnedStatus,
-          pinnedAt: newPinnedStatus ? new Date() : null,
+          isPinned: !existing.isPinned,
+          pinnedAt: !existing.isPinned ? new Date() : null,
         },
       });
-
-      const updatedNote = await ctx.prisma.note.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!updatedNote) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Failed to fetch updated note",
-        });
-      }
-
-      return updatedNote;
     }),
 });

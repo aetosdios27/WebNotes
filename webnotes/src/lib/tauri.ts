@@ -1,138 +1,76 @@
 import { invoke } from "@tauri-apps/api/core";
 
-// Detect if we are running in the Desktop App
-export const isTauri =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-export type TauriNote = {
+// Types matching Rust structs
+export interface TauriNote {
   id: string;
   title: string;
   content: string;
-  folder_id?: string | null;
-  is_pinned: boolean;
-  updated_at: string;
-  created_at: string;
-};
-
-export type TauriFolder = {
-  id: string;
-  name: string;
-  created_at: string;
-};
-
-interface TauriBridge {
-  init: () => Promise<void>;
-  getAllNotes: () => Promise<any[]>;
-  getAllFolders: () => Promise<any[]>;
-  saveNote: (note: any) => Promise<void>;
-  saveFolder: (folder: any) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
-  deleteFolder: (id: string) => Promise<void>;
-  search: (query: string) => Promise<any[]>;
+  folderId: string | null;
+  isPinned: boolean;
+  pinnedAt: string | null;
+  font: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 
-export const TauriDB: TauriBridge = {
-  // 1. Initialize
-  async init() {
+export interface TauriFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+// Check if running in Tauri
+export const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+
+// Database operations
+export const TauriDB = {
+  async init(): Promise<void> {
     if (!isTauri) return;
-    try {
-      await invoke("init_db");
-    } catch (e) {
-      console.error("DB Init Failed:", e);
-    }
+    await invoke<string>("init_db");
   },
 
-  // 2. Notes
-  async getAllNotes() {
+  async saveNote(note: TauriNote): Promise<void> {
+    if (!isTauri) return;
+    await invoke("save_note", { note });
+  },
+
+  async getAllNotes(): Promise<TauriNote[]> {
     if (!isTauri) return [];
-    const rawData = await invoke<any[]>("get_all_notes");
-    return rawData.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-      folderId: n.folderId || n.folder_id || null,
-      isPinned: n.isPinned || n.is_pinned || false,
-      updatedAt: n.updatedAt || n.updated_at,
-      createdAt: n.createdAt || n.created_at,
-      pinnedAt: null,
-    }));
+    return await invoke<TauriNote[]>("get_all_notes");
   },
 
-  async saveNote(note: any) {
-    if (!isTauri) return;
-
-    // DEBUG LOGGING - START
-    console.log("=== SAVE NOTE DEBUG ===");
-    console.log("Input note object:", note);
-    console.log("note.id:", note.id);
-    console.log("note.id type:", typeof note.id);
-    // DEBUG LOGGING - END
-
-    const notePayload = {
-      id: note.id,
-      title: note.title,
-      content: note.content || "",
-      folderId: note.folderId || null,
-      isPinned: note.isPinned || false,
-      updatedAt: note.updatedAt,
-      createdAt: note.createdAt,
-    };
-
-    // DEBUG LOGGING - START
-    console.log("notePayload object:", notePayload);
-    console.log("notePayload.id:", notePayload.id);
-    console.log("notePayload JSON:", JSON.stringify(notePayload));
-    console.log("Full invoke args:", JSON.stringify({ note: notePayload }));
-    console.log("======================");
-    // DEBUG LOGGING - END
-
-    await invoke("save_note", { note: notePayload });
+  async getNote(id: string): Promise<TauriNote | null> {
+    if (!isTauri) return null;
+    return await invoke<TauriNote | null>("get_note", { id });
   },
 
-  async deleteNote(id: string) {
+  async deleteNote(id: string): Promise<void> {
     if (!isTauri) return;
     await invoke("delete_note", { id });
   },
 
-  // 3. Folders
-  async getAllFolders() {
-    if (!isTauri) return [];
-    const rawData = await invoke<any[]>("get_all_folders");
-    return rawData.map((f) => ({
-      id: f.id,
-      name: f.name,
-      createdAt: f.createdAt || f.created_at,
-    }));
+  async togglePin(id: string): Promise<TauriNote> {
+    if (!isTauri) throw new Error("Not in Tauri environment");
+    return await invoke<TauriNote>("toggle_pin", { id });
   },
 
-  async saveFolder(folder: any) {
+  async saveFolder(folder: TauriFolder): Promise<void> {
     if (!isTauri) return;
-    const folderPayload = {
-      id: folder.id,
-      name: folder.name,
-      createdAt: folder.createdAt,
-    };
-    await invoke("save_folder", { folder: folderPayload });
+    await invoke("save_folder", { folder });
   },
 
-  async deleteFolder(id: string) {
+  async getAllFolders(): Promise<TauriFolder[]> {
+    if (!isTauri) return [];
+    return await invoke<TauriFolder[]>("get_all_folders");
+  },
+
+  async deleteFolder(id: string): Promise<void> {
     if (!isTauri) return;
     await invoke("delete_folder", { id });
   },
 
-  // 4. Search
-  async search(query: string) {
+  async searchNotes(query: string): Promise<TauriNote[]> {
     if (!isTauri) return [];
-    const rawData = await invoke<any[]>("search_notes", { query });
-    return rawData.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-      folderId: n.folderId || n.folder_id || null,
-      isPinned: n.isPinned || n.is_pinned || false,
-      updatedAt: n.updatedAt || n.updated_at,
-      createdAt: n.createdAt || n.created_at,
-      pinnedAt: null,
-    }));
+    return await invoke<TauriNote[]>("search_notes", { query });
   },
 };

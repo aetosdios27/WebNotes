@@ -1,4 +1,3 @@
-// src/lib/trpc/routers/folders.ts
 import { z } from "zod";
 import { router, protectedProcedure } from "../init";
 import { TRPCError } from "@trpc/server";
@@ -16,12 +15,14 @@ export const foldersRouter = router({
   create: protectedProcedure
     .input(
       z.object({
+        id: z.string().optional(), // ✅ FIX: Accept client ID
         name: z.string().min(1),
       })
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.folder.create({
         data: {
+          id: input.id, // ✅ FIX: Use client ID if provided
           name: input.name,
           userId: ctx.userId,
         },

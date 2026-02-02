@@ -30,3 +30,4 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 rayon = "1.10"
 tauri-plugin-deep-link = "2"
 tauri-plugin-shell = "2"
+env_logger = "0.11.8"

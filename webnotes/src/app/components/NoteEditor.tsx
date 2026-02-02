@@ -1,5 +1,6 @@
 "use client";
 
+import type { Editor } from "@tiptap/react";
 import type { Note } from "@/lib/storage/types";
 import { useDebouncedCallback } from "use-debounce";
 import {
@@ -34,7 +35,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight } from "lucide-react";
 import RightSidebar from "./RightSidebar";
 
-// Import custom table extensions
 import {
   Table,
   TableCell,
@@ -44,6 +44,10 @@ import {
   TableGripHandles,
   TableCellMenu,
 } from "./extensions/table";
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface NoteEditorProps {
   activeNote: Note | undefined;
@@ -55,10 +59,28 @@ interface NoteEditorProps {
   onCreateNote?: (title: string, id?: string) => Promise<string | null>;
   isRightSidebarOpen: boolean;
   onToggleRightSidebar: () => void;
-  onPreviewVersion: (versionId: string) => void; // Added this prop
+  onPreviewVersion: (versionId: string) => void;
 }
 
-// --- Custom Extensions ---
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const FONT_CLASSES: Record<string, string> = {
+  serif: "font-serif text-lg leading-relaxed",
+  mono: "font-mono text-[0.95rem] leading-7",
+  sans: "font-sans",
+};
+
+const EDITOR_CONFIG = {
+  AUTOSAVE_DELAY_MS: 1000,
+  TITLE_FOCUS_DELAY_MS: 50,
+} as const;
+
+// =============================================================================
+// CUSTOM EXTENSIONS (Defined outside component to avoid recreation)
+// =============================================================================
+
 const CustomLink = Mark.create({
   name: "link",
   priority: 1000,
@@ -137,16 +159,33 @@ const Subnote = Mark.create({
   },
 });
 
-const getFontClass = (font: string) => {
-  switch (font) {
-    case "serif":
-      return "font-serif text-lg leading-relaxed";
-    case "mono":
-      return "font-mono text-[0.95rem] leading-7";
-    default:
-      return "font-sans";
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+const getFontClass = (font: string | null | undefined): string => {
+  return FONT_CLASSES[font ?? "sans"] ?? FONT_CLASSES.sans;
+};
+
+/**
+ * Get markdown content from editor.
+ * Uses the tiptap-markdown extension's storage.
+ * Type safety provided by src/types/tiptap-markdown.d.ts
+ */
+const getMarkdownFromEditor = (editorInstance: Editor | null): string => {
+  if (!editorInstance) return "";
+
+  try {
+    const markdown = editorInstance.storage.markdown?.getMarkdown?.();
+    return typeof markdown === "string" ? markdown : editorInstance.getHTML();
+  } catch {
+    return editorInstance.getHTML();
   }
 };
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
 export default function NoteEditor({
   activeNote,
@@ -158,8 +197,11 @@ export default function NoteEditor({
   onCreateNote,
   isRightSidebarOpen,
   onToggleRightSidebar,
-  onPreviewVersion, // Destructure this
+  onPreviewVersion,
 }: NoteEditorProps) {
+  // ===========================================================================
+  // STATE
+  // ===========================================================================
   const [title, setTitle] = useState("");
   const [isReadingMode, setIsReadingMode] = useState(false);
   const [activeSubnote, setActiveSubnote] = useState<{
@@ -167,18 +209,26 @@ export default function NoteEditor({
     rect: DOMRect;
   } | null>(null);
 
+  // ===========================================================================
+  // REFS
+  // ===========================================================================
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const activeNoteIdRef = useRef<string | null>(activeNote?.id || null);
+  const activeNoteIdRef = useRef<string | null>(activeNote?.id ?? null);
   const lastNoteIdRef = useRef<string | null>(null);
   const allNotesRef = useRef(allNotes);
 
+  // Keep refs in sync
   useEffect(() => {
     allNotesRef.current = allNotes;
   }, [allNotes]);
 
   useEffect(() => {
-    activeNoteIdRef.current = activeNote?.id || null;
+    activeNoteIdRef.current = activeNote?.id ?? null;
   }, [activeNote?.id]);
+
+  // ===========================================================================
+  // MEMOIZED VALUES
+  // ===========================================================================
 
   const noteLinkSuggestion = useMemo(
     () =>
@@ -190,22 +240,71 @@ export default function NoteEditor({
     []
   );
 
-  useEffect(() => {
-    if (activeNote) {
-      setTitle(activeNote.title || "");
-      if (!activeNote.title && !activeNote.content && titleInputRef.current) {
-        setTimeout(() => titleInputRef.current?.focus(), 50);
-      }
-    }
-  }, [activeNote?.id]);
+  // Memoize extensions array - only recreate when dependencies change
+  const extensions = useMemo(
+    () => [
+      UniqueID.configure({
+        types: [
+          "heading",
+          "paragraph",
+          "bulletList",
+          "orderedList",
+          "taskList",
+          "listItem",
+          "taskItem",
+          "codeBlock",
+          "blockquote",
+          "horizontalRule",
+          "mathBlock",
+          "table",
+          "callout",
+        ],
+      }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
+        codeBlock: false,
+      }),
+      Typography,
+      Placeholder.configure({
+        placeholder: "Type / for commands, [[ to link notes...",
+      }),
+      CustomLink,
+      Subnote,
+      PlaceholderLink,
+      NoteLink.configure({
+        suggestion: noteLinkSuggestion,
+        onNavigate: onNavigateNote,
+      }),
+      Callout,
+      TaskList.configure({ HTMLAttributes: { class: "task-list" } }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: { class: "task-item" },
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Markdown.configure({
+        html: true,
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
+      SlashCommand.configure({ suggestion: slashCommandSuggestion }),
+      MathInline,
+      MathBlock,
+      CodeBlock,
+    ],
+    [noteLinkSuggestion, onNavigateNote]
+  );
 
-  const getMarkdown = useCallback((editorInstance: any) => {
-    if (!editorInstance) return "";
-    return (
-      editorInstance.storage.markdown?.getMarkdown() || editorInstance.getHTML()
-    );
-  }, []);
+  const fontClass = getFontClass(activeNote?.font);
 
+  // ===========================================================================
+  // DEBOUNCED SAVE
+  // ===========================================================================
   const debouncedSave = useDebouncedCallback(
     async (noteId: string, newTitle: string, markdownContent: string) => {
       if (noteId !== activeNoteIdRef.current) return;
@@ -220,104 +319,96 @@ export default function NoteEditor({
           updatedAt: new Date(),
         });
       } catch (e) {
-        console.error(e);
+        console.error("Failed to save note:", e);
       } finally {
         if (noteId === activeNoteIdRef.current) {
           onSavingStatusChange(false);
         }
       }
     },
-    1000
+    EDITOR_CONFIG.AUTOSAVE_DELAY_MS
   );
 
+  // Cleanup debounce on unmount
   useEffect(() => {
     return () => debouncedSave.cancel();
   }, [debouncedSave]);
 
+  // Cancel pending save when switching notes
   useEffect(() => {
     debouncedSave.cancel();
   }, [activeNote?.id, debouncedSave]);
 
-  const fontClass = getFontClass(activeNote?.font || "sans");
-
+  // ===========================================================================
+  // EDITOR SETUP
+  // ===========================================================================
   const editor = useEditor(
     {
-      extensions: [
-        UniqueID.configure({
-          types: [
-            "heading",
-            "paragraph",
-            "bulletList",
-            "orderedList",
-            "taskList",
-            "listItem",
-            "taskItem",
-            "codeBlock",
-            "blockquote",
-            "horizontalRule",
-            "mathBlock",
-            "table",
-            "callout",
-          ],
-        }),
-        StarterKit.configure({
-          heading: { levels: [1, 2, 3, 4, 5, 6] },
-          codeBlock: false,
-        }),
-        Typography,
-        Placeholder.configure({
-          placeholder: "Type / for commands, [[ to link notes...",
-        }),
-        CustomLink,
-        Subnote,
-        PlaceholderLink,
-        NoteLink.configure({
-          suggestion: noteLinkSuggestion,
-          onNavigate: onNavigateNote,
-        }),
-        Callout,
-        TaskList.configure({ HTMLAttributes: { class: "task-list" } }),
-        TaskItem.configure({
-          nested: true,
-          HTMLAttributes: { class: "task-item" },
-        }),
-        // Table extensions - no HTMLAttributes
-        Table.configure({
-          resizable: true,
-        }),
-        TableRow,
-        TableHeader,
-        TableCell,
-        Markdown.configure({
-          html: true,
-          transformPastedText: true,
-          transformCopiedText: true,
-        }),
-        SlashCommand.configure({ suggestion: slashCommandSuggestion }),
-        MathInline,
-        MathBlock,
-        CodeBlock,
-      ],
-      content: activeNote?.content ?? "",
+      extensions,
+      content: "",
       editorProps: {
         attributes: {
-          class: `prose prose-invert prose-lg focus:outline-none max-w-none break-words`,
+          class:
+            "prose prose-invert prose-lg focus:outline-none max-w-none break-words",
         },
       },
       onUpdate: ({ editor: editorInstance }) => {
         if (!activeNote?.id) return;
-        debouncedSave(activeNote.id, title, getMarkdown(editorInstance));
+
+        const markdown = getMarkdownFromEditor(editorInstance);
+        debouncedSave(activeNote.id, title, markdown);
       },
       immediatelyRender: false,
     },
-    [activeNote?.id]
+    []
   );
 
+  // ===========================================================================
+  // EFFECTS
+  // ===========================================================================
+
+  // Sync reading mode with editor
   useEffect(() => {
-    if (editor) {
+    if (editor && !editor.isDestroyed) {
       editor.setEditable(!isReadingMode);
     }
   }, [editor, isReadingMode]);
+
+  // Update title when note changes
+  useEffect(() => {
+    if (activeNote) {
+      setTitle(activeNote.title || "");
+      if (!activeNote.title && !activeNote.content && titleInputRef.current) {
+        setTimeout(
+          () => titleInputRef.current?.focus(),
+          EDITOR_CONFIG.TITLE_FOCUS_DELAY_MS
+        );
+      }
+    }
+  }, [activeNote?.id, activeNote?.title, activeNote?.content]);
+
+  // Set editor content when note changes (with race condition fix)
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (!activeNote) return;
+    if (lastNoteIdRef.current === activeNote.id) return;
+
+    const noteId = activeNote.id;
+    const noteContent = activeNote.content;
+
+    lastNoteIdRef.current = noteId;
+
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      if (activeNoteIdRef.current !== noteId) return;
+
+      editor.commands.setContent(noteContent || "", { emitUpdate: false });
+    });
+  }, [activeNote?.id, activeNote?.content, editor]);
+
+  // ===========================================================================
+  // HANDLERS
+  // ===========================================================================
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -332,19 +423,34 @@ export default function NoteEditor({
     }
   }, []);
 
-  useEffect(() => {
-    if (!editor || !activeNote || lastNoteIdRef.current === activeNote.id)
-      return;
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newTitle = e.target.value;
+      setTitle(newTitle);
 
-    lastNoteIdRef.current = activeNote.id;
+      if (!activeNote?.id) return;
 
-    queueMicrotask(() => {
-      if (editor.isDestroyed) return;
-      editor.commands.setContent(activeNote.content || "", {
-        emitUpdate: false,
-      });
-    });
-  }, [activeNote?.id, editor]);
+      const markdown = getMarkdownFromEditor(editor);
+      if (markdown || !activeNote.content) {
+        debouncedSave(activeNote.id, newTitle, markdown);
+      }
+    },
+    [activeNote?.id, activeNote?.content, editor, debouncedSave]
+  );
+
+  const handleTitleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        editor?.commands.focus();
+      }
+    },
+    [editor]
+  );
+
+  // ===========================================================================
+  // RENDER
+  // ===========================================================================
 
   if (!activeNote) return null;
 
@@ -355,20 +461,16 @@ export default function NoteEditor({
       className="flex flex-col flex-1 h-full bg-black relative"
       onClick={() => setActiveSubnote(null)}
     >
-      {/* Table Controls - Hover buttons for adding rows/columns */}
+      {/* Table Controls */}
       <TableControls editor={editor} />
-
-      {/* Table Grip Handles - Row/column drag handles */}
       <TableGripHandles editor={editor} />
-
-      {/* Table Cell Menu - Right-click context menu */}
       <TableCellMenu editor={editor} />
 
-      {/* MAIN LAYOUT ROW: Editor Left | Sidebar Right */}
+      {/* Main Layout */}
       <div className="flex-1 flex flex-row overflow-hidden w-full h-full">
-        {/* LEFT COLUMN: The actual Editor Interface */}
+        {/* Editor Column */}
         <div className="flex-1 flex flex-col min-w-0 relative h-full">
-          {/* Top Right Controls (Absolute within the left column) */}
+          {/* Top Right Controls */}
           <div
             className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
             onClick={(e) => e.stopPropagation()}
@@ -389,6 +491,8 @@ export default function NoteEditor({
                   : "text-zinc-400 hover:text-white hover:bg-zinc-800"
               }`}
               title="Toggle Info Sidebar"
+              aria-label="Toggle Info Sidebar"
+              aria-expanded={isRightSidebarOpen}
             >
               <PanelRight className="h-4 w-4" />
             </button>
@@ -404,6 +508,7 @@ export default function NoteEditor({
 
           <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
             <div className="max-w-4xl mx-auto pr-16">
+              {/* Toolbar */}
               <div
                 className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
                   isReadingMode
@@ -414,30 +519,26 @@ export default function NoteEditor({
                 {editor ? (
                   <Toolbar editor={editor} />
                 ) : (
-                  <div className="h-10" />
+                  <div className="h-10" aria-hidden="true" />
                 )}
               </div>
 
+              {/* Title Input */}
               <input
                 ref={titleInputRef}
                 type="text"
                 value={title}
                 disabled={isReadingMode}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  debouncedSave(
-                    activeNote.id,
-                    e.target.value,
-                    getMarkdown(editor)
-                  );
-                }}
-                onKeyDown={(e) => e.key === "Enter" && editor?.commands.focus()}
+                onChange={handleTitleChange}
+                onKeyDown={handleTitleKeyDown}
                 placeholder="Untitled"
                 className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words py-2 leading-normal ${fontClass} ${
                   isReadingMode ? "cursor-default" : ""
                 }`}
+                aria-label="Note title"
               />
 
+              {/* Editor Content */}
               <div
                 className="min-h-[500px] relative pb-8"
                 onClick={(e) => {
@@ -448,14 +549,18 @@ export default function NoteEditor({
                 {editor ? (
                   <EditorContent editor={editor} />
                 ) : (
-                  <div className="h-40 rounded-md bg-zinc-800 animate-pulse" />
+                  <div
+                    className="h-40 rounded-md bg-zinc-800 animate-pulse"
+                    aria-label="Loading editor"
+                    aria-busy="true"
+                  />
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Sidebar (Animated) */}
+        {/* Right Sidebar */}
         <AnimatePresence mode="wait">
           {isRightSidebarOpen && (
             <motion.div
@@ -472,7 +577,7 @@ export default function NoteEditor({
                   editor={editor}
                   onNavigate={onNavigateNote}
                   onClose={onToggleRightSidebar}
-                  onPreviewVersion={onPreviewVersion} // Pass it down
+                  onPreviewVersion={onPreviewVersion}
                 />
               </div>
             </motion.div>
@@ -480,7 +585,7 @@ export default function NoteEditor({
         </AnimatePresence>
       </div>
 
-      {/* Subnote Tooltip (Absolute to root) */}
+      {/* Subnote Tooltip */}
       <AnimatePresence>
         {activeSubnote && (
           <motion.div
@@ -510,6 +615,7 @@ export default function NoteEditor({
         )}
       </AnimatePresence>
 
+      {/* Editor Styles */}
       <style jsx global>{`
         /* FONT OVERRIDES */
         #note-editor-root[data-font="serif"] .ProseMirror,
@@ -650,10 +756,7 @@ export default function NoteEditor({
           color: #71717a !important;
         }
 
-        /* ============================================ */
-        /* TABLES - Simple visible borders */
-        /* ============================================ */
-
+        /* TABLES */
         .ProseMirror table {
           border-collapse: collapse;
           margin: 1rem 0;
@@ -678,7 +781,6 @@ export default function NoteEditor({
           text-align: left;
         }
 
-        /* Selected cell */
         .ProseMirror .selectedCell {
           background-color: rgba(234, 179, 8, 0.15) !important;
         }
@@ -695,13 +797,11 @@ export default function NoteEditor({
           z-index: 2;
         }
 
-        /* Table wrapper */
         .ProseMirror .tableWrapper {
           overflow-x: auto;
           margin: 1rem 0;
         }
 
-        /* Column resize handle */
         .ProseMirror .column-resize-handle {
           position: absolute;
           right: -2px;
@@ -717,21 +817,10 @@ export default function NoteEditor({
           cursor: col-resize;
         }
 
-        /* Hover effect on cells */
         .ProseMirror td:hover,
         .ProseMirror th:hover {
           background-color: rgba(255, 255, 255, 0.03);
         }
-
-        /* Cell with custom background color */
-        .ProseMirror td[data-bg-color],
-        .ProseMirror th[data-bg-color] {
-          /* Background color is set via inline style */
-        }
-
-        /* ============================================ */
-        /* END TABLES */
-        /* ============================================ */
 
         /* CALLOUT */
         .callout-block {
