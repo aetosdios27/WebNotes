@@ -7,12 +7,11 @@ import {
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { all, createLowlight } from "lowlight";
 import { CopyButton } from "@/app/components/ui/CopyButton";
-import { useMemo, useEffect, useState } from "react";
+import { OctopusBadge } from "@/app/components/ui/OctopusBadge";
+import { useMemo, useEffect, useState, useCallback, useRef } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { BrandIcon } from "./codemirror/icons";
 import { DISPLAY_NAMES } from "./codemirror/languages";
 import { detectHeuristic } from "./codemirror/heuristics";
-import { Loader2 } from "lucide-react";
 
 const lowlight = createLowlight(all);
 
@@ -43,13 +42,16 @@ const LANGUAGE_COLORS: Record<string, string> = {
   graphql: "#e10098",
   text: "#a1a1aa",
 };
+
 const DEFAULT_COLOR = "#a1a1aa";
+const MIN_DETECTION_LENGTH = 10;
 
 function CodeBlockComponent({
   node: { attrs, textContent },
   updateAttributes,
 }: NodeViewProps) {
-  const currentLang = attrs.language || "text";
+  const currentLang =
+    attrs.language && attrs.language !== "null" ? attrs.language : "text";
   const displayLang =
     DISPLAY_NAMES[currentLang] ||
     (currentLang === "text" ? "Plain Text" : currentLang);
@@ -58,77 +60,112 @@ function CodeBlockComponent({
 
   const [isDetecting, setIsDetecting] = useState(false);
 
+  // Track previous content to avoid unnecessary updates
+  const prevContentRef = useRef(textContent);
+
   const lineCount = useMemo(
     () => (textContent.match(/\n/g) || []).length + 1,
     [textContent]
   );
 
+  // Stable reference to update language - deferred to avoid flushSync issues
+  const updateLang = useCallback(
+    (lang: string) => {
+      // Defer to next microtask to avoid flushSync during render
+      queueMicrotask(() => {
+        updateAttributes({ language: lang });
+      });
+    },
+    [updateAttributes]
+  );
+
+  // Debounced language detection
   const detectLanguage = useDebouncedCallback((content: string) => {
-    if (!content || content.length < 10) {
+    const trimmed = content.trim();
+
+    // Not enough content to detect
+    if (trimmed.length < MIN_DETECTION_LENGTH) {
       setIsDetecting(false);
       return;
     }
 
-    // 1. Heuristics (Fast)
+    // 1. Try heuristics first (fast)
     const heuristicLang = detectHeuristic(content);
-    if (heuristicLang && heuristicLang !== currentLang) {
-      updateAttributes({ language: heuristicLang });
+    if (heuristicLang) {
+      updateLang(heuristicLang);
       setIsDetecting(false);
       return;
     }
 
-    // 2. Lowlight (Fallback)
-    // Only run if heuristic failed AND current isn't locked by user (how to track that? assume auto)
-    // We will re-detect even if current is set, to fix the C++ -> Rust paste issue.
+    // 2. Fall back to lowlight auto-detection
     try {
       const result = lowlight.highlightAuto(content);
       const detected = result.data?.language;
-
-      if (detected && detected !== currentLang) {
-        updateAttributes({ language: detected });
+      if (detected) {
+        updateLang(detected);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Lowlight failed, keep current language
+    }
 
     setIsDetecting(false);
-  }, 1000);
+  }, 800);
 
+  // Main effect - only depends on textContent
   useEffect(() => {
-    if (textContent.length > 10) {
-      setIsDetecting(true);
-      detectLanguage(textContent);
+    const trimmed = textContent.trim();
+    const prevTrimmed = prevContentRef.current.trim();
+
+    // Update ref
+    prevContentRef.current = textContent;
+
+    // Empty or too short - reset to plain text
+    if (trimmed.length < MIN_DETECTION_LENGTH) {
+      detectLanguage.cancel();
+      setIsDetecting(false);
+
+      // Only reset if content actually changed to empty (not on mount)
+      // and language is not already "text"
+      if (
+        prevTrimmed.length >= MIN_DETECTION_LENGTH &&
+        attrs.language &&
+        attrs.language !== "text" &&
+        attrs.language !== "null"
+      ) {
+        updateLang("text");
+      }
+      return;
     }
-  }, [textContent, detectLanguage]);
+
+    // Content is long enough - trigger detection
+    setIsDetecting(true);
+    detectLanguage(textContent);
+  }, [textContent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      detectLanguage.cancel();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <NodeViewWrapper className="code-block relative my-6 rounded-lg border border-zinc-800 bg-[#0a0a0a] overflow-hidden shadow-sm group">
-      {/* HEADER (Persistent) */}
+      {/* HEADER */}
       <div
         className="flex items-center justify-end px-3 py-2 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm select-none"
         contentEditable={false}
       >
-        <div className="flex items-center gap-4">
-          {/* Brand Pill */}
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-bold tracking-wide transition-all"
-            style={{
-              color: brandColor,
-              backgroundColor: `${brandColor}10`,
-              borderColor: `${brandColor}20`,
-            }}
-          >
-            {isDetecting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <BrandIcon lang={currentLang} className="w-3.5 h-3.5" />
-            )}
-            <span className="uppercase">
-              {isDetecting ? "DETECTING..." : displayLang}
-            </span>
-          </div>
+        <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <OctopusBadge
+            lang={currentLang}
+            displayName={displayLang}
+            color={brandColor}
+            isDetecting={isDetecting}
+          />
 
           <div className="h-3 w-px bg-zinc-800" />
 
-          {/* Copy */}
           <CopyButton
             value={textContent}
             className="h-6 w-6 !bg-transparent hover:!bg-zinc-800 !border-0 text-zinc-500 hover:text-zinc-300"
@@ -155,7 +192,7 @@ function CodeBlockComponent({
           ))}
         </div>
 
-        {/* Content */}
+        {/* The Content */}
         <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           <pre
             className="!m-0 !p-4 !bg-[#0a0a0a] !border-0 !outline-none !font-[inherit]"
@@ -175,6 +212,18 @@ function CodeBlockComponent({
 }
 
 export const CodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      language: {
+        default: "text",
+        parseHTML: (element) => element.getAttribute("data-language"),
+        renderHTML: (attributes) => ({
+          "data-language": attributes.language,
+        }),
+      },
+    };
+  },
+
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockComponent);
   },
