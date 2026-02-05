@@ -78,7 +78,7 @@ const EDITOR_CONFIG = {
 } as const;
 
 // =============================================================================
-// CUSTOM EXTENSIONS (Defined outside component to avoid recreation)
+// CUSTOM EXTENSIONS
 // =============================================================================
 
 const CustomLink = Mark.create({
@@ -167,16 +167,14 @@ const getFontClass = (font: string | null | undefined): string => {
   return FONT_CLASSES[font ?? "sans"] ?? FONT_CLASSES.sans;
 };
 
-/**
- * Get markdown content from editor.
- * Uses the tiptap-markdown extension's storage.
- * Type safety provided by src/types/tiptap-markdown.d.ts
- */
 const getMarkdownFromEditor = (editorInstance: Editor | null): string => {
   if (!editorInstance) return "";
 
   try {
-    const markdown = editorInstance.storage.markdown?.getMarkdown?.();
+    const markdownStorage = editorInstance.storage["markdown"] as
+      | { getMarkdown?: () => string }
+      | undefined;
+    const markdown = markdownStorage?.getMarkdown?.();
     return typeof markdown === "string" ? markdown : editorInstance.getHTML();
   } catch {
     return editorInstance.getHTML();
@@ -202,6 +200,7 @@ export default function NoteEditor({
   // ===========================================================================
   // STATE
   // ===========================================================================
+  const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
   const [isReadingMode, setIsReadingMode] = useState(false);
   const [activeSubnote, setActiveSubnote] = useState<{
@@ -217,7 +216,10 @@ export default function NoteEditor({
   const lastNoteIdRef = useRef<string | null>(null);
   const allNotesRef = useRef(allNotes);
 
-  // Keep refs in sync
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     allNotesRef.current = allNotes;
   }, [allNotes]);
@@ -240,7 +242,6 @@ export default function NoteEditor({
     []
   );
 
-  // Memoize extensions array - only recreate when dependencies change
   const extensions = useMemo(
     () => [
       UniqueID.configure({
@@ -264,6 +265,7 @@ export default function NoteEditor({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false,
       }),
+      CodeBlock, // ✅ FIX: Moved right after StarterKit to properly override
       Typography,
       Placeholder.configure({
         placeholder: "Type / for commands, [[ to link notes...",
@@ -295,7 +297,6 @@ export default function NoteEditor({
       SlashCommand.configure({ suggestion: slashCommandSuggestion }),
       MathInline,
       MathBlock,
-      CodeBlock,
     ],
     [noteLinkSuggestion, onNavigateNote]
   );
@@ -329,12 +330,10 @@ export default function NoteEditor({
     EDITOR_CONFIG.AUTOSAVE_DELAY_MS
   );
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => debouncedSave.cancel();
   }, [debouncedSave]);
 
-  // Cancel pending save when switching notes
   useEffect(() => {
     debouncedSave.cancel();
   }, [activeNote?.id, debouncedSave]);
@@ -367,14 +366,12 @@ export default function NoteEditor({
   // EFFECTS
   // ===========================================================================
 
-  // Sync reading mode with editor
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       editor.setEditable(!isReadingMode);
     }
   }, [editor, isReadingMode]);
 
-  // Update title when note changes
   useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title || "");
@@ -387,7 +384,6 @@ export default function NoteEditor({
     }
   }, [activeNote?.id, activeNote?.title, activeNote?.content]);
 
-  // Set editor content when note changes (with race condition fix)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (!activeNote) return;
@@ -452,7 +448,7 @@ export default function NoteEditor({
   // RENDER
   // ===========================================================================
 
-  if (!activeNote) return null;
+  if (!mounted || !activeNote) return null;
 
   return (
     <div

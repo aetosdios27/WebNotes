@@ -25,19 +25,34 @@ import {
   Table,
 } from "lucide-react";
 import { mathTemplates } from "./extensions/math";
+import type { Editor, Range } from "@tiptap/core";
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface CommandProps {
+  editor: Editor;
+  range: Range;
+}
 
 interface CommandItem {
   title: string;
   description: string;
   icon: React.ReactNode;
-  command: (props: any) => void;
+  command: (props: CommandProps) => void;
   keywords?: string[];
 }
 
 interface SlashCommandsProps {
   items: CommandItem[];
   command: (item: CommandItem) => void;
+  editor: Editor;
 }
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
 export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -117,6 +132,10 @@ export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
 
 SlashCommands.displayName = "SlashCommands";
 
+// =============================================================================
+// COMMANDS
+// =============================================================================
+
 export const slashCommandItems = (): CommandItem[] => [
   // ============================================
   // TEXT & HEADINGS
@@ -125,7 +144,7 @@ export const slashCommandItems = (): CommandItem[] => [
     title: "Text",
     description: "Just start writing with plain text",
     icon: <Type className="h-4 w-4" />,
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor
         .chain()
         .focus()
@@ -139,7 +158,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Big section heading",
     icon: <Heading1 className="h-4 w-4" />,
     keywords: ["h1", "heading1", "title"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor
         .chain()
         .focus()
@@ -153,7 +172,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Medium section heading",
     icon: <Heading2 className="h-4 w-4" />,
     keywords: ["h2", "heading2", "subtitle"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor
         .chain()
         .focus()
@@ -167,7 +186,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Small section heading",
     icon: <Heading3 className="h-4 w-4" />,
     keywords: ["h3", "heading3", "subheading"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor
         .chain()
         .focus()
@@ -185,7 +204,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Create a simple bullet list",
     icon: <List className="h-4 w-4" />,
     keywords: ["ul", "list", "bullet", "unordered"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleBulletList().run();
     },
   },
@@ -194,7 +213,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Create a numbered list",
     icon: <ListOrdered className="h-4 w-4" />,
     keywords: ["ol", "ordered", "numbered", "list"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleOrderedList().run();
     },
   },
@@ -203,7 +222,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Create a checklist with todos",
     icon: <CheckSquare className="h-4 w-4" />,
     keywords: ["todo", "task", "checkbox", "checklist", "check", "[]"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
@@ -216,7 +235,7 @@ export const slashCommandItems = (): CommandItem[] => [
     description: "Create a blockquote",
     icon: <Quote className="h-4 w-4" />,
     keywords: ["blockquote", "citation", "quote"],
-    command: ({ editor, range }: any) => {
+    command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleBlockquote().run();
     },
   },
@@ -226,7 +245,26 @@ export const slashCommandItems = (): CommandItem[] => [
     icon: <Code className="h-4 w-4" />,
     keywords: ["code", "codeblock", "snippet", "programming"],
     command: ({ editor, range }: any) => {
-      editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
+      console.log("SLASH COMMAND: Code Block Triggered");
+
+      // Delete the slash command text first
+      editor.chain().focus().deleteRange(range).run();
+
+      // Insert code block node directly using the transaction
+      const { state } = editor;
+      const { tr, schema } = state;
+      const codeBlockType = schema.nodes.codeBlock;
+
+      if (codeBlockType) {
+        console.log("SLASH COMMAND: Inserting Node with language=text");
+        const node = codeBlockType.create({ language: "text" });
+        console.log("SLASH COMMAND: Node Created:", node.attrs);
+        tr.replaceSelectionWith(node);
+        editor.view.dispatch(tr);
+        editor.commands.focus();
+      } else {
+        console.error("SLASH COMMAND: codeBlock schema not found!");
+      }
     },
   },
   {
@@ -240,7 +278,7 @@ export const slashCommandItems = (): CommandItem[] => [
   },
 
   // ============================================
-  // TABLES (Notion-style, no header by default)
+  // TABLES
   // ============================================
   {
     title: "Table",

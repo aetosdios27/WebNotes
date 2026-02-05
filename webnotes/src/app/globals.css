@@ -1,15 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap");
+
 @import "tailwindcss";
 @import "tippy.js/dist/tippy.css";
 @import "katex/dist/katex.min.css";
 
 /* ============================================================
-  ROOT / WINDOW BEHAVIOR (CRITICAL)
+  ROOT / WINDOW BEHAVIOR
 ============================================================
 */
 html,
 body {
   height: 100%;
-  overflow: hidden; /* Window must NEVER scroll; only inner containers */
+  overflow: hidden;
 }
 
 html {
@@ -23,7 +25,7 @@ body {
 }
 
 /* ============================================================
-  CUSTOM SCROLLBARS (ZINC THEME)
+  CUSTOM SCROLLBARS
 ============================================================
 */
 ::-webkit-scrollbar {
@@ -44,7 +46,7 @@ body {
 }
 
 /* ============================================================
-  SELECTION STYLING (YELLOW GLOW)
+  SELECTION STYLING
 ============================================================
 */
 ::selection {
@@ -74,7 +76,6 @@ body {
   margin-bottom: 0.25em !important;
 }
 
-/* Placeholder */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -83,7 +84,6 @@ body {
   height: 0;
 }
 
-/* Headings */
 .ProseMirror h1 {
   font-size: 2.25em;
   font-weight: 700;
@@ -111,7 +111,6 @@ body {
   margin-bottom: 0.5em;
 }
 
-/* Lists */
 .ProseMirror ul {
   list-style-type: disc !important;
   padding-left: 1.5rem !important;
@@ -134,15 +133,27 @@ body {
   color: #71717a !important;
 }
 
-/* Code & Blockquotes */
+/*
+   CODE STYLING FIX
+   - Only apply gray box to inline code or legacy pre tags
+   - Enforce JetBrains Mono everywhere
+*/
 .ProseMirror code {
   @apply bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded text-sm;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: "JetBrains Mono", monospace !important;
 }
 
-.ProseMirror pre {
+/* Apply gray box only to pre tags that are NOT our custom code block */
+.ProseMirror pre:not(:has(.code-block)) {
   @apply bg-zinc-900 text-zinc-300 p-4 rounded-lg overflow-x-auto my-4;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ProseMirror pre,
+.code-block,
+.code-block pre,
+.code-block code {
+  font-family: "JetBrains Mono", monospace !important;
+  font-feature-settings: "liga" on, "calt" on;
 }
 
 .ProseMirror blockquote {
@@ -150,7 +161,85 @@ body {
 }
 
 /* ============================================================
-  MATH RENDERING (KATEX)
+  LOWLIGHT SYNTAX HIGHLIGHTING FOR CODE BLOCKS
+============================================================
+*/
+.code-block .hljs-comment,
+.code-block .hljs-quote {
+  color: #545454;
+  font-style: italic;
+}
+
+.code-block .hljs-keyword,
+.code-block .hljs-selector-tag,
+.code-block .hljs-subst {
+  color: #c792ea;
+}
+
+.code-block .hljs-number,
+.code-block .hljs-literal,
+.code-block .hljs-variable,
+.code-block .hljs-template-variable,
+.code-block .hljs-attr {
+  color: #f78c6c;
+}
+
+.code-block .hljs-string,
+.code-block .hljs-doctag {
+  color: #c3e88d;
+}
+
+.code-block .hljs-title,
+.code-block .hljs-section,
+.code-block .hljs-selector-id,
+.code-block .hljs-type,
+.code-block .hljs-class .hljs-title {
+  color: #ffcb6b;
+}
+
+.code-block .hljs-tag,
+.code-block .hljs-name,
+.code-block .hljs-attribute {
+  color: #f07178;
+}
+
+.code-block .hljs-regexp,
+.code-block .hljs-link {
+  color: #89ddff;
+}
+
+.code-block .hljs-symbol,
+.code-block .hljs-bullet {
+  color: #82aaff;
+}
+
+.code-block .hljs-built_in,
+.code-block .hljs-builtin-name {
+  color: #ffcb6b;
+}
+
+.code-block .hljs-meta {
+  color: #a1a1aa;
+}
+
+.code-block .hljs-deletion {
+  background: #f0717850;
+}
+
+.code-block .hljs-addition {
+  background: #c3e88d50;
+}
+
+.code-block .hljs-emphasis {
+  font-style: italic;
+}
+
+.code-block .hljs-strong {
+  font-weight: bold;
+}
+
+/* ============================================================
+  MATH RENDERING
 ============================================================
 */
 .math-inline-render {
@@ -188,7 +277,7 @@ body {
 }
 
 /* ============================================================
-  FORCE FONT OVERRIDES (SYNCED WITH PAGE SETTINGS)
+  FONT OVERRIDES
 ============================================================
 */
 .font-serif .ProseMirror,
