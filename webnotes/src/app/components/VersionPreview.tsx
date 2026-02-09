@@ -1,3 +1,5 @@
+// src/app/components/VersionPreview.tsx
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -42,12 +44,10 @@ function ensureBlockIds(content: any): any {
 
   let json = content;
 
-  // Try to parse if string
   if (typeof content === "string") {
     try {
       json = JSON.parse(content);
     } catch (e) {
-      // Fallback for plain text / HTML content
       return {
         type: "doc",
         content: [
@@ -61,7 +61,6 @@ function ensureBlockIds(content: any): any {
     }
   }
 
-  // Traverse JSON object
   const traverse = (node: any) => {
     if (
       node.type &&
@@ -84,7 +83,6 @@ function ensureBlockIds(content: any): any {
     }
   };
 
-  // Clone to avoid mutation issues
   try {
     const clonedJson = JSON.parse(JSON.stringify(json));
     traverse(clonedJson);
@@ -114,15 +112,19 @@ export default function VersionPreview({
   const restoreMutation = trpc.versions.restore.useMutation({
     onSuccess: (restoredNote) => {
       toast.success("Version restored successfully");
+      // Explicitly pick fields to avoid yjsState type mismatch
       const note: Note = {
-        ...restoredNote,
-        createdAt: new Date(restoredNote.createdAt),
-        updatedAt: new Date(restoredNote.updatedAt),
+        id: restoredNote.id,
+        title: restoredNote.title,
+        content: restoredNote.content,
+        folderId: restoredNote.folderId ?? null,
+        isPinned: restoredNote.isPinned,
         pinnedAt: restoredNote.pinnedAt
           ? new Date(restoredNote.pinnedAt)
           : null,
         font: restoredNote.font ?? null,
-        folderId: restoredNote.folderId ?? null,
+        createdAt: new Date(restoredNote.createdAt),
+        updatedAt: new Date(restoredNote.updatedAt),
       };
       onRestore(note);
       onClose();
@@ -414,7 +416,7 @@ export default function VersionPreview({
         </div>
       </div>
 
-      {/* Production-Ready Diff CSS */}
+      {/* Diff CSS */}
       <style jsx global>{`
         .diff-added {
           background-color: rgba(34, 197, 94, 0.1) !important;
