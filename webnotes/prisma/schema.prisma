@@ -1,13 +1,20 @@
 // prisma/schema.prisma
+
 datasource db {
   provider = "postgresql"
+  // ✅ No hardcoded URL here (handled by prisma.config.ts and runtime)
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // ✅ Required to use the Pool in Production
+  previewFeatures = ["driverAdapters"]
 }
 
+// ============================================================================
 // AUTH MODELS
+// ============================================================================
+
 model User {
   id             String        @id @default(cuid())
   email          String        @unique
@@ -49,6 +56,8 @@ model Session {
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // ✅ Index for auth performance
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -61,7 +70,10 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+// ============================================================================
 // APPLICATION MODELS
+// ============================================================================
+
 model Folder {
   id        String   @id @default(cuid())
   name      String
@@ -70,13 +82,25 @@ model Folder {
   userId    String   @map("user_id")
   notes     Note[]
 
+  // ✅ Indexes for sidebar performance
+  @@index([userId])
+  @@index([userId, createdAt])
   @@map("folders")
 }
 
 model Note {
-  id        String        @id @default(cuid())
-  title     String?
-  content   String?
+  id    String  @id @default(cuid())
+  title String?
+
+  // ✅ Keep content for search/fallback
+  content String? @db.Text
+
+  // ✅ CRDT Binary State
+  yjsState Bytes? @map("yjs_state")
+
+  // ✅ Optimistic Locking Version
+  version Int @default(0)
+
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   isPinned  Boolean       @default(false) @map("is_pinned")
@@ -88,10 +112,18 @@ model Note {
   folderId  String?       @map("folder_id")
   versions  NoteVersion[]
 
+  // ✅ Critical Query Indexes
+  @@index([userId])
+  @@index([userId, folderId])
+  @@index([userId, isPinned, pinnedAt, updatedAt])
+  @@index([updatedAt])
   @@map("notes")
 }
 
+// ============================================================================
 // VERSION HISTORY
+// ============================================================================
+
 model NoteVersion {
   id         String   @id @default(cuid())
   noteId     String   @map("note_id")
@@ -103,6 +135,9 @@ model NoteVersion {
   userId     String?  @map("user_id")
   user       User?    @relation(fields: [userId], references: [id])
 
+  // ✅ Indexes for cleanup jobs
   @@index([noteId, createdAt])
+  @@index([userId])
+  @@index([changeType, createdAt])
   @@map("note_versions")
 }

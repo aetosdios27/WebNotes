@@ -1,3 +1,5 @@
+// src/lib/storage/cloud-storage.ts
+
 import { trpcVanilla } from "@/lib/trpc/client";
 import type { Note, Folder, UserSettings } from "./types";
 
@@ -11,29 +13,39 @@ export class CloudStorageAdapter {
   // ==========================================================================
 
   async getNotes(): Promise<Note[]> {
-    const notes = await trpcVanilla.notes.list.query();
+    const result = await trpcVanilla.notes.list.query();
 
-    return notes.map((n) => ({
-      ...n,
+    return result.notes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+      folderId: n.folderId ?? null,
+      isPinned: n.isPinned,
       pinnedAt: n.pinnedAt ?? null,
       font: n.font ?? null,
-      folderId: n.folderId ?? null,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt,
     }));
   }
 
   async createNote(data: Partial<Note>): Promise<Note> {
     const note = await trpcVanilla.notes.create.mutate({
-      id: data.id, // ✅ FIX: Send the ID
+      id: data.id,
       title: data.title ?? "",
       content: data.content ?? "",
       folderId: data.folderId,
     });
 
     return {
-      ...note,
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      folderId: note.folderId ?? null,
+      isPinned: note.isPinned,
       pinnedAt: note.pinnedAt ?? null,
       font: note.font ?? null,
-      folderId: note.folderId ?? null,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
     };
   }
 
@@ -51,10 +63,15 @@ export class CloudStorageAdapter {
     if (!note) throw new Error("Note not found");
 
     return {
-      ...note,
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      folderId: note.folderId ?? null,
+      isPinned: note.isPinned,
       pinnedAt: note.pinnedAt ?? null,
       font: note.font ?? null,
-      folderId: note.folderId ?? null,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
     };
   }
 
@@ -66,10 +83,15 @@ export class CloudStorageAdapter {
     const note = await trpcVanilla.notes.togglePin.mutate({ id });
 
     return {
-      ...note,
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      folderId: note.folderId ?? null,
+      isPinned: note.isPinned,
       pinnedAt: note.pinnedAt ?? null,
       font: note.font ?? null,
-      folderId: note.folderId ?? null,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
     };
   }
 
@@ -96,7 +118,7 @@ export class CloudStorageAdapter {
 
   async createFolder(data: Partial<Folder>): Promise<Folder> {
     const folder = await trpcVanilla.folders.create.mutate({
-      id: data.id, // ✅ FIX: Send the ID
+      id: data.id,
       name: data.name ?? "New Folder",
     });
 

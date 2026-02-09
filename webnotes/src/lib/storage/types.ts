@@ -3,14 +3,18 @@
 export interface Note {
   id: string;
   title: string | null;
-  content: string | null;
+  content: string | null; // Keeps HTML for fallback/search
   userId?: string;
   folderId: string | null;
   createdAt: Date;
   updatedAt: Date;
   isPinned?: boolean;
   pinnedAt?: Date | null;
-  font?: string | null; // 👈 Added font field (optional/nullable)
+  font?: string | null;
+
+  // ✅ NEW: The CRDT Binary State (Base64 encoded string)
+  // This is the source of truth for the editor content.
+  yjsState?: string | null;
 }
 
 export interface Folder {
@@ -20,14 +24,13 @@ export interface Folder {
   createdAt: Date;
 }
 
-// THE FIX: The shared type definition that everything else will use.
-export type SyncStatus = 'synced' | 'syncing' | 'unsynced';
+export type SyncStatus = "synced" | "syncing" | "unsynced";
 
 export interface UserSettings {
-  theme: 'dark' | 'light' | 'system';
-  fontSize: 'small' | 'medium' | 'large';
+  theme: "dark" | "light" | "system";
+  fontSize: "small" | "medium" | "large";
   showLineNumbers: boolean;
   syncStatus: SyncStatus;
 }
 
-export type StorageOperation = 'create' | 'update' | 'delete';
+export type StorageOperation = "create" | "update" | "delete";

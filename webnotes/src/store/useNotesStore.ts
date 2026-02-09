@@ -90,7 +90,6 @@ const sortNotes = (notes: Note[]): Note[] => {
   });
 };
 
-// Helper to convert Note to TauriNote format
 const toTauriNote = (note: Note): TauriNote => ({
   id: note.id,
   title: note.title ?? "",
@@ -111,7 +110,6 @@ const toTauriNote = (note: Note): TauriNote => ({
       : note.updatedAt,
 });
 
-// Helper to convert TauriNote to Note format
 const fromTauriNote = (n: TauriNote): Note => ({
   id: n.id,
   title: n.title,
@@ -304,9 +302,9 @@ export const useNotesStore = create<NotesState>()(
         updatedAt: data.updatedAt ?? now,
       };
 
+      // Add to list immediately (optimistic) but DON'T set activeNoteId yet
       set((state) => ({
         notes: sortNotes([newNote, ...state.notes]),
-        activeNoteId: newNote.id,
         pendingOperations: state.pendingOperations + 1,
         syncStatus: SYNC_STATUS.SYNCING,
       }));
@@ -318,7 +316,9 @@ export const useNotesStore = create<NotesState>()(
           await storage.createNote(newNote);
         }
 
+        // NOW set activeNoteId — after the note exists in the DB
         set((state) => ({
+          activeNoteId: newNote.id,
           pendingOperations: state.pendingOperations - 1,
           syncStatus:
             state.pendingOperations - 1 === 0
