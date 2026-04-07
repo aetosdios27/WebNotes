@@ -1,0 +1,14 @@
+/home/aetos/DevNexus/Code/Projects/WebNotes/webnotes/cli/target/debug/deps/yansi-f60653aba88bee1a.d: /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/lib.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/macros.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/windows.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/attr_quirk.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/style.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/color.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/paint.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/global.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/condition.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/set.rs
+
+/home/aetos/DevNexus/Code/Projects/WebNotes/webnotes/cli/target/debug/deps/libyansi-f60653aba88bee1a.rmeta: /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/lib.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/macros.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/windows.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/attr_quirk.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/style.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/color.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/paint.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/global.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/condition.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/set.rs
+
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/lib.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/macros.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/windows.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/attr_quirk.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/style.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/color.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/paint.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/global.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/condition.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1/src/set.rs:

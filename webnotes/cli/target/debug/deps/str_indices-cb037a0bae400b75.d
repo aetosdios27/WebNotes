@@ -1,0 +1,11 @@
+/home/aetos/DevNexus/Code/Projects/WebNotes/webnotes/cli/target/debug/deps/str_indices-cb037a0bae400b75.d: /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lib.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/byte_chunk.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/chars.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_crlf.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_lf.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/utf16.rs
+
+/home/aetos/DevNexus/Code/Projects/WebNotes/webnotes/cli/target/debug/deps/libstr_indices-cb037a0bae400b75.rmeta: /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lib.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/byte_chunk.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/chars.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_crlf.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_lf.rs /home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/utf16.rs
+
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lib.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/byte_chunk.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/chars.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_crlf.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/lines_lf.rs:
+/home/aetos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/str_indices-0.4.4/src/utf16.rs:

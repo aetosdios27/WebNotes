@@ -1,0 +1,59 @@
+[package]
+name = "webnotes"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "A terminal-native note editor with vim keybindings"
+license = "MIT"
+repository = "https://github.com/aetosdios27/webnotes"
+
+[[bin]]
+name = "webnotes"
+path = "src/main.rs"
+
+[dependencies]
+# TUI framework
+ratatui = "0.26"
+crossterm = "0.27"
+
+# Text buffer (rope data structure)
+ropey = "1.6"
+unicode-width = "0.1"
+unicode-segmentation = "1.10"
+
+# Syntax highlighting
+tree-sitter = "0.22"
+tree-sitter-md = "0.2"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+
+# Search
+fuzzy-matcher = "0.3"
+
+# Git integration
+git2 = "0.18"
+
+# File system
+notify = "6.1"
+walkdir = "2.4"
+directories = "5.0"
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+slug = "0.1"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+pretty_assertions = "1.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
