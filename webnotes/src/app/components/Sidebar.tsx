@@ -137,26 +137,31 @@ export default function Sidebar({
         open={isOpen}
         onOpenChange={setIsOpen}
         className={`
-          h-full flex flex-col bg-zinc-900 border-r border-zinc-800
-          transition-all duration-300 ease-in-out
+          relative h-full flex flex-col overflow-hidden
+          border-r border-zinc-800 bg-[#111214]
+          transition-all duration-300 ease-out
           ${isOpen ? "w-full md:w-80" : "w-full md:w-[68px]"}
         `}
       >
         {/* HEADER: Fixed Height */}
         <div
           className={`
-          p-4 flex items-center border-b border-zinc-800 flex-shrink-0
+          relative z-10 px-4 pb-4 pt-5 flex items-center border-b border-zinc-800 flex-shrink-0
           ${isOpen ? "justify-between" : "justify-center"}
         `}
         >
           {isOpen && (
-            <h1 className="text-xl font-bold text-zinc-200">WebNotes</h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-[1.2rem] font-semibold tracking-[-0.035em] text-zinc-100">
+                WebNotes
+              </h1>
+            </div>
           )}
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="hidden md:flex text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="hidden md:flex rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
             >
               <ChevronsLeft
                 className={`h-5 w-5 transition-transform duration-300 ${
@@ -170,77 +175,144 @@ export default function Sidebar({
         {/* TOOLBAR: Fixed Height */}
         <div
           className={`
-          p-2 border-b border-zinc-800 flex items-center flex-shrink-0
-          ${isOpen ? "flex-row justify-around" : "flex-col justify-start gap-2"}
+          relative z-10 px-3 pb-3 pt-3 flex-shrink-0
+          ${isOpen ? "" : "flex flex-col gap-2"}
         `}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => createNote()}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
-              >
-                <FilePlus size={18} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={isOpen ? "top" : "right"}>
-              <p>New Note</p>
-            </TooltipContent>
-          </Tooltip>
+          {isOpen ? (
+            <div className="grid grid-cols-4 gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => createNote()}
+                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <FilePlus size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>New Note</p>
+                </TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsFolderModalOpen(true)}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
-              >
-                <FolderPlus size={18} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={isOpen ? "top" : "right"}>
-              <p>New Folder</p>
-            </TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsFolderModalOpen(true)}
+                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <FolderPlus size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>New Folder</p>
+                </TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
-              >
-                <Search size={18} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={isOpen ? "top" : "right"}>
-              <p>Search</p>
-            </TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <Search size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Search</p>
+                </TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onOpenHelp}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors h-10 w-10"
-              >
-                <span className="text-lg font-bold font-mono">?</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side={isOpen ? "top" : "right"}>
-              <p>Shortcuts & Math Guide</p>
-            </TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onOpenHelp}
+                  className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                >
+                  <span className="text-base font-semibold">?</span>
+                </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Shortcuts & Math Guide</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => createNote()}
+                    className="h-11 w-11 rounded-xl border border-zinc-700 bg-zinc-100 p-0 text-zinc-950 shadow-none transition-colors hover:bg-white"
+                  >
+                    <FilePlus size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>New Note</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsFolderModalOpen(true)}
+                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <FolderPlus size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>New Folder</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <Search size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Search</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onOpenHelp}
+                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <span className="text-base font-semibold">?</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Shortcuts & Math Guide</p>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
 
         {/* LIST: Flexible Height with Scroll */}
         {isOpen && (
-          <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+          <div className="relative z-10 flex-1 overflow-y-auto min-h-0 px-2 pb-2 custom-scrollbar">
             <NoteList
               folders={folders}
               notesInFolders={notesInFolders}
@@ -260,7 +332,7 @@ export default function Sidebar({
         )}
 
         {/* FOOTER: Fixed Height at Bottom */}
-        <div className="p-2 border-t border-zinc-800 flex-shrink-0 bg-zinc-900 mt-auto">
+        <div className="relative z-10 mt-auto border-t border-zinc-800 p-3 flex-shrink-0">
           <AuthButton isOpen={isOpen} syncStatus={syncStatus} />
         </div>
       </Collapsible>

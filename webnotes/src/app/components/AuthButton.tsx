@@ -113,10 +113,10 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-4 p-2 h-[48px]">
-        <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
+      <div className="flex h-[48px] items-center gap-3 px-1">
+        <div className="h-8 w-8 animate-pulse rounded-full bg-zinc-800" />
         {isOpen && (
-          <div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" />
+          <div className="h-4 w-24 animate-pulse rounded-full bg-zinc-800" />
         )}
       </div>
     );
@@ -125,7 +125,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
   if (activeUser) {
     return (
       <TooltipProvider delayDuration={0}>
-        <div className="flex items-center justify-between p-2">
+        <div className="flex items-center justify-between px-1 py-1.5">
           <div className="flex items-center gap-3">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -135,11 +135,11 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
                     alt={activeUser.name || "User"}
                     width={32}
                     height={32}
-                    className="rounded-full bg-zinc-800"
+                    className="rounded-full bg-zinc-900"
                   />
                   <div
                     className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full flex items-center justify-center
-                                ${config.color} ring-2 ring-zinc-900`}
+                                ${config.color} ring-2 ring-[#111214]`}
                   >
                     {config.icon}
                   </div>
@@ -152,12 +152,15 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
 
             {isOpen && (
               <div className="flex flex-col">
-                <span className="text-sm font-medium truncate text-zinc-300">
+                <span className="truncate text-sm font-medium text-zinc-100">
                   {activeUser.name}
+                </span>
+                <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                  {config.tooltip}
                 </span>
                 {/* Show pending count when offline */}
                 {!isOnline && pendingOperations > 0 && (
-                  <span className="text-xs text-yellow-500">
+                  <span className="text-xs text-[rgb(214,178,106)]">
                     {pendingOperations} pending
                   </span>
                 )}
@@ -170,7 +173,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
               variant="ghost"
               size="icon"
               onClick={handleLogout}
-              className="hover:bg-zinc-800 hover:text-red-400 transition-colors"
+              className="rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -184,7 +187,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
     <Button
       variant="ghost"
       onClick={handleLogin}
-      className={`w-full flex items-center gap-3 p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all duration-200 ${
+      className={`h-[44px] w-full rounded-lg px-2 text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-100 ${
         isOpen ? "justify-start" : "justify-center"
       }`}
     >
