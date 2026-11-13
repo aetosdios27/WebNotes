@@ -50,10 +50,10 @@ export default function NoteSettings({
         lines: 0,
       };
     }
-    const plain = note.content
-      .replace(/<[^>]*>/g, "")
-      .replace(/#{1,6}\s/g, "")
-      .replace(/[*_~`]/g, "");
+    // Read text through the DOM instead of stripping tags with a regex; the result is only counted.
+    const plain =
+      new DOMParser().parseFromString(note.content, "text/html").body
+        .textContent ?? "";
 
     const words = plain.trim().split(/\s+/).filter(Boolean).length;
     const characters = plain.length;
