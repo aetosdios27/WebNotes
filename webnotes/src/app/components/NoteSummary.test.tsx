@@ -75,8 +75,9 @@ describe("note miniatures", () => {
         }
       />,
     );
-    expect(container.textContent).toBe('</template><img src="/escape"><p>Still safe</p><template><script>alert(1)</script></template>');
-    expect(container.querySelector("img,script,template")).toBeNull();
+    expect(container.textContent).toContain("Still safe");
+    expect(container.textContent).not.toContain("alert(1)");
+    expect(container.querySelector("img,script,template,[src],[onerror]")).toBeNull();
   });
 
   it("renders Markdown headings, tasks, lists, bold and inert link text", () => {
@@ -126,10 +127,26 @@ describe("note miniatures", () => {
         }
       />,
     );
-    expect(container.textContent).toBe('<</template>/template><img src="/escape" onerror="alert(1)"><p>Still safe</p>');
+    expect(container.textContent).toContain("Still safe");
     expect(
       container.querySelector("img,script,template,[src],[onerror]"),
     ).toBeNull();
+  });
+
+  it("treats HTML that starts with inline markup as HTML", () => {
+    const { container } = render(<NoteMiniature content={"<strong>Important</strong><p>Body</p>"} />);
+    expect(container.textContent).toContain("Important");
+    expect(container.textContent).toContain("Body");
+    expect(container.textContent).not.toContain("<");
+  });
+
+  it("keeps table captions and footers", () => {
+    const { container } = render(
+      <NoteMiniature
+        content={"<table><caption>Revenue</caption><tbody><tr><td>Sales</td></tr></tbody><tfoot><tr><td>Total 42</td></tr></tfoot></table>"}
+      />,
+    );
+    for (const text of ["Revenue", "Sales", "Total 42"]) expect(container.textContent).toContain(text);
   });
 
   it("keeps literal angle brackets in Markdown alongside headings and tasks", () => {

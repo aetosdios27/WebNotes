@@ -22,7 +22,11 @@ export function noteText(content: Note["content"]) {
     .trim();
 }
 const MINIATURE_LIMIT = 4_000;
-const EDITOR_BLOCK = /^\s*<(?:p|h[1-6]|ul|ol|li|div|pre|blockquote|table|hr|br)(?=[\s/>])/i;
+const EDITOR_BLOCK = /^\s*<(?:p|h[1-6]|ul|ol|li|div|section|pre|blockquote|table|hr|br)(?=[\s/>])/i;
+// A closing tag the walker understands marks HTML even when it does not start with a block;
+// Markdown with literal `Array<T>` has no closing tags and stays Markdown.
+const KNOWN_CLOSING_TAG =
+  /<\/(?:p|h[1-6]|ul|ol|li|div|section|pre|code|blockquote|table|thead|tbody|tfoot|caption|tr|td|th|strong|b|em|i|s|u|mark|span|a|sup|sub)>/i;
 
 function markdownInline(text: string): ReactNode[] {
   // Record delimiters once so unmatched openers never rescan the line.
@@ -127,7 +131,9 @@ function markdownMiniature(content: string): ReactNode {
 export function noteMiniature(content: Note["content"]): ReactNode {
   if (!content) return "Empty note";
   content = content.slice(0, MINIATURE_LIMIT);
-  if (!EDITOR_BLOCK.test(content)) return markdownMiniature(content);
+  if (!EDITOR_BLOCK.test(content) && !KNOWN_CLOSING_TAG.test(content)) {
+    return markdownMiniature(content);
+  }
   // Parse recognized editor HTML in a detached template; never emit stored attributes.
   const template = document.createElement("template");
   template.innerHTML = content;
@@ -145,6 +151,8 @@ export function noteMiniature(content: Note["content"]): ReactNode {
       case "table":
       case "thead":
       case "tbody":
+      case "tfoot":
+      case "caption":
       case "tr":
         return (
           <span className="mini-paragraph" key={key}>
