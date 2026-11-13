@@ -22,7 +22,7 @@ if (typeof document === "undefined") {
   }
 }
 const { cleanup, render, screen } = await import("@testing-library/react");
-import { NoteMiniature, NoteMeta, formatNoteTime } from "./NoteSummary";
+import { NoteMiniature, NoteMeta, formatNoteTime, noteMiniature } from "./NoteSummary";
 
 afterEach(cleanup);
 
@@ -75,7 +75,7 @@ describe("note miniatures", () => {
         }
       />,
     );
-    expect(container.textContent).toBe("Still safe");
+    expect(container.textContent).toBe('</template><img src="/escape"><p>Still safe</p><template><script>alert(1)</script></template>');
     expect(container.querySelector("img,script,template")).toBeNull();
   });
 
@@ -126,10 +126,34 @@ describe("note miniatures", () => {
         }
       />,
     );
-    expect(container.textContent).toBe("</template>Still safe");
+    expect(container.textContent).toBe('<</template>/template><img src="/escape" onerror="alert(1)"><p>Still safe</p>');
     expect(
       container.querySelector("img,script,template,[src],[onerror]"),
     ).toBeNull();
+  });
+
+  it("keeps literal angle brackets in Markdown alongside headings and tasks", () => {
+    const { container } = render(<NoteMiniature content={"# Types\nUse Array<T> for results\n- [x] done"} />);
+    expect(container.textContent).toBe("TypesUse Array<T> for resultsdone");
+    expect(screen.getByLabelText("Checked task")).toBeTruthy();
+    expect(container.querySelector("t")).toBeNull();
+  });
+
+  it("bounds huge unmatched Markdown and completes in under 100 ms", () => {
+    const content = "[".repeat(200_000);
+    const start = performance.now();
+    const miniature = noteMiniature(content);
+    expect(performance.now() - start).toBeLessThan(100);
+    const { container } = render(<>{miniature}</>);
+    expect(container.textContent).toBe("[".repeat(4_000));
+  });
+
+  it("preserves code, quotations and table text while dropping unsafe subtrees", () => {
+    const { container } = render(<NoteMiniature content={'<pre><code>const x = 1;</code></pre><blockquote>Quoted</blockquote><table><thead><tr><th>Heading</th></tr></thead><tbody><tr><td>Cell</td></tr></tbody></table><div><section><span><em><strong><s><u><mark><sup><sub>Nested</sub></sup></mark></u></s></strong></em></span></section></div><script>bad script</script><style>bad style</style><iframe>bad iframe</iframe><object>bad object</object><embed><svg><text>bad svg</text></svg><math>bad math</math><template>bad template</template><noscript>bad noscript</noscript><link><meta><form>bad form<input><button>bad button</button></form><img><video>bad video<source></video><audio>bad audio</audio><canvas>bad canvas</canvas>'} />);
+    expect(container.querySelector(".mini-code")?.textContent).toBe("const x = 1;");
+    for (const text of ["Quoted", "Heading", "Cell", "Nested"]) expect(container.textContent).toContain(text);
+    expect(container.textContent).not.toContain("bad");
+    expect(container.querySelector("script,style,iframe,object,embed,svg,math,template,noscript,link,meta,form,input,button,img,video,audio,source,canvas,[href],[src]")).toBeNull();
   });
 
   it("updates when notes change", () => {

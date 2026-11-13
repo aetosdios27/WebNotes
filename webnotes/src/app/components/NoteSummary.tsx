@@ -21,21 +21,68 @@ export function noteText(content: Note["content"]) {
     .replace(/&quot;/g, '"')
     .trim();
 }
+const MINIATURE_LIMIT = 4_000;
+const EDITOR_BLOCK = /^\s*<(?:p|h[1-6]|ul|ol|li|div|pre|blockquote|table|hr|br)(?=[\s/>])/i;
+
 function markdownInline(text: string): ReactNode[] {
-  const tokens =
-    /\[\[([^\]\n]+)\]\]|\[([^\]\n]+)\]\([^\s)]+\)|\*\*([^*\n]+)\*\*/g;
+  // Record delimiters once so unmatched openers never rescan the line.
+  const closingBracket: number[] = [];
+  const closingParen: number[] = [];
+  const star: number[] = [];
+  const whitespace: number[] = [];
+  let bracket = text.length;
+  let paren = text.length;
+  let asterisk = text.length;
+  let space = text.length;
+  for (let i = text.length; i >= 0; i--) {
+    if (text[i] === "]") bracket = i;
+    if (text[i] === ")") paren = i;
+    if (text[i] === "*") asterisk = i;
+    if (/\s/.test(text[i] ?? "")) space = i;
+    closingBracket[i] = bracket;
+    closingParen[i] = paren;
+    star[i] = asterisk;
+    whitespace[i] = space;
+  }
   const nodes: ReactNode[] = [];
-  let end = 0;
-  for (const match of text.matchAll(tokens)) {
-    nodes.push(text.slice(end, match.index));
+  let plainStart = 0;
+  for (let i = 0; i < text.length; i++) {
+    let labelStart = i;
+    let labelEnd = i;
+    let end = i;
+    let bold = false;
+    if (text.startsWith("**", i)) {
+      labelStart = i + 2;
+      labelEnd = star[labelStart];
+      if (labelEnd > labelStart && text.startsWith("**", labelEnd)) {
+        end = labelEnd + 2;
+        bold = true;
+      }
+    } else if (text[i] === "[") {
+      const wiki = text[i + 1] === "[";
+      labelStart = i + (wiki ? 2 : 1);
+      labelEnd = closingBracket[labelStart];
+      if (labelEnd > labelStart && labelEnd < text.length) {
+        if (wiki && text[labelEnd + 1] === "]") end = labelEnd + 2;
+        else if (!wiki && text[labelEnd + 1] === "(") {
+          const urlStart = labelEnd + 2;
+          const urlEnd = closingParen[urlStart];
+          if (urlEnd > urlStart && urlEnd < text.length && whitespace[urlStart] > urlEnd)
+            end = urlEnd + 1;
+        }
+      }
+    }
+    if (end === i) continue;
+    nodes.push(text.slice(plainStart, i));
     nodes.push(
-      <span className={match[3] ? "mini-bold" : "mini-link"} key={match.index}>
-        {match[1] ?? match[2] ?? match[3]}
+      <span className={bold ? "mini-bold" : "mini-link"} key={i}>
+        {text.slice(labelStart, labelEnd)}
       </span>,
     );
-    end = match.index + match[0].length;
+    i = end - 1;
+    plainStart = end;
   }
-  nodes.push(text.slice(end));
+  nodes.push(text.slice(plainStart));
   return nodes;
 }
 
@@ -79,12 +126,12 @@ function markdownMiniature(content: string): ReactNode {
 // Only generated spans and line breaks reach React; stored attributes never do.
 export function noteMiniature(content: Note["content"]): ReactNode {
   if (!content) return "Empty note";
-  // Parse stored HTML in a detached template: no wrapper can be closed by input.
-  // Without element nodes, render the original text with the Markdown tokenizer.
+  content = content.slice(0, MINIATURE_LIMIT);
+  if (!EDITOR_BLOCK.test(content)) return markdownMiniature(content);
+  // Parse recognized editor HTML in a detached template; never emit stored attributes.
   const template = document.createElement("template");
   template.innerHTML = content;
   const root = template.content;
-  if (!root.childElementCount) return markdownMiniature(content);
   function walk(node: Node, key: number): ReactNode {
     if (node.nodeType === 3) return node.textContent;
     if (!(node instanceof Element)) return null;
@@ -93,6 +140,12 @@ export function noteMiniature(content: Note["content"]): ReactNode {
     switch (tag) {
       case "p":
       case "div":
+      case "section":
+      case "blockquote":
+      case "table":
+      case "thead":
+      case "tbody":
+      case "tr":
         return (
           <span className="mini-paragraph" key={key}>
             {children()}
@@ -149,12 +202,22 @@ export function noteMiniature(content: Note["content"]): ReactNode {
             {children()}
           </span>
         );
+      case "pre":
+        return <span className="mini-paragraph mini-code" key={key}>{children()}</span>;
+      case "td":
+      case "th":
+        return <span key={key}>{children()}{" "}</span>;
       case "em":
       case "i":
       case "s":
       case "code":
       case "span":
+      case "u":
+      case "mark":
+      case "sup":
+      case "sub":
         return <span key={key}>{children()}</span>;
+      case "hr":
       case "br":
         return <br key={key} />;
       default:
@@ -170,7 +233,7 @@ export function NoteMiniature({ content }: { content: Note["content"] }) {
   useEffect(() => setMiniature(noteMiniature(content)), [content]);
   return (
     <span className="note-miniature">
-      {miniature ?? (noteText(content) || "Empty note")}
+      {miniature ?? (content?.slice(0, MINIATURE_LIMIT) || "Empty note")}
     </span>
   );
 }

@@ -1255,3 +1255,8 @@ body {
   width: 13px;
   height: 13px;
 }
+
+.note-miniature .mini-code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  white-space: pre-wrap;
+}
