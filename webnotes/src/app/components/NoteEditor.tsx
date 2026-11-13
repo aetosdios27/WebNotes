@@ -64,6 +64,8 @@ interface NoteEditorProps {
   onSavingStatusChange: (isSaving: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
   onNavigateNote: (noteId: string) => void;
+  isReadingMode: boolean;
+  onToggleReadingMode: () => void;
   onCreateNote?: (title: string, id?: string) => Promise<string | null>;
   isRightSidebarOpen: boolean;
   onToggleRightSidebar: () => void;
@@ -660,26 +662,33 @@ export default function NoteEditor({
   onDeleteNote,
   onNavigateNote,
   onCreateNote,
+  isReadingMode,
+  onToggleReadingMode,
   isRightSidebarOpen,
   onToggleRightSidebar,
   onPreviewVersion,
 }: NoteEditorProps) {
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
-  const [isReadingMode, setIsReadingMode] = useState(false);
   const [activeSubnote, setActiveSubnote] = useState<SubnoteTooltip | null>(
     null
   );
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const pendingTitleSave = useRef<(() => void) | null>(null);
+  const flushTitle = useCallback(() => {
+    if (titleSaveTimeoutRef.current) clearTimeout(titleSaveTimeoutRef.current);
+    titleSaveTimeoutRef.current = null;
+    const save = pendingTitleSave.current;
+    pendingTitleSave.current = null;
+    save?.();
+  }, []);
+
   useEffect(() => {
     setMounted(true);
-    return () => {
-      if (titleSaveTimeoutRef.current)
-        clearTimeout(titleSaveTimeoutRef.current);
-    };
   }, []);
+  useEffect(() => () => flushTitle(), [activeNote?.id, flushTitle]);
 
   useEffect(() => {
     if (activeNote) {
@@ -705,17 +714,20 @@ export default function NoteEditor({
       if (activeNote?.id) {
         if (titleSaveTimeoutRef.current)
           clearTimeout(titleSaveTimeoutRef.current);
-        titleSaveTimeoutRef.current = setTimeout(() => {
-          onNoteUpdate({
-            ...activeNote,
-            title: newTitle,
-            updatedAt: new Date(),
-          });
-          titleSaveTimeoutRef.current = null;
-        }, EDITOR_CONFIG.AUTOSAVE_DELAY_MS);
+        pendingTitleSave.current = () => {
+          const latest = useNotesStore.getState().notes.find(
+            (note) => note.id === activeNote.id
+          );
+          if (latest)
+            onNoteUpdate({ ...latest, title: newTitle, updatedAt: new Date() });
+        };
+        titleSaveTimeoutRef.current = setTimeout(
+          flushTitle,
+          EDITOR_CONFIG.AUTOSAVE_DELAY_MS
+        );
       }
     },
-    [activeNote, onNoteUpdate]
+    [activeNote, onNoteUpdate, flushTitle]
   );
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -754,7 +766,7 @@ export default function NoteEditor({
         onDeleteNote={onDeleteNote}
         onToggleRightSidebar={onToggleRightSidebar}
         onPreviewVersion={onPreviewVersion}
-        onToggleReadingMode={() => setIsReadingMode((p) => !p)}
+        onToggleReadingMode={onToggleReadingMode}
         titleInputRef={titleInputRef}
         onTitleChange={handleTitleChange}
         onEditorClick={handleEditorClick}

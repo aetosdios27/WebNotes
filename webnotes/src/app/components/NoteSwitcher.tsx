@@ -26,6 +26,7 @@ export default function NoteSwitcher({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("recent");
   const [index, setIndex] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
   const selected = useRef<HTMLButtonElement>(null);
   const results = useMemo(
     () =>
@@ -47,7 +48,14 @@ export default function NoteSwitcher({
   const matchingActions = actions.filter((action) =>
     action.label.toLowerCase().includes(query.toLowerCase()),
   );
-  const highlighted = results[index];
+  const count = results.length + matchingActions.length;
+  const activeIndex = Math.min(index, Math.max(0, count - 1));
+  const highlighted = results[activeIndex];
+  const activeId = highlighted
+    ? `result-${highlighted.id}`
+    : count
+      ? `action-${activeIndex - results.length}`
+      : undefined;
   useEffect(() => {
     if (!open) {
       setQuery("");
@@ -57,10 +65,10 @@ export default function NoteSwitcher({
   }, [open]);
   useEffect(() => {
     selected.current?.scrollIntoView({ block: "nearest" });
-  }, [index]);
+  }, [activeIndex, query, filter]);
   function choose() {
     if (highlighted) openNote(highlighted.id);
-    else matchingActions[index - results.length]?.run();
+    else matchingActions[activeIndex - results.length]?.run();
     onOpenChange(false);
   }
   return (
@@ -78,18 +86,18 @@ export default function NoteSwitcher({
             }
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
-              const count = results.length + matchingActions.length;
-              setIndex((i) =>
+              input.current?.focus();
+              setIndex(() =>
                 Math.max(
                   0,
-                  Math.min(count - 1, i + (event.key === "ArrowDown" ? 1 : -1)),
+                  Math.min(
+                    count - 1,
+                    activeIndex + (event.key === "ArrowDown" ? 1 : -1),
+                  ),
                 ),
               );
             }
-            if (
-              event.key === "Enter" &&
-              event.target instanceof HTMLInputElement
-            ) {
+            if (event.key === "Enter") {
               event.preventDefault();
               choose();
             }
@@ -103,6 +111,7 @@ export default function NoteSwitcher({
           <div className="switcher-search">
             <Search size={20} />
             <input
+              ref={input}
               aria-label="Search or jump to a note"
               placeholder="Search or jump to a note"
               value={query}
@@ -115,9 +124,7 @@ export default function NoteSwitcher({
               aria-expanded={open}
               aria-autocomplete="list"
               aria-controls="note-results"
-              aria-activedescendant={
-                highlighted ? `result-${highlighted.id}` : undefined
-              }
+              aria-activedescendant={activeId}
             />
             <Dialog.Close aria-label="Close switcher">
               <X size={17} />
@@ -142,17 +149,25 @@ export default function NoteSwitcher({
             ))}
           </div>
           <div className="switcher-columns">
-            <div className="switcher-results" id="note-results">
-              <div role="listbox" aria-label="Notes">
+            <div
+              className="switcher-results"
+              id="note-results"
+              role="listbox"
+              aria-label="Notes and actions"
+            >
+              <div role="group" aria-label="Notes">
                 {results.map((note, i) => (
                   <button
-                    ref={i === index ? selected : undefined}
+                    ref={i === activeIndex ? selected : undefined}
                     role="option"
-                    aria-selected={i === index}
+                    aria-selected={i === activeIndex}
                     id={`result-${note.id}`}
                     key={note.id}
                     onFocus={() => setIndex(i)}
-                    onMouseEnter={() => setIndex(i)}
+                    onMouseEnter={() => {
+                      setIndex(i);
+                      input.current?.focus();
+                    }}
                     onClick={() => {
                       openNote(note.id);
                       onOpenChange(false);
@@ -176,10 +191,18 @@ export default function NoteSwitcher({
                 <h3>Actions</h3>
                 {matchingActions.map((action, i) => (
                   <button
-                    ref={index === results.length + i ? selected : undefined}
+                    ref={
+                      activeIndex === results.length + i ? selected : undefined
+                    }
+                    role="option"
+                    aria-selected={activeIndex === results.length + i}
+                    id={`action-${i}`}
                     key={action.label}
-                    data-selected={index === results.length + i}
-                    onMouseEnter={() => setIndex(results.length + i)}
+                    data-selected={activeIndex === results.length + i}
+                    onMouseEnter={() => {
+                      setIndex(results.length + i);
+                      input.current?.focus();
+                    }}
                     onFocus={() => setIndex(results.length + i)}
                     onClick={() => {
                       action.run();

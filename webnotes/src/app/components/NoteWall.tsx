@@ -9,13 +9,16 @@ export default function NoteWall({
   folders,
   openNote,
   createNote,
+  filter,
+  onFilterChange,
 }: {
+  filter: string;
+  onFilterChange: (filter: string) => void;
   notes: Note[];
   folders: Folder[];
   openNote: (id: string) => void;
   createNote: (folderId?: string) => void;
 }) {
-  const [filter, setFilter] = useState("all");
   const [limit, setLimit] = useState(48);
   const sentinel = useRef<HTMLDivElement>(null);
   const filtered = notes.filter(
@@ -57,7 +60,7 @@ export default function NoteWall({
               aria-selected={filter === tab.id}
               key={tab.id}
               onClick={() => {
-                setFilter(tab.id);
+                onFilterChange(tab.id);
                 setLimit(48);
               }}
             >

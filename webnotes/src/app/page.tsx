@@ -21,12 +21,25 @@ import { HelpModal } from "./components/HelpModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import NoteWall from "./components/NoteWall";
 import NoteSwitcher from "./components/NoteSwitcher";
+import { noteMarkdown } from "@/lib/note-markdown";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "./components/ui/alert-dialog";
 import { noteText } from "./components/NoteSummary";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "./components/ui/dropdown-menu";
 
 const NoteEditor = dynamic(() => import("./components/NoteEditor"), {
@@ -55,6 +68,8 @@ export default function Home() {
     togglePin,
     setActiveNote,
     createFolder,
+    updateFolder,
+    deleteFolder,
     moveNote,
   } = useNotesStore();
   const { data: session } = useSession();
@@ -63,6 +78,12 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [help, setHelp] = useState(false);
+  const [wallFilter, setWallFilter] = useState("all");
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const selectedFolder = !activeNoteId
+    ? folders.find((f) => f.id === wallFilter)
+    : undefined;
   const [info, setInfo] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [history, setHistory] = useState<(string | null)[]>([null]);
@@ -218,6 +239,24 @@ export default function Home() {
       },
     },
     { label: "Home", run: () => navigate(null) },
+    ...(selectedFolder
+      ? [
+          {
+            label: "Rename folder",
+            run: () => {
+              const name = prompt("Folder name", selectedFolder.name);
+              if (name?.trim())
+                void updateFolder(selectedFolder.id, {
+                  name: name.trim(),
+                }).catch(() => toast.error("Failed to rename folder"));
+            },
+          },
+          {
+            label: "Delete folder",
+            run: () => setFolderToDelete(selectedFolder.id),
+          },
+        ]
+      : []),
     ...(activeNote
       ? [
           {
@@ -239,30 +278,34 @@ export default function Home() {
       run: account ? leave : authenticate,
     },
   ];
-  async function copyNote() {
+  async function copyNote(markdown = false) {
     if (!activeNote) return;
     try {
       await navigator.clipboard.writeText(
-        `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
+        markdown
+          ? await noteMarkdown(activeNote)
+          : `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
       );
       toast.success("Note copied");
     } catch {
       toast.error("Could not copy note");
     }
   }
-  function downloadNote() {
+  async function downloadNote(markdown = false) {
     if (!activeNote) return;
     const url = URL.createObjectURL(
       new Blob(
         [
-          `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
+          markdown
+            ? await noteMarkdown(activeNote)
+            : `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
         ],
-        { type: "text/plain" },
+        { type: markdown ? "text/markdown" : "text/plain" },
       ),
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${activeNote.title || "Untitled"}.txt`;
+    link.download = `${activeNote.title || "Untitled"}.${markdown ? "md" : "txt"}`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -340,8 +383,14 @@ export default function Home() {
                   >
                     Copy note
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadNote}>
+                  <DropdownMenuItem onClick={() => void downloadNote()}>
                     Download text
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void copyNote(true)}>
+                    Copy as Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void downloadNote(true)}>
+                    Download Markdown
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -359,6 +408,31 @@ export default function Home() {
               ))}
               {activeNote && (
                 <>
+                  <DropdownMenuCheckboxItem
+                    checked={isReadingMode}
+                    onCheckedChange={setIsReadingMode}
+                  >
+                    Reading mode
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuRadioGroup
+                    value={activeNote.font || "sans"}
+                    onValueChange={(font) => {
+                      void updateNote(activeNote.id, { font }).catch(() =>
+                        toast.error("Failed to change font"),
+                      );
+                    }}
+                    aria-label="Note font"
+                  >
+                    <DropdownMenuRadioItem value="sans">
+                      Sans
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="serif">
+                      Serif
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="mono">
+                      Mono
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
                   <DropdownMenuItem onClick={() => setInfo((value) => !value)}>
                     Note information & history
                   </DropdownMenuItem>
@@ -432,6 +506,8 @@ export default function Home() {
           ) : (
             <ErrorBoundary>
               <NoteEditor
+                isReadingMode={isReadingMode}
+                onToggleReadingMode={() => setIsReadingMode((value) => !value)}
                 activeNote={activeNote}
                 allNotes={notes}
                 onNoteUpdate={update}
@@ -447,6 +523,8 @@ export default function Home() {
           )
         ) : (
           <NoteWall
+            filter={wallFilter}
+            onFilterChange={setWallFilter}
             notes={notes}
             folders={folders}
             openNote={navigate}
@@ -467,6 +545,33 @@ export default function Home() {
         }}
         actions={actions}
       />
+      <AlertDialog
+        open={folderToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setFolderToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Delete “{folders.find((f) => f.id === folderToDelete)?.name}”? Its
+            notes will remain in All notes.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (folderToDelete)
+                  void deleteFolder(folderToDelete)
+                    .then(() => setWallFilter("all"))
+                    .catch(() => toast.error("Failed to delete folder"));
+              }}
+            >
+              Delete folder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <HelpModal isOpen={help} onClose={() => setHelp(false)} />
     </main>
   );
