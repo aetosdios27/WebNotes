@@ -77,15 +77,15 @@ export const NoteLinkSuggestion = forwardRef((props: Props, ref) => {
 
   if (items.length === 0) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 min-w-[200px] text-xs text-zinc-500 shadow-xl">
+      <div className="bg-panel border border-line rounded-lg p-2 min-w-[200px] text-xs text-muted shadow-xl">
         No notes found matching "{query}"
       </div>
     );
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden min-w-[200px] max-h-[280px] overflow-y-auto shadow-xl">
-      <div className="text-[10px] uppercase tracking-wider text-zinc-600 px-2 py-1.5 border-b border-zinc-800 font-semibold bg-zinc-900/90 backdrop-blur sticky top-0">
+    <div className="bg-panel border border-line rounded-lg overflow-hidden min-w-[200px] max-h-[280px] overflow-y-auto shadow-xl">
+      <div className="text-[10px]  tracking-normal text-muted px-2 py-1.5 border-b border-line font-semibold bg-panel backdrop-blur sticky top-0">
         Link Note
       </div>
       {items.map((item, i) => (
@@ -95,8 +95,8 @@ export const NoteLinkSuggestion = forwardRef((props: Props, ref) => {
           onMouseEnter={() => setSelected(i)}
           className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors ${
             i === selected
-              ? "bg-zinc-800 text-white"
-              : "text-zinc-400 hover:bg-zinc-800/50"
+              ? "bg-selected text-ink"
+              : "text-muted hover:bg-selected"
           }`}
         >
           <FileText size={14} className="flex-shrink-0 opacity-70" />

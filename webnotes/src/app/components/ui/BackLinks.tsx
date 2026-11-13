@@ -38,8 +38,8 @@ export function Backlinks({ currentNoteId, allNotes, onNavigate }: Props) {
   if (backlinks.length === 0) return null;
 
   return (
-    <div className="border-t border-zinc-800 mt-12 pt-6 pb-8">
-      <button className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-4 hover:text-zinc-400 transition-colors">
+    <div className="border-t border-line mt-12 pt-6 pb-8">
+      <button className="flex items-center gap-2 text-xs text-muted  tracking-normal font-semibold mb-4 hover:text-muted transition-colors">
         <Link2 size={12} />
         <span>Linked from ({backlinks.length})</span>
       </button>
@@ -49,7 +49,7 @@ export function Backlinks({ currentNoteId, allNotes, onNavigate }: Props) {
           <button
             key={note.id}
             onClick={() => onNavigate(note.id)}
-            className="group flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-600 rounded-md text-sm text-zinc-400 hover:text-white transition-all duration-150"
+            className="group flex items-center gap-1.5 px-3 py-1.5 bg-panel hover:bg-selected border border-line hover:border-line rounded-md text-sm text-muted hover:text-ink transition-all duration-150"
           >
             <span className="truncate max-w-[180px]">
               {note.title || "Untitled"}

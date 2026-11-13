@@ -46,7 +46,7 @@ export function OctopusBadge({
           >
             {/* Mini Bloom Loader */}
             <MiniLoader color={activeColor} />
-            <span className="uppercase tracking-widest text-[9px]">
+            <span className=" tracking-normal text-[9px]">
               {LOADING_TEXT}
             </span>
           </motion.div>
@@ -59,7 +59,7 @@ export function OctopusBadge({
             className="flex items-center gap-1.5"
           >
             <BrandIcon lang={lang} className="w-3.5 h-3.5" />
-            <span className="uppercase">{displayName}</span>
+            <span className="">{displayName}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -81,7 +81,7 @@ function MiniLoader({ color }: { color: string }) {
 
   return (
     <span
-      className="font-mono text-xs inline-block w-3 text-center"
+      className="font-sans text-xs inline-block w-3 text-center"
       style={{
         textShadow: `0 0 10px ${color}`, // Bloom
       }}

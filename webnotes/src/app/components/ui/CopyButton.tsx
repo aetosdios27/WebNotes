@@ -15,7 +15,7 @@ export function CopyButton({ value, className = '' }: CopyButtonProps) {
   const onCopy = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -32,9 +32,9 @@ export function CopyButton({ value, className = '' }: CopyButtonProps) {
       className={`
         flex items-center justify-center
         h-7 w-7 rounded-md transition-colors duration-200
-        bg-zinc-800/80 hover:bg-zinc-700 
-        border border-zinc-700/50 hover:border-zinc-600
-        backdrop-blur-sm
+        bg-selected hover:bg-selected
+        border border-line hover:border-line
+
         ${className}
       `}
       aria-label="Copy to clipboard"
@@ -57,7 +57,7 @@ export function CopyButton({ value, className = '' }: CopyButtonProps) {
               className="text-green-400"
             >
               <motion.path
-                d="M4 12L9 17L20 6" 
+                d="M4 12L9 17L20 6"
                 stroke="currentColor"
                 strokeWidth="3"
                 strokeLinecap="round"
@@ -77,7 +77,7 @@ export function CopyButton({ value, className = '' }: CopyButtonProps) {
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ duration: 0.1 }}
           >
-            <Copy className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white" />
+            <Copy className="w-3.5 h-3.5 text-muted group-hover:text-ink" />
           </motion.div>
         )}
       </AnimatePresence>
