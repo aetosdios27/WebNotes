@@ -1,6 +1,5 @@
 "use client";
 
-import { animate } from "framer-motion";
 import { useEffect } from "react";
 
 /** Shared press response for native buttons, toolbar toggles and selectable rows. */
@@ -9,12 +8,7 @@ export function PressFeedback() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let pressed: HTMLElement | null = null;
     const release = () => {
-      if (pressed)
-        animate(
-          pressed,
-          { scale: 1 },
-          { type: "spring", stiffness: 900, damping: 60 },
-        );
+      pressed?.removeAttribute("data-press-feedback");
       pressed = null;
     };
     const press = (target: EventTarget | null) => {
@@ -29,11 +23,7 @@ export function PressFeedback() {
         return;
       release();
       pressed = element;
-      animate(
-        element,
-        { scale: 0.97 },
-        { type: "spring", stiffness: 900, damping: 60 },
-      );
+      element.setAttribute("data-press-feedback", "");
     };
     const down = (event: PointerEvent) => {
       if (event.button === 0) press(event.target);

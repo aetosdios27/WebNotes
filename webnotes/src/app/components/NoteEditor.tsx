@@ -604,7 +604,7 @@ function HydratedEditor({
           {editor && <TableOfContents editor={editor} />}
 
           <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
-            <div className="max-w-4xl mx-auto pr-16 pb-32">
+            <div className="max-w-[600px] mx-auto pb-32">
               <div
                 className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
                   isReadingMode
@@ -632,7 +632,7 @@ function HydratedEditor({
                   }
                 }}
                 placeholder="Untitled"
-                className={`w-full bg-transparent text-3xl md:text-4xl font-bold text-white focus:outline-none mb-6 md:mb-8 break-words py-2 leading-normal ${fontClass} ${
+                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[26px] break-words py-0 leading-[1.08] ${fontClass} ${
                   isReadingMode ? "cursor-default" : ""
                 }`}
                 aria-label="Note title"

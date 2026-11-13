@@ -15,7 +15,10 @@ import LoadingScreen from "@/app/components/LoadingScreen";
 import { HelpModal } from "@/app/components/HelpModal";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import { isTauri } from "@/lib/tauri";
-import VersionPreview from "@/app/components/VersionPreview";
+const VersionPreview = dynamic(
+  () => import("@/app/components/VersionPreview"),
+  { ssr: false, loading: () => null },
+);
 
 export type FolderWithNotes = Omit<Folder, "notes"> & {
   notes: Note[];
