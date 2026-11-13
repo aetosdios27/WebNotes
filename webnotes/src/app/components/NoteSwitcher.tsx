@@ -70,6 +70,12 @@ export default function NoteSwitcher({
         <Dialog.Popup
           className="note-switcher"
           onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              createNote(query.trim());
+              onOpenChange(false);
+              return;
+            }
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
               const count = results.length + matchingActions.length;
@@ -85,10 +91,7 @@ export default function NoteSwitcher({
               event.target instanceof HTMLInputElement
             ) {
               event.preventDefault();
-              if (event.metaKey || event.ctrlKey) {
-                createNote(query.trim());
-                onOpenChange(false);
-              } else choose();
+              choose();
             }
           }}
         >
@@ -108,6 +111,9 @@ export default function NoteSwitcher({
                 setIndex(0);
               }}
               autoFocus
+              role="combobox"
+              aria-expanded={open}
+              aria-autocomplete="list"
               aria-controls="note-results"
               aria-activedescendant={
                 highlighted ? `result-${highlighted.id}` : undefined
@@ -173,6 +179,7 @@ export default function NoteSwitcher({
                     ref={index === results.length + i ? selected : undefined}
                     key={action.label}
                     data-selected={index === results.length + i}
+                    onMouseEnter={() => setIndex(results.length + i)}
                     onFocus={() => setIndex(results.length + i)}
                     onClick={() => {
                       action.run();
