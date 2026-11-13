@@ -595,7 +595,11 @@ function HydratedEditor({
       (isAuthenticated && !pulled)
     ) return;
     hasCheckedSnapshot.current = true;
-    if (editor.getHTML() !== activeNote.content) contentSnapshot.current?.schedule();
+    // Block IDs are regenerated for fresh empty paragraphs, so compare without them.
+    const withoutIds = (html: string) => html.replace(/ data-id="[^"]*"/g, "");
+    if (withoutIds(editor.getHTML()) !== withoutIds(activeNote.content ?? "")) {
+      contentSnapshot.current?.schedule();
+    }
   }, [editor, status, isAuthenticated, pulled, activeNote.content]);
 
   useEffect(() => {
