@@ -1,3 +1,4 @@
+import { createOwned } from "../create-owned";
 // src/lib/trpc/routers/notes.ts
 
 import { z } from "zod";
@@ -155,6 +156,9 @@ export const notesRouter = router({
           .nullish()
           .transform((val) => val ?? ""),
         folderId: z.string().nullish(),
+        isPinned: z.boolean().optional(),
+        pinnedAt: z.date().nullish(),
+        font: z.string().nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -163,16 +167,24 @@ export const notesRouter = router({
       const state = Buffer.from(Y.encodeStateAsUpdate(doc));
       doc.destroy();
 
-      const note = await ctx.prisma.note.create({
-        data: {
-          id: input.id,
-          title: input.title,
-          content: input.content,
-          yjsState: state,
-          folderId: input.folderId ?? null,
-          userId: ctx.userId,
-          isPinned: false,
-        },
+      const note = await createOwned({
+        userId: ctx.userId,
+        findExisting: () => input.id ? ctx.prisma.note.findUnique({ where: { id: input.id } }) : Promise.resolve(null),
+        create: () => ctx.prisma.note.create({
+          data: {
+            id: input.id,
+            title: input.title,
+            content: input.content,
+            // Legacy HTML is seeded into Yjs by the editor, which only happens when the
+            // server has no Yjs state; an empty doc here would hide that HTML for good.
+            yjsState: input.content ? null : state,
+            folderId: input.folderId ?? null,
+            userId: ctx.userId,
+            isPinned: input.isPinned ?? false,
+            pinnedAt: input.pinnedAt ?? null,
+            font: input.font ?? null,
+          },
+        }),
       });
 
       return note;

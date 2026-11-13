@@ -1,3 +1,4 @@
+import { createOwned } from "../create-owned";
 import { z } from "zod";
 import { router, protectedProcedure } from "../init";
 import { TRPCError } from "@trpc/server";
@@ -20,12 +21,16 @@ export const foldersRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.folder.create({
-        data: {
-          id: input.id, // ✅ FIX: Use client ID if provided
-          name: input.name,
-          userId: ctx.userId,
-        },
+      return createOwned({
+        userId: ctx.userId,
+        findExisting: () => input.id ? ctx.prisma.folder.findUnique({ where: { id: input.id } }) : Promise.resolve(null),
+        create: () => ctx.prisma.folder.create({
+          data: {
+            id: input.id, // ✅ FIX: Use client ID if provided
+            name: input.name,
+            userId: ctx.userId,
+          },
+        }),
       });
     }),
 
