@@ -43,11 +43,11 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
   const getStatusConfig = () => {
     if (!isOnline) {
       return {
-        color: "bg-yellow-500",
+        color: "bg-selected",
         tooltip: `Offline${
           pendingOperations > 0 ? ` • ${pendingOperations} pending` : ""
         }`,
-        icon: <CloudOff className="w-2 h-2 text-zinc-900" />,
+        icon: <CloudOff className="w-2 h-2 text-background" />,
       };
     }
 
@@ -57,7 +57,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
         tooltip: `Syncing ${pendingOperations} change${
           pendingOperations > 1 ? "s" : ""
         }...`,
-        icon: <Loader2 className="w-2 h-2 text-zinc-900 animate-spin" />,
+        icon: <Loader2 className="w-2 h-2 text-background animate-spin" />,
       };
     }
 
@@ -66,25 +66,25 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
         return {
           color: "bg-green-500",
           tooltip: "All changes saved",
-          icon: <Check className="w-2 h-2 text-zinc-900" />,
+          icon: <Check className="w-2 h-2 text-background" />,
         };
       case "syncing":
         return {
           color: "bg-blue-500",
           tooltip: "Saving...",
-          icon: <Loader2 className="w-2 h-2 text-zinc-900 animate-spin" />,
+          icon: <Loader2 className="w-2 h-2 text-background animate-spin" />,
         };
       case "unsynced":
         return {
           color: "bg-red-500",
           tooltip: "Changes not saved",
-          icon: <X className="w-2 h-2 text-zinc-900" />,
+          icon: <X className="w-2 h-2 text-background" />,
         };
       default:
         return {
-          color: "bg-zinc-500",
+          color: "bg-selected",
           tooltip: "Unknown status",
-          icon: <Cloud className="w-2 h-2 text-zinc-900" />,
+          icon: <Cloud className="w-2 h-2 text-background" />,
         };
     }
   };
@@ -114,9 +114,9 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
   if (isLoading) {
     return (
       <div className="flex h-[48px] items-center gap-3 px-1">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-zinc-800" />
+        <div className="h-8 w-8 animate-pulse rounded-full bg-selected" />
         {isOpen && (
-          <div className="h-4 w-24 animate-pulse rounded-full bg-zinc-800" />
+          <div className="h-4 w-24 animate-pulse rounded-full bg-selected" />
         )}
       </div>
     );
@@ -135,11 +135,11 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
                     alt={activeUser.name || "User"}
                     width={32}
                     height={32}
-                    className="rounded-full bg-zinc-900"
+                    className="rounded-full bg-panel"
                   />
                   <div
                     className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full flex items-center justify-center
-                                ${config.color} ring-2 ring-[#111214]`}
+                                ${config.color} ring-2 ring-panel`}
                   >
                     {config.icon}
                   </div>
@@ -152,10 +152,10 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
 
             {isOpen && (
               <div className="flex flex-col">
-                <span className="truncate text-sm font-medium text-zinc-100">
+                <span className="truncate text-sm font-medium text-ink">
                   {activeUser.name}
                 </span>
-                <span className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                <span className="text-[11px]  tracking-normal text-muted">
                   {config.tooltip}
                 </span>
                 {/* Show pending count when offline */}
@@ -173,7 +173,7 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
               variant="ghost"
               size="icon"
               onClick={handleLogout}
-              className="rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+              className="rounded-lg text-muted transition-colors hover:bg-selected hover:text-ink"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -187,12 +187,12 @@ export default function AuthButton({ isOpen, syncStatus }: AuthButtonProps) {
     <Button
       variant="ghost"
       onClick={handleLogin}
-      className={`h-[44px] w-full rounded-lg px-2 text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-100 ${
+      className={`h-[44px] w-full rounded-lg px-2 text-reading transition-colors hover:bg-panel hover:text-ink ${
         isOpen ? "justify-start" : "justify-center"
       }`}
     >
       <LogIn className="w-5 h-5" />
-      {isOpen && <span className="font-semibold">Sign In with Google</span>}
+      {isOpen && <span className="font-semibold">Sign in with Google</span>}
     </Button>
   );
 }

@@ -12,10 +12,7 @@ import {
   PinOff,
   MoreVertical,
 } from "lucide-react";
-import {
-  FolderOpenIcon,
-  type FolderOpenIconHandle,
-} from "lucide-animated";
+import { FolderOpenIcon, type FolderOpenIconHandle } from "lucide-animated";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -33,7 +30,7 @@ import {
 import { toast } from "sonner";
 
 const sectionLabelClass =
-  "px-3 pb-2 pt-4 text-[10px] font-medium uppercase tracking-[0.22em] text-zinc-500";
+  "px-3 pb-2 pt-4 text-[10px] font-medium  tracking-normal text-muted";
 
 interface NoteListProps {
   folders: Folder[];
@@ -70,7 +67,7 @@ function AnimatedFolderIcon({ isOpen }: { isOpen: boolean }) {
       ref={iconRef}
       size={15}
       aria-hidden="true"
-      className={isOpen ? "text-yellow-400" : "text-zinc-500"}
+      className={isOpen ? "text-ink" : "text-muted"}
     />
   );
 }
@@ -105,7 +102,7 @@ export default function NoteList({
   } | null>(null);
   const [justDropped, setJustDropped] = useState<string | null>(null);
   const [justPinnedNotes, setJustPinnedNotes] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isMobile, setIsMobile] = useState(false);
 
@@ -135,8 +132,8 @@ export default function NoteList({
       z-index: 99999;
       display: none;
       padding: 8px 12px;
-      background: #27272a;
-      border: 1px solid #52525b;
+      background: var(--panel);
+      border: 1px solid var(--line);
       border-radius: 6px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.4);
       font-family: system-ui, -apple-system, sans-serif;
@@ -205,7 +202,7 @@ export default function NoteList({
       });
       if (res.ok) {
         toast.success(
-          `${type.charAt(0).toUpperCase() + type.slice(1)} renamed`
+          `${type.charAt(0).toUpperCase() + type.slice(1)} renamed`,
         );
         onDataChange();
       } else {
@@ -276,13 +273,13 @@ export default function NoteList({
     if (dragOverlayRef.current) {
       dragOverlayRef.current.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
           </svg>
-          <span style="color: white; font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title.replace(
+          <span style="color: var(--ink); font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title.replace(
             /</g,
-            "&lt;"
+            "&lt;",
           )}</span>
         </div>
       `;
@@ -351,7 +348,7 @@ export default function NoteList({
 
   const handleDragEnter = (
     e: React.DragEvent<HTMLDivElement>,
-    folderId: string | null
+    folderId: string | null,
   ) => {
     if (isMobile) return;
     if (!draggedNoteIdRef.current) return;
@@ -377,7 +374,7 @@ export default function NoteList({
 
   const handleDrop = (
     e: React.DragEvent<HTMLDivElement>,
-    folderId: string | null
+    folderId: string | null,
   ) => {
     if (isMobile) return;
 
@@ -424,21 +421,22 @@ export default function NoteList({
               setActiveNoteId(note.id);
             }
           }}
+          data-pressable=""
           className={`group flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors duration-150
             ${
               note.id === activeNoteId
-                ? "bg-zinc-900/90 text-yellow-400"
-                : "bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
+                ? "bg-panel text-ink"
+                : "bg-transparent text-reading hover:bg-panel hover:text-ink"
             }
             ${isDragging ? "opacity-40" : ""}
-            ${justPinned ? "bg-zinc-900/90 text-yellow-400" : ""}
+            ${justPinned ? "bg-panel text-ink" : ""}
           `}
         >
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-zinc-500">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted">
             <FileText
               size={15}
               className={
-                note.id === activeNoteId || justPinned ? "text-yellow-400" : ""
+                note.id === activeNoteId || justPinned ? "text-ink" : ""
               }
             />
           </div>
@@ -453,7 +451,7 @@ export default function NoteList({
                     if (e.key === "Enter") confirmRename(note.id, "note");
                     if (e.key === "Escape") cancelRename();
                   }}
-                  className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-zinc-500"
+                  className="flex-1 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-line"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -485,7 +483,7 @@ export default function NoteList({
                 </div>
 
                 {note.isPinned && (
-                  <Pin size={12} className="flex-shrink-0 text-yellow-500" />
+                  <Pin size={12} className="flex-shrink-0 text-ink" />
                 )}
 
                 {isMobile && (
@@ -494,8 +492,8 @@ export default function NoteList({
                       asChild
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button className="rounded-md p-1 opacity-0 transition-opacity hover:bg-zinc-800 group-hover:opacity-100">
-                        <MoreVertical size={14} className="text-zinc-500" />
+                      <button className="rounded-md p-1 opacity-0 transition-opacity hover:bg-selected group-hover:opacity-100">
+                        <MoreVertical size={14} className="text-muted" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -531,7 +529,7 @@ export default function NoteList({
                           handleDelete(
                             note.id,
                             "note",
-                            note.title || "Untitled"
+                            note.title || "Untitled",
                           );
                         }}
                       >
@@ -599,10 +597,10 @@ export default function NoteList({
         onDrop={(e) => handleDrop(e, folder.id)}
         className={`rounded-xl transition-all duration-150 ${
           isDragOver
-            ? "ring-1 ring-zinc-600 bg-zinc-900"
+            ? "ring-1 ring-zinc-600 bg-panel"
             : wasJustDropped
-            ? "ring-1 ring-emerald-400/40 bg-emerald-500/10"
-            : ""
+              ? "ring-1 ring-emerald-400/40 bg-emerald-500/10"
+              : ""
         }`}
       >
         <div
@@ -611,17 +609,18 @@ export default function NoteList({
               toggleFolder(folder.id);
             }
           }}
+          data-pressable=""
           className={`group flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors duration-150
             ${
               isDragOver
-                ? "bg-zinc-900"
+                ? "bg-panel"
                 : wasJustDropped
-                ? "bg-emerald-500/10"
-                : ""
+                  ? "bg-emerald-500/10"
+                  : ""
             } ${
               !isDragOver && !wasJustDropped
-                ? "bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
-                : "text-zinc-100"
+                ? "bg-transparent text-reading hover:bg-panel hover:text-ink"
+                : "text-ink"
             }
           `}
         >
@@ -639,7 +638,7 @@ export default function NoteList({
                   if (e.key === "Enter") confirmRename(folder.id, "folder");
                   if (e.key === "Escape") cancelRename();
                 }}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-zinc-500"
+                className="flex-1 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-line"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -667,7 +666,7 @@ export default function NoteList({
               <div className="min-w-0 flex-1">
                 <span
                   className={`truncate text-[0.89rem] font-medium tracking-[-0.01em] leading-5 ${
-                    isExpanded ? "text-yellow-400" : ""
+                    isExpanded ? "text-ink" : ""
                   }`}
                 >
                   {folder.name}
@@ -680,8 +679,8 @@ export default function NoteList({
                     asChild
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button className="rounded-md p-1 opacity-0 transition-opacity hover:bg-zinc-800 group-hover:opacity-100">
-                      <MoreVertical size={14} className="text-zinc-500" />
+                    <button className="rounded-md p-1 opacity-0 transition-opacity hover:bg-selected group-hover:opacity-100">
+                      <MoreVertical size={14} className="text-muted" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -751,8 +750,10 @@ export default function NoteList({
             }`}
           >
             {unfiledNotes.length > 0 && (
-              <div className={`${sectionLabelClass} ${folders.length > 0 ? "mt-3" : "mt-1"}`}>
-                Unfiled Notes
+              <div
+                className={`${sectionLabelClass} ${folders.length > 0 ? "mt-3" : "mt-1"}`}
+              >
+                Unfiled notes
               </div>
             )}
             {unfiledNotes.map((note) => renderNote(note))}
@@ -760,7 +761,7 @@ export default function NoteList({
             {draggedNoteId &&
               unfiledNotes.length === 0 &&
               dragOverFolderId === null && (
-                <div className="rounded-xl border border-dashed border-zinc-800 py-4 text-center text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+                <div className="rounded-xl border  border-line py-4 text-center text-xs font-medium  tracking-normal text-muted">
                   Drop here for unfiled
                 </div>
               )}
@@ -769,8 +770,10 @@ export default function NoteList({
 
         {isMobile && unfiledNotes.length > 0 && (
           <div>
-            <div className={`${sectionLabelClass} ${folders.length > 0 ? "mt-3" : "mt-1"}`}>
-              Unfiled Notes
+            <div
+              className={`${sectionLabelClass} ${folders.length > 0 ? "mt-3" : "mt-1"}`}
+            >
+              Unfiled notes
             </div>
             {unfiledNotes.map((note) => renderNote(note))}
           </div>
@@ -784,29 +787,27 @@ export default function NoteList({
           onClick={() => setDeleteConfirm(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-zinc-800 bg-[#17181b] p-6 shadow-xl"
+            className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-3 text-lg font-semibold tracking-[-0.03em] text-white">
+            <h3 className="mb-3 text-lg font-semibold tracking-[-0.03em] text-ink">
               Delete {deleteConfirm.type}?
             </h3>
-            <p className="mb-6 text-sm leading-relaxed text-zinc-400">
+            <p className="mb-6 text-sm leading-relaxed text-muted">
               Are you sure you want to delete &ldquo;
-              <span className="font-medium text-white">
-                {deleteConfirm.name}
-              </span>
+              <span className="font-medium text-ink">{deleteConfirm.name}</span>
               &rdquo;?
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-white transition-colors hover:bg-zinc-800"
+                className="rounded-xl border border-line bg-panel px-4 py-2 text-ink transition-colors hover:bg-selected"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="rounded-xl bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-500"
+                className="rounded-xl bg-red-600 px-4 py-2 text-ink transition-colors hover:bg-red-500"
               >
                 Delete
               </button>

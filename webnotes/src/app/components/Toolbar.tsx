@@ -102,13 +102,13 @@ export function Toolbar({ editor }: Props) {
   const isInTable = editor.isActive("table");
 
   return (
-    <div className="border border-zinc-700 bg-transparent rounded-lg p-1 flex items-center gap-1 overflow-x-auto">
+    <div className="border border-line bg-transparent rounded-lg p-1 flex items-center gap-1 overflow-x-auto">
       {/* Text Formatting */}
       <Toggle
         size="sm"
         pressed={editor.isActive("bold")}
         onPressedChange={() => editor.chain().focus().toggleBold().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
+        className="data-[pressed]:bg-panel data-[pressed]:text-ink h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Bold className="h-4 w-4" />
       </Toggle>
@@ -117,7 +117,7 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive("italic")}
         onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
+        className="data-[pressed]:bg-panel data-[pressed]:text-ink h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Italic className="h-4 w-4" />
       </Toggle>
@@ -126,20 +126,20 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive("strike")}
         onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
+        className="data-[pressed]:bg-panel data-[pressed]:text-ink h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <Strikethrough className="h-4 w-4" />
       </Toggle>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-zinc-700 mx-1 flex-shrink-0" />
+      <div className="w-px h-6 bg-selected mx-1 flex-shrink-0" />
 
       {/* Lists */}
       <Toggle
         size="sm"
         pressed={editor.isActive("bulletList")}
         onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
+        className="data-[pressed]:bg-panel data-[pressed]:text-ink h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <List className="h-4 w-4" />
       </Toggle>
@@ -148,13 +148,13 @@ export function Toolbar({ editor }: Props) {
         size="sm"
         pressed={editor.isActive("orderedList")}
         onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-        className="data-[state=on]:bg-zinc-900 data-[state=on]:text-yellow-400 h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
+        className="data-[pressed]:bg-panel data-[pressed]:text-ink h-9 w-9 md:h-8 md:w-8 flex-shrink-0"
       >
         <ListOrdered className="h-4 w-4" />
       </Toggle>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-zinc-700 mx-1 flex-shrink-0" />
+      <div className="w-px h-6 bg-selected mx-1 flex-shrink-0" />
 
       {/* Table Controls */}
       {!isInTable ? (
@@ -163,7 +163,7 @@ export function Toolbar({ editor }: Props) {
           variant="ghost"
           size="sm"
           onClick={insertTable}
-          className="h-9 w-9 md:h-8 md:w-8 p-0 text-zinc-400 hover:text-white hover:bg-zinc-800 flex-shrink-0"
+          className="h-9 w-9 md:h-8 md:w-8 p-0 text-muted hover:text-ink hover:bg-selected flex-shrink-0"
           title="Insert Table"
         >
           <Table className="h-4 w-4" />
@@ -175,7 +175,7 @@ export function Toolbar({ editor }: Props) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 md:h-8 px-2 text-yellow-400 bg-zinc-800 hover:bg-zinc-700 flex-shrink-0 gap-1"
+              className="h-9 md:h-8 px-2 text-ink bg-selected hover:bg-selected flex-shrink-0 gap-1"
             >
               <Table className="h-4 w-4" />
               <ChevronDown className="h-3 w-3" />

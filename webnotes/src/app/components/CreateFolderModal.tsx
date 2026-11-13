@@ -46,26 +46,26 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-zinc-950 border border-zinc-800 text-zinc-100 sm:max-w-[460px] shadow-2xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="bg-panel border border-line text-ink sm:max-w-[460px] shadow-2xl p-0 gap-0 overflow-hidden">
         {/* Header Section */}
-        <DialogHeader className="p-6 pb-4 border-b border-zinc-900 bg-zinc-950/50">
-          <DialogTitle className="flex items-center gap-3 text-xl font-semibold tracking-tight text-white">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 shadow-inner">
-              <FolderPlus className="w-5 h-5 text-yellow-500" />
+        <DialogHeader className="p-6 pb-4 border-b border-line bg-panel">
+          <DialogTitle className="flex items-center gap-3 text-xl font-semibold tracking-tight text-ink">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-panel border border-line shadow-inner">
+              <FolderPlus className="w-5 h-5 text-ink" />
             </div>
-            <span>Create New Folder</span>
+            <span>Create new folder</span>
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           {/* Body Section */}
-          <div className="p-6 space-y-4 bg-zinc-950/80">
+          <div className="p-6 space-y-4 bg-panel">
             <div className="space-y-2">
               <label
                 htmlFor="folder-name"
-                className="text-xs font-medium uppercase tracking-wider text-zinc-500 ml-1"
+                className="text-xs font-medium  tracking-normal text-muted ml-1"
               >
-                Folder Name
+                Folder name
               </label>
               <div className="relative group">
                 <Input
@@ -75,16 +75,16 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
                   placeholder="e.g. Project Obsidian Killer"
                   className="
                     h-12
-                    bg-zinc-900/50
-                    border-zinc-800
-                    text-zinc-100
+                    bg-panel
+                    border-line
+                    text-ink
                     text-base
-                    placeholder:text-zinc-700
+                    placeholder:text-muted
                     rounded-lg
                     focus-visible:ring-2
-                    focus-visible:ring-yellow-500/20
-                    focus-visible:border-yellow-500
-                    group-hover:border-zinc-700
+                    focus-visible:ring-muted
+                    focus-visible:border-line
+                    group-hover:border-line
                     transition-all
                     duration-200
                   "
@@ -96,12 +96,12 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
           </div>
 
           {/* Footer Section */}
-          <DialogFooter className="p-6 pt-2 bg-zinc-900/30 flex flex-row justify-end gap-3">
+          <DialogFooter className="p-6 pt-2 bg-panel flex flex-row justify-end gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="border-zinc-800 bg-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white h-11 px-6"
+              className="border-line bg-transparent hover:bg-panel text-muted hover:text-ink h-11 px-6"
             >
               Cancel
             </Button>
@@ -109,7 +109,7 @@ export function CreateFolderModal({ isOpen, onClose }: CreateFolderModalProps) {
             <Button
               type="submit"
               disabled={isSubmitting || !name.trim()}
-              className="bg-yellow-500 hover:bg-yellow-400 text-zinc-950 font-bold h-11 px-8 shadow-[0_0_20px_-5px_rgba(234,179,8,0.4)] hover:shadow-[0_0_25px_-5px_rgba(234,179,8,0.6)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
+              className="bg-highlight hover:bg-highlight/90 text-[#111110] font-bold h-11 px-8   transition-all duration-200   disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
             >
               {isSubmitting ? "Creating..." : "Create Folder"}
             </Button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useCallback, useState, useRef } from "react";
 import { useNotesStore } from "@/store/useNotesStore";
+import Brand from "./components/Brand";
 import Sidebar from "@/app/components/Sidebar";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
@@ -118,7 +119,7 @@ export default function Home() {
     async (
       folderId?: string | null,
       title?: string,
-      specificId?: string
+      specificId?: string,
     ): Promise<string | null> => {
       try {
         const note = await createNote({
@@ -137,7 +138,7 @@ export default function Home() {
         return null;
       }
     },
-    [createNote]
+    [createNote],
   );
 
   const handleCreateNoteFromLink = useCallback(
@@ -146,7 +147,7 @@ export default function Home() {
       handleCreateNote(null, title, newId).catch((err) => console.error(err));
       return newId;
     },
-    [handleCreateNote]
+    [handleCreateNote],
   );
 
   const handleDeleteNote = useCallback(
@@ -161,7 +162,7 @@ export default function Home() {
         toast.error("Failed to delete note");
       }
     },
-    [deleteNote, activeNoteId]
+    [deleteNote, activeNoteId],
   );
 
   const handleDeleteFolder = useCallback(
@@ -173,7 +174,7 @@ export default function Home() {
         toast.error("Failed to delete folder");
       }
     },
-    [deleteFolder]
+    [deleteFolder],
   );
 
   const handleCreateFolder = useCallback(async () => {
@@ -203,7 +204,7 @@ export default function Home() {
         toast.error("Failed to update note");
       }
     },
-    [updateNote]
+    [updateNote],
   );
 
   const handleTogglePin = useCallback(
@@ -214,7 +215,7 @@ export default function Home() {
         toast.error("Failed to toggle pin");
       }
     },
-    [togglePin]
+    [togglePin],
   );
 
   const handleMoveNote = useCallback(
@@ -226,7 +227,7 @@ export default function Home() {
         toast.error("Failed to move note");
       }
     },
-    [moveNote]
+    [moveNote],
   );
 
   // Keyboard Shortcuts
@@ -277,7 +278,7 @@ export default function Home() {
         setShowMobileSidebar(false);
       }
     },
-    [setActiveNote, activeNoteId]
+    [setActiveNote, activeNoteId],
   );
 
   const handlePreviewVersion = useCallback((versionId: string) => {
@@ -298,7 +299,7 @@ export default function Home() {
       });
       setPreviewVersionId(null);
     },
-    [updateNoteLocally]
+    [updateNoteLocally],
   );
 
   const activeNote = notes.find((n) => n.id === activeNoteId);
@@ -309,7 +310,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex w-screen h-screen overflow-hidden bg-black text-white">
+    <main className="flex w-screen h-screen overflow-hidden bg-background text-ink">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {showMobileSidebar && (
@@ -378,12 +379,12 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 h-full flex flex-col min-w-0">
-          <div className="md:hidden border-b border-zinc-800 bg-zinc-900 flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
+          <div className="md:hidden border-b border-line bg-panel flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-9 w-9"
+              className="text-muted hover:text-ink hover:bg-selected h-9 w-9"
             >
               {showMobileSidebar ? (
                 <X className="h-5 w-5" />
@@ -392,7 +393,7 @@ export default function Home() {
               )}
             </Button>
             {activeNote && (
-              <h2 className="text-sm font-medium text-zinc-200 truncate">
+              <h2 className="text-sm font-medium text-ink truncate">
                 {activeNote.title || "Untitled Note"}
               </h2>
             )}

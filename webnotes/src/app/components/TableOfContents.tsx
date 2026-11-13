@@ -164,7 +164,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
         editor.chain().setTextSelection(heading.pos).scrollIntoView().run();
       }
     },
-    [editor]
+    [editor],
   );
 
   if (!editor || headings.length === 0) return null;
@@ -203,7 +203,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
                   ${isActive ? activeWidth : baseWidth}
                   ${
                     isActive
-                      ? "h-1 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] opacity-100"
+                      ? "h-1 bg-background  opacity-100"
                       : "h-[2px] bg-zinc-600 group-hover/item:bg-zinc-400 opacity-40"
                   }
                 `}
@@ -218,7 +218,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
       <div
         className={`
           absolute right-10 top-1/2 -translate-y-1/2 max-h-[60vh] w-64
-          flex flex-col bg-zinc-950/90 backdrop-blur-md border border-zinc-800 rounded-lg shadow-2xl
+          flex flex-col bg-panel  border border-line rounded-lg shadow-2xl
           overflow-y-auto custom-scrollbar p-2
           transition-all duration-200 origin-right
           opacity-0 translate-x-4 scale-95 pointer-events-none
@@ -226,8 +226,8 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
           group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-hover:scale-100
         `}
       >
-        <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2 px-3 pt-2">
-          Table of Contents
+        <div className="text-[10px]  tracking-normal text-muted font-bold mb-2 px-3 pt-2">
+          Table of contents
         </div>
 
         <div className="flex flex-col gap-0.5">
@@ -242,8 +242,8 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
                   text-xs text-left py-1.5 pr-2 rounded transition-colors truncate
                   ${
                     isActive
-                      ? "text-white font-medium bg-white/10"
-                      : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                      ? "text-ink font-medium bg-selected"
+                      : "text-muted hover:bg-selected hover:text-ink"
                   }
                 `}
                 style={{

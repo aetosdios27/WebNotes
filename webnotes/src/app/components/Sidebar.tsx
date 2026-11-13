@@ -7,6 +7,7 @@ import {
   CollapsibleTrigger,
 } from "@/app/components/ui/collapsible";
 import { Button } from "@/app/components/ui/button";
+import Brand from "./Brand";
 import NoteList from "./NoteList";
 import AuthButton from "./AuthButton";
 import { CreateFolderModal } from "@/app/components/CreateFolderModal";
@@ -55,7 +56,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
 
@@ -69,7 +70,7 @@ export default function Sidebar({
   useEffect(() => {
     localStorage.setItem(
       "expandedFolders",
-      JSON.stringify(Array.from(expandedFolders))
+      JSON.stringify(Array.from(expandedFolders)),
     );
   }, [expandedFolders]);
 
@@ -113,7 +114,7 @@ export default function Sidebar({
           return (
             new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           );
-        })
+        }),
       );
     });
 
@@ -138,7 +139,7 @@ export default function Sidebar({
         onOpenChange={setIsOpen}
         className={`
           relative h-full flex flex-col overflow-hidden
-          border-r border-zinc-800 bg-[#111214]
+          border-r border-line bg-panel
           transition-all duration-300 ease-out
           ${isOpen ? "w-full md:w-80" : "w-full md:w-[68px]"}
         `}
@@ -146,14 +147,14 @@ export default function Sidebar({
         {/* HEADER: Fixed Height */}
         <div
           className={`
-          relative z-10 px-4 pb-4 pt-5 flex items-center border-b border-zinc-800 flex-shrink-0
+          relative z-10 px-4 pb-4 pt-5 flex items-center border-b border-line flex-shrink-0
           ${isOpen ? "justify-between" : "justify-center"}
         `}
         >
           {isOpen && (
             <div className="min-w-0">
-              <h1 className="truncate text-[1.2rem] font-semibold tracking-[-0.035em] text-zinc-100">
-                WebNotes
+              <h1 className="truncate text-[1.2rem] font-semibold tracking-[-0.035em] text-ink">
+                <Brand />
               </h1>
             </div>
           )}
@@ -161,7 +162,7 @@ export default function Sidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="hidden md:flex rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+              className="hidden md:flex rounded-lg text-muted transition-colors hover:bg-selected hover:text-ink"
             >
               <ChevronsLeft
                 className={`h-5 w-5 transition-transform duration-300 ${
@@ -186,14 +187,15 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="New note"
                     onClick={() => createNote()}
-                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-full rounded-xl bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
                     <FilePlus size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>New Note</p>
+                  <p>New note</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -202,14 +204,15 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="New folder"
                     onClick={() => setIsFolderModalOpen(true)}
-                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-full rounded-xl bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
                     <FolderPlus size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>New Folder</p>
+                  <p>New folder</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -218,9 +221,9 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-full rounded-xl bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
-                    <Search size={16} />
+                    <Search aria-label="Search" size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
@@ -230,14 +233,14 @@ export default function Sidebar({
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onOpenHelp}
-                  className="h-10 w-full rounded-xl bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
-                >
-                  <span className="text-base font-semibold">?</span>
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onOpenHelp}
+                    className="h-10 w-full rounded-xl bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
+                  >
+                    <span className="text-base font-semibold">?</span>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Shortcuts & Math Guide</p>
@@ -249,14 +252,15 @@ export default function Sidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
+                    aria-label="New note"
                     onClick={() => createNote()}
-                    className="h-11 w-11 rounded-xl border border-zinc-700 bg-zinc-100 p-0 text-zinc-950 shadow-none transition-colors hover:bg-white"
+                    className="h-11 w-11 rounded-xl border border-line bg-ink p-0 text-background shadow-none transition-colors hover:bg-background"
                   >
                     <FilePlus size={18} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>New Note</p>
+                  <p>New note</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -265,14 +269,15 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="New folder"
                     onClick={() => setIsFolderModalOpen(true)}
-                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-10 rounded-xl border border-line bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
                     <FolderPlus size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>New Folder</p>
+                  <p>New folder</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -281,9 +286,9 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-10 rounded-xl border border-line bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
-                    <Search size={16} />
+                    <Search aria-label="Search" size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -297,7 +302,7 @@ export default function Sidebar({
                     variant="ghost"
                     size="icon"
                     onClick={onOpenHelp}
-                    className="h-10 w-10 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    className="h-10 w-10 rounded-xl border border-line bg-transparent text-muted transition-colors hover:bg-selected hover:text-ink"
                   >
                     <span className="text-base font-semibold">?</span>
                   </Button>
@@ -332,7 +337,7 @@ export default function Sidebar({
         )}
 
         {/* FOOTER: Fixed Height at Bottom */}
-        <div className="relative z-10 mt-auto border-t border-zinc-800 p-3 flex-shrink-0">
+        <div className="relative z-10 mt-auto border-t border-line p-3 flex-shrink-0">
           <AuthButton isOpen={isOpen} syncStatus={syncStatus} />
         </div>
       </Collapsible>

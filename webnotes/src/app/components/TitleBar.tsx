@@ -30,7 +30,7 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-10 bg-black border-b border-zinc-800 flex items-center px-4 select-none"
+      className="h-10 bg-background border-b border-line flex items-center px-4 select-none"
     >
       {/* spacer to push controls to the right */}
       <div className="flex-1" data-tauri-drag-region />
@@ -40,19 +40,19 @@ export default function TitleBar() {
         <button
           data-tauri-no-drag
           onClick={handleMinimize}
-          className="w-3 h-3 rounded-full bg-[#4A4533] hover:bg-[#FFBD2E] transition-colors"
+          className="w-3 h-3 rounded-full bg-muted hover:bg-muted transition-colors"
           aria-label="Minimize"
         />
         <button
           data-tauri-no-drag
           onClick={handleMaximize}
-          className="w-3 h-3 rounded-full bg-[#354535] hover:bg-[#28C840] transition-colors"
+          className="w-3 h-3 rounded-full bg-muted hover:bg-muted transition-colors"
           aria-label="Maximize"
         />
         <button
           data-tauri-no-drag
           onClick={handleClose}
-          className="w-3 h-3 rounded-full bg-[#4A3535] hover:bg-[#FF5F57] transition-colors"
+          className="w-3 h-3 rounded-full bg-muted hover:bg-muted transition-colors"
           aria-label="Close"
         />
       </div>

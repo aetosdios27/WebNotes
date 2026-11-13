@@ -44,7 +44,7 @@ export default function RightSidebar({
   const backlinks = useMemo(() => {
     if (!activeNote || !allNotes) return [];
     return allNotes.filter((n) =>
-      n.content?.includes(`data-note-id="${activeNote.id}"`)
+      n.content?.includes(`data-note-id="${activeNote.id}"`),
     );
   }, [activeNote, allNotes]);
 
@@ -80,7 +80,7 @@ export default function RightSidebar({
           prev.length === newHeadings.length &&
           prev.every(
             (h, i) =>
-              h.text === newHeadings[i].text && h.id === newHeadings[i].id
+              h.text === newHeadings[i].text && h.id === newHeadings[i].id,
           )
         ) {
           return prev;
@@ -139,16 +139,16 @@ export default function RightSidebar({
   if (!activeNote) return null;
 
   return (
-    <div className="w-full h-full flex flex-col bg-zinc-900/50 border-l border-zinc-800">
+    <div className="w-full h-full flex flex-col bg-panel border-l border-line">
       {/* HEADER + TABS */}
-      <div className="h-12 flex items-center justify-between px-3 border-b border-zinc-800 flex-shrink-0">
-        <div className="flex bg-zinc-800/50 p-0.5 rounded-lg border border-zinc-800/50">
+      <div className="h-12 flex items-center justify-between px-3 border-b border-line flex-shrink-0">
+        <div className="flex bg-selected p-0.5 rounded-lg border border-line">
           <button
             onClick={() => setTab("info")}
             className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
               tab === "info"
-                ? "bg-zinc-700 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                ? "bg-selected text-ink shadow-sm"
+                : "text-muted hover:text-ink hover:bg-selected"
             }`}
             title="Links & Connections"
           >
@@ -158,8 +158,8 @@ export default function RightSidebar({
             onClick={() => setTab("outline")}
             className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
               tab === "outline"
-                ? "bg-zinc-700 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                ? "bg-selected text-ink shadow-sm"
+                : "text-muted hover:text-ink hover:bg-selected"
             }`}
             title="Table of Contents"
           >
@@ -169,8 +169,8 @@ export default function RightSidebar({
             onClick={() => setTab("history")}
             className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
               tab === "history"
-                ? "bg-zinc-700 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                ? "bg-selected text-ink shadow-sm"
+                : "text-muted hover:text-ink hover:bg-selected"
             }`}
             title="Version History"
           >
@@ -180,7 +180,7 @@ export default function RightSidebar({
 
         <button
           onClick={onClose}
-          className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+          className="p-1.5 text-muted hover:text-ink hover:bg-selected rounded transition-colors"
         >
           <X size={16} />
         </button>
@@ -191,13 +191,13 @@ export default function RightSidebar({
           <div className="space-y-8">
             {/* LINKED FROM */}
             <section>
-              <div className="flex items-center gap-2 mb-3 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+              <div className="flex items-center gap-2 mb-3 text-xs font-bold text-muted  tracking-normal">
                 <ArrowUpRight size={12} className="rotate-180 text-blue-400" />
                 Incoming ({backlinks.length})
               </div>
               {backlinks.length === 0 ? (
-                <div className="p-3 border border-dashed border-zinc-800 rounded text-center">
-                  <p className="text-xs text-zinc-600">No incoming links.</p>
+                <div className="p-3 border  border-line rounded text-center">
+                  <p className="text-xs text-muted">No incoming links.</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -205,7 +205,7 @@ export default function RightSidebar({
                     <button
                       key={note.id}
                       onClick={() => onNavigate(note.id)}
-                      className="w-full text-left group px-3 py-2 rounded-md hover:bg-zinc-800/80 transition-colors text-sm text-zinc-300 truncate border border-transparent hover:border-zinc-700"
+                      className="w-full text-left group px-3 py-2 rounded-md hover:bg-selected transition-colors text-sm text-reading truncate border border-transparent hover:border-line"
                     >
                       {note.title || "Untitled"}
                     </button>
@@ -216,13 +216,13 @@ export default function RightSidebar({
 
             {/* OUTGOING LINKS */}
             <section>
-              <div className="flex items-center gap-2 mb-3 text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                <ExternalLink size={12} className="text-yellow-500" />
+              <div className="flex items-center gap-2 mb-3 text-xs font-bold text-muted  tracking-normal">
+                <ExternalLink size={12} className="text-ink" />
                 Outgoing ({outgoingLinks.length})
               </div>
               {outgoingLinks.length === 0 ? (
-                <div className="p-3 border border-dashed border-zinc-800 rounded text-center">
-                  <p className="text-xs text-zinc-600">No outgoing links.</p>
+                <div className="p-3 border  border-line rounded text-center">
+                  <p className="text-xs text-muted">No outgoing links.</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -230,7 +230,7 @@ export default function RightSidebar({
                     <button
                       key={note.id}
                       onClick={() => onNavigate(note.id)}
-                      className="w-full text-left group px-3 py-2 rounded-md hover:bg-zinc-800/80 transition-colors text-sm text-zinc-300 truncate border border-transparent hover:border-zinc-700"
+                      className="w-full text-left group px-3 py-2 rounded-md hover:bg-selected transition-colors text-sm text-reading truncate border border-transparent hover:border-line"
                     >
                       {note.title || "Untitled"}
                     </button>
@@ -245,8 +245,8 @@ export default function RightSidebar({
           <div className="flex flex-col relative">
             {headings.length === 0 ? (
               <div className="p-8 text-center">
-                <p className="text-xs text-zinc-500">No headings found.</p>
-                <p className="text-[10px] text-zinc-600 mt-1">
+                <p className="text-xs text-muted">No headings found.</p>
+                <p className="text-[10px] text-muted mt-1">
                   Use H1, H2, H3 to generate an outline.
                 </p>
               </div>
@@ -264,8 +264,8 @@ export default function RightSidebar({
                       relative w-full text-left py-1.5 pr-2 rounded-md text-sm transition-all truncate group flex items-center
                       ${
                         isActive
-                          ? "text-yellow-500 font-medium bg-yellow-500/5"
-                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                          ? "text-ink font-medium bg-selected"
+                          : "text-muted hover:text-ink hover:bg-selected"
                       }
                     `}
                     style={{ paddingLeft: `${paddingLeft}px` }}
@@ -273,17 +273,17 @@ export default function RightSidebar({
                     {indentLevel > 0 && (
                       <>
                         <div
-                          className="absolute w-px bg-zinc-800 top-0 bottom-1/2"
+                          className="absolute w-px bg-selected top-0 bottom-1/2"
                           style={{ left: `${(indentLevel - 1) * 16 + 12}px` }}
                         />
                         <div
-                          className="absolute h-px bg-zinc-800 w-2.5 top-1/2"
+                          className="absolute h-px bg-selected w-2.5 top-1/2"
                           style={{ left: `${(indentLevel - 1) * 16 + 12}px` }}
                         />
                       </>
                     )}
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-yellow-500 rounded-r-full" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-selected rounded-r-full" />
                     )}
                     <span className="truncate">
                       {h.text || "Untitled Section"}

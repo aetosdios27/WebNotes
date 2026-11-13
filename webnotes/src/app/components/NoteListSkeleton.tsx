@@ -1,12 +1,12 @@
 // src/app/components/NoteListSkeleton.tsx
 
-'use client';
+"use client";
 
-import { Skeleton } from '@/app/components/ui/skeleton';
+import { Skeleton } from "@/app/components/ui/skeleton";
 
 export function NoteListSkeleton() {
   return (
-    <div className="p-4 space-y-4">
+    <div aria-label="Loading notes" className="p-4 space-y-4 bg-panel">
       {/* Mimic the header and toolbar */}
       <div className="flex justify-between items-center mb-4">
         <Skeleton className="h-6 w-24 rounded-md" />
@@ -17,7 +17,7 @@ export function NoteListSkeleton() {
         <Skeleton className="h-8 w-8 rounded-full" />
         <Skeleton className="h-8 w-8 rounded-full" />
       </div>
-      
+
       {/* Create 5 placeholder note items */}
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex flex-col space-y-2">
