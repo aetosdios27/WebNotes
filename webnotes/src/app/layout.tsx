@@ -42,7 +42,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#000000",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#101010" },
+  ],
 };
 
 export default function RootLayout({
@@ -51,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
@@ -61,25 +64,25 @@ export default function RootLayout({
           ${GeistSans.variable}
           ${instrument.variable}
           ${jetbrains.variable}
-          font-sans antialiased text-zinc-200
+          font-sans antialiased text-ink
         `}
         suppressHydrationWarning
       >
-        {/* APP SHELL */}
-        <div className="h-screen flex flex-col overflow-hidden bg-black">
-          {/* WINDOW CHROME (never scrolls) */}
-          <TitleBar />
+        <Providers>
+          {/* APP SHELL */}
+          <div className="h-screen flex flex-col overflow-hidden bg-background">
+            {/* WINDOW CHROME (never scrolls) */}
+            <TitleBar />
 
-          {/* APP CONTENT (owns scrolling) */}
-          <div className="flex-1 overflow-hidden">
-            <Providers>{children}</Providers>
+            {/* APP CONTENT (owns scrolling) */}
+            <div className="flex-1 overflow-hidden">{children}</div>
           </div>
-        </div>
 
-        {/* GLOBAL UI */}
-        <Toaster />
-        <Analytics />
-        <SpeedInsights />
+          {/* GLOBAL UI */}
+          <Toaster />
+          <Analytics />
+          <SpeedInsights />
+        </Providers>
       </body>
     </html>
   );
