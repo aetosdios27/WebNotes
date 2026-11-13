@@ -44,6 +44,9 @@ export function makeSyncEngine(options: {
     // Reconcile on every open, including deletion-only edits made while closed.
     let revision = 1;
     let acknowledgedRevision = 0;
+    // Until the first pull lands, the doc may hold only an editor placeholder; publishing
+    // it would mark the server as having state and suppress the legacy HTML seed.
+    let reconciled = false;
     const updates = yield* Queue.make<void>({ capacity: 1, strategy: "sliding" });
     const lock = yield* Semaphore.make(1);
     const saveAck = (vector: Uint8Array) => Effect.gen(function*() {
@@ -52,7 +55,7 @@ export function makeSyncEngine(options: {
         Effect.sync(() => report({ error: error.message }))));
     });
     const push = lock.withPermit(Effect.gen(function*() {
-      if (revision === acknowledgedRevision) return;
+      if (!reconciled || revision === acknowledgedRevision) return;
       const sentRevision = revision;
       const sentVector = Y.encodeStateVector(doc);
       const update = Y.encodeStateAsUpdate(doc, ack ?? undefined);
@@ -69,6 +72,10 @@ export function makeSyncEngine(options: {
       report({ pulled: true, hasServerState: result.hasServerState, error: null });
       // This vector describes the server snapshot, never the unsent local state.
       yield* saveAck(result.serverVector);
+      if (!reconciled) {
+        reconciled = true;
+        Queue.offerUnsafe(updates, undefined);
+      }
     }));
     const recover = <A>(task: Effect.Effect<A, TransportError>) => task.pipe(
       Effect.tapError(error => Effect.sync(() => report({ error: error.message }))),
@@ -95,7 +102,7 @@ export function makeSyncEngine(options: {
       Effect.forkScoped,
     );
     const beacon = () => {
-      if (revision === acknowledgedRevision) return;
+      if (!reconciled || revision === acknowledgedRevision) return;
       try {
         transport.beacon(id, Y.encodeStateAsUpdate(doc, ack ?? undefined));
       } catch {

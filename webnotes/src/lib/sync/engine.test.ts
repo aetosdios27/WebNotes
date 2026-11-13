@@ -45,6 +45,8 @@ function fixture() {
 }
 
 const advance = (ms = 1000) => TestClock.adjust(ms);
+// The first push waits for the first pull, so opening needs two clock steps.
+const settle = Effect.andThen(advance(), advance());
 function run<A, E, R>(program: Effect.Effect<A, E, R>, layer: Layer.Layer<R>) {
   return Effect.runPromise(program.pipe(Effect.provide(layer), Effect.provide(TestClock.layer())));
 }
@@ -72,7 +74,7 @@ describe("note sync engine", () => {
     doc.getText("body").insert(0, "x".repeat(100_000));
     await run(Effect.scoped(Effect.gen(function*() {
       yield* makeSyncEngine({ id: "a", doc });
-      yield* advance();
+      yield* settle;
       expect(f.pushes).toHaveLength(1);
       doc.getText("body").insert(50_000, "small edit");
       yield* advance();
@@ -83,7 +85,7 @@ describe("note sync engine", () => {
     await run(Effect.scoped(Effect.gen(function*() {
       doc.getText("body").insert(0, "reload");
       yield* makeSyncEngine({ id: "a", doc });
-      yield* advance();
+      yield* settle;
       expect(f.pushes.at(-1)!.byteLength).toBeLessThan(100);
       expect(f.server.getText("body").toString()).toBe(doc.getText("body").toString());
     })), f.layer);
@@ -140,12 +142,28 @@ describe("note sync engine", () => {
     const doc = new Y.Doc();
     await run(Effect.scoped(Effect.gen(function*() {
       yield* makeSyncEngine({ id: "a", doc });
+      yield* settle;
       doc.getText("body").insert(0, "close immediately");
     })), f.layer);
     expect(f.server.getText("body").toString()).toBe("close immediately");
-    expect(f.pushes).toHaveLength(1);
+    const sent = f.pushes.length;
     doc.getText("body").insert(0, "after close");
-    expect(f.pushes).toHaveLength(1);
+    expect(f.pushes).toHaveLength(sent);
+  });
+
+  test("an edit closed before the first pull stays local and is sent on the next open", async () => {
+    const f = fixture();
+    const doc = new Y.Doc();
+    await run(Effect.scoped(Effect.gen(function*() {
+      yield* makeSyncEngine({ id: "a", doc });
+      doc.getText("body").insert(0, "quick edit");
+    })), f.layer);
+    expect(f.pushes).toHaveLength(0);
+    await run(Effect.scoped(Effect.gen(function*() {
+      yield* makeSyncEngine({ id: "a", doc });
+      yield* settle;
+    })), f.layer);
+    expect(f.server.getText("body").toString()).toBe("quick edit");
   });
 
   test("edits made during an in-flight push are not acknowledged until sent", async () => {
@@ -245,5 +263,34 @@ describe("note sync engine", () => {
     expect(f.vectors.get("a")).not.toEqual(Y.encodeStateVector(doc));
     Y.applyUpdate(f.server, f.beacons[0]);
     expect(f.server.getText("body").toString()).toBe("durable locally");
+  });
+
+  test("never publishes an unreconciled placeholder when closed during the first pull", async () => {
+    const pushes: Uint8Array[] = [];
+    const beacons: Uint8Array[] = [];
+    const pullStarted = Effect.runSync(Deferred.make<void>());
+    const layer = Layer.merge(
+      Layer.succeed(SyncTransport, {
+        push: (_id, bytes) => Effect.sync(() => { pushes.push(bytes); }),
+        pull: () => Deferred.succeed(pullStarted, undefined).pipe(Effect.andThen(Effect.never)),
+        beacon: (_id, bytes) => { beacons.push(bytes); },
+      }),
+      Layer.succeed(AckVectorStore, {
+        load: () => Effect.succeed(null),
+        save: () => Effect.void,
+      }),
+    );
+    await run(Effect.gen(function*() {
+      const doc = new Y.Doc();
+      const scope = yield* Scope.make();
+      const engine = yield* makeSyncEngine({ id: "legacy", doc }).pipe(Scope.provide(scope));
+      yield* Deferred.await(pullStarted);
+      doc.getXmlFragment("default").insert(0, [new Y.XmlElement("paragraph")]);
+      yield* advance(5_000);
+      engine.beacon();
+      yield* Scope.close(scope, Exit.void);
+    }), layer);
+    expect(pushes).toHaveLength(0);
+    expect(beacons).toHaveLength(0);
   });
 });
