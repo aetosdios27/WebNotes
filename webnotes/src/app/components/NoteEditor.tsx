@@ -359,9 +359,6 @@ function HydratedEditor({
 
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
-  const [wasEmptyAfterLocalHydration] = useState(
-    () => ydoc.getXmlFragment("default").length === 0
-  );
   const hasEditedBody = useRef(false);
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
@@ -524,15 +521,13 @@ function HydratedEditor({
     // Server Yjs state is authoritative, even when the body was cleared on purpose.
     if (isAuthenticated && hasServerState) return;
     const content = activeNote.content;
-    // Mounting Tiptap inserts an empty paragraph into an empty fragment.
-    const isUnwritten =
-      ydoc.getXmlFragment("default").length === 0 ||
-      (wasEmptyAfterLocalHydration && editor.isEmpty && !hasEditedBody.current);
+    // Tiptap's empty-paragraph placeholder can already be persisted locally from an
+    // earlier open, so judge by visible emptiness, not by the fragment being empty.
+    const isUnwritten = editor.isEmpty && !hasEditedBody.current;
     if (isUnwritten && content) {
       editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [
-    wasEmptyAfterLocalHydration,
     editor,
     status,
     isAuthenticated,
