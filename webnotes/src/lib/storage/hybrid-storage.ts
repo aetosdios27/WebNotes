@@ -134,6 +134,8 @@ export class HybridStorageAdapter {
 
   async deleteNote(id: string): Promise<void> {
     if (isTauri) return await this.tauri.deleteNote(id);
+    // Let an in-flight upload finish first, so it cannot recreate what we delete.
+    await this.authCheck;
 
     if (this.shouldUseCloud()) {
       try {
@@ -206,6 +208,8 @@ export class HybridStorageAdapter {
 
   async deleteFolder(id: string): Promise<void> {
     if (isTauri) return await this.tauri.deleteFolder(id);
+    // Let an in-flight upload finish first, so it cannot recreate what we delete.
+    await this.authCheck;
 
     if (this.shouldUseCloud()) {
       try {
