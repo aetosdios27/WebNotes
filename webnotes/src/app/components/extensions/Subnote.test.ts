@@ -1,4 +1,4 @@
-import { expect, it, describe, beforeEach } from 'bun:test';
+import { expect, it, describe, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Subnote } from './Subnote'; 
