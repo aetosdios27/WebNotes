@@ -1,3 +1,4 @@
+import { createOwned } from "../create-owned";
 // src/lib/trpc/routers/notes.ts
 
 import { z } from "zod";
@@ -163,16 +164,20 @@ export const notesRouter = router({
       const state = Buffer.from(Y.encodeStateAsUpdate(doc));
       doc.destroy();
 
-      const note = await ctx.prisma.note.create({
-        data: {
-          id: input.id,
-          title: input.title,
-          content: input.content,
-          yjsState: state,
-          folderId: input.folderId ?? null,
-          userId: ctx.userId,
-          isPinned: false,
-        },
+      const note = await createOwned({
+        userId: ctx.userId,
+        findExisting: () => input.id ? ctx.prisma.note.findUnique({ where: { id: input.id } }) : Promise.resolve(null),
+        create: () => ctx.prisma.note.create({
+          data: {
+            id: input.id,
+            title: input.title,
+            content: input.content,
+            yjsState: state,
+            folderId: input.folderId ?? null,
+            userId: ctx.userId,
+            isPinned: false,
+          },
+        }),
       });
 
       return note;

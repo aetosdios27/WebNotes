@@ -11,7 +11,7 @@ export class HybridStorageAdapter {
 
   private isOnline: boolean = typeof window !== "undefined" && navigator.onLine;
   private isAuthenticated: boolean = false;
-  private hasMigrated: boolean = false;
+  private authCheck: Promise<void> | null = null;
 
   constructor() {
     this.local = new LocalStorageAdapter();
@@ -24,9 +24,6 @@ export class HybridStorageAdapter {
     }
 
     if (typeof window !== "undefined" && !isTauri) {
-      // Only do migration logic if on WEB
-      this.hasMigrated = localStorage.getItem("webnotes_migrated") === "true";
-
       window.addEventListener("online", () => {
         this.isOnline = true;
         this.sync();
@@ -35,36 +32,48 @@ export class HybridStorageAdapter {
         this.isOnline = false;
       });
 
-      this.checkAuth();
+      void this.checkAuth();
     }
   }
 
-  private async checkAuth(): Promise<void> {
-    if (isTauri) return; // Skip auth check on Desktop for now
+  private checkAuth(): Promise<void> {
+    if (isTauri) return Promise.resolve();
+    if (this.authCheck) return this.authCheck;
+    this.authCheck = this.detectAuth().finally(() => { this.authCheck = null; });
+    return this.authCheck;
+  }
+
+  private async detectAuth(): Promise<void> {
     try {
       const response = await fetch("/api/auth/session");
+      if (!response.ok) throw new Error("Could not check session");
       const session = await response.json();
-      const wasAuthenticated = this.isAuthenticated;
-      this.isAuthenticated = !!session?.user;
-
-      if (this.isAuthenticated && !wasAuthenticated && !this.hasMigrated) {
-        await this.migrateLocalToCloud();
-      }
-    } catch {
       this.isAuthenticated = false;
+      if (typeof session?.user?.id !== "string") return;
+      await this.migrateLocalToCloud(session.user.id);
+      this.isAuthenticated = true;
+    } catch (error) {
+      this.isAuthenticated = false;
+      console.error("Account upload deferred; device notes retained", error);
     }
   }
 
-  // ... (migrateLocalToCloud remains the same) ...
-  private async migrateLocalToCloud(): Promise<void> {
-    // Keep your existing migration code here...
-    // I omitted it to save space, paste your original migration code back if needed
+  private async migrateLocalToCloud(userId: string): Promise<void> {
+    // New signed-out notes must still upload after an earlier migration. Check
+    // metadata rather than letting the device marker hide future local work.
+    const hasLocalData = ["webnotes_notes_v1", "webnotes_folders_v1"].some((key) => {
+      const value = localStorage.getItem(key);
+      return value !== null && value !== "[]";
+    });
+    if (!hasLocalData) return;
+    const { migrateDeviceNotes } = await import("../migration/browser");
+    await migrateDeviceNotes(userId);
   }
 
   private async sync(): Promise<void> {
     if (isTauri) return; // No sync logic for Tauri yet
-    if (!this.isOnline || !this.isAuthenticated) return;
-    if (!this.hasMigrated) await this.migrateLocalToCloud();
+    if (!this.isOnline) return;
+    await this.checkAuth();
   }
 
   private shouldUseCloud(): boolean {
@@ -79,6 +88,7 @@ export class HybridStorageAdapter {
     if (isTauri) {
       return await this.tauri.getNotes();
     }
+    await this.authCheck;
     if (this.shouldUseCloud()) {
       try {
         return await this.cloud.getNotes();
@@ -147,6 +157,7 @@ export class HybridStorageAdapter {
   async getFolders(): Promise<Folder[]> {
     if (isTauri) return await this.tauri.getFolders();
 
+    await this.authCheck;
     if (this.shouldUseCloud()) {
       try {
         return await this.cloud.getFolders();
@@ -232,6 +243,5 @@ export class HybridStorageAdapter {
   resetMigration(): void {
     if (isTauri) return;
     localStorage.removeItem("webnotes_migrated");
-    this.hasMigrated = false;
   }
 }
