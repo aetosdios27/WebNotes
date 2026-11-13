@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { withUploadLock } from "../migration/lock";
 import { LocalStorageAdapter } from "./local-storage";
 import { CloudStorageAdapter } from "./cloud-storage";
 import { TauriStorageAdapter } from "./tauri-storage"; // <--- NEW
@@ -136,18 +137,17 @@ export class HybridStorageAdapter {
     if (isTauri) return await this.tauri.deleteNote(id);
     // Let an in-flight upload finish first, so it cannot recreate what we delete.
     await this.authCheck;
+    if (!this.shouldUseCloud()) return await this.local.deleteNote(id);
 
-    if (this.shouldUseCloud()) {
+    await withUploadLock(async () => {
       try {
         await this.cloud.deleteNote(id);
         // A pending device copy would otherwise be re-uploaded by the next migration.
         await this.local.deleteNote(id);
-      } catch (error) {
+      } catch {
         await this.local.deleteNote(id);
       }
-    } else {
-      await this.local.deleteNote(id);
-    }
+    });
   }
 
   async togglePin(id: string): Promise<Note> {
@@ -210,8 +210,9 @@ export class HybridStorageAdapter {
     if (isTauri) return await this.tauri.deleteFolder(id);
     // Let an in-flight upload finish first, so it cannot recreate what we delete.
     await this.authCheck;
+    if (!this.shouldUseCloud()) return await this.local.deleteFolder(id);
 
-    if (this.shouldUseCloud()) {
+    await withUploadLock(async () => {
       try {
         await this.cloud.deleteFolder(id);
         // A pending device copy would otherwise be re-uploaded by the next migration.
@@ -219,9 +220,7 @@ export class HybridStorageAdapter {
       } catch {
         await this.local.deleteFolder(id);
       }
-    } else {
-      await this.local.deleteFolder(id);
-    }
+    });
   }
 
   // --- SETTINGS ---

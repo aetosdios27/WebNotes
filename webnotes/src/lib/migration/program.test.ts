@@ -21,6 +21,7 @@ function fixture(ids = ["a", "b", "legacy"]) {
   let readFailure = false;
   let revision = "";
   let failBody = false;
+  let slowId = "";
   let transientFailures = 0;
   let creates = 0;
   let active = 0;
@@ -47,7 +48,7 @@ function fixture(ids = ["a", "b", "legacy"]) {
       createNote: async (note) => {
         active++;
         peak = Math.max(peak, active);
-        await new Promise((resolve) => setTimeout(resolve, 1));
+        await new Promise((resolve) => setTimeout(resolve, note.id === slowId ? 30 : 1));
         active--;
         creates++;
         events.push(`create:${note.id}`);
@@ -72,6 +73,7 @@ function fixture(ids = ["a", "b", "legacy"]) {
     set readFailure(value: boolean) { readFailure = value; },
     set revision(value: string) { revision = value; },
     set failBody(value: boolean) { failBody = value; },
+    set slowId(value: string) { slowId = value; },
     set transientFailures(value: number) { transientFailures = value; },
   };
 }
@@ -97,6 +99,12 @@ describe("device uploads", () => {
     expect(f.bodies.size).toBe(2);
     expect(f.cleared).toBe(true);
     expect(f.events.filter((event) => event === "folder")).toHaveLength(1);
+  });
+  test("a failing note lets in-flight sibling uploads finish before rejecting", async () => {
+    const f = fixture(["b", "slow"]); f.failBody = true; f.slowId = "slow";
+    await expect(f.run()).rejects.toMatchObject({ _tag: "CloudUploadError" });
+    expect(f.notes.has("slow")).toBe(true);
+    expect(f.progress.has("note:slow")).toBe(true);
   });
   test("an edited cached body is uploaded again after an interrupted migration", async () => {
     const f = fixture(); f.failBody = true;

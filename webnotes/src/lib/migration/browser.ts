@@ -4,6 +4,7 @@ import { z } from "zod";
 import { trpcVanilla } from "../trpc/client";
 import { BodyReader, CloudApi, LocalStore, uploadLocalNotes } from "./program";
 import { readBody } from "./read-body";
+import { withUploadLock } from "./lock";
 
 const noteSchema = z.object({
   id: z.string(), title: z.string().nullable(), content: z.string().nullable(),
@@ -56,6 +57,5 @@ export async function migrateDeviceNotes(userId: string): Promise<number> {
       Effect.provideService(BodyReader, { read: readBody }),
     ));
   };
-  // Serialize migrations across tabs when Web Locks is available.
-  return navigator.locks ? navigator.locks.request("webnotes-upload", async () => await run()) : run();
+  return withUploadLock(run);
 }

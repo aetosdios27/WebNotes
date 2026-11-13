@@ -175,7 +175,9 @@ export const notesRouter = router({
             id: input.id,
             title: input.title,
             content: input.content,
-            yjsState: state,
+            // Legacy HTML is seeded into Yjs by the editor, which only happens when the
+            // server has no Yjs state; an empty doc here would hide that HTML for good.
+            yjsState: input.content ? null : state,
             folderId: input.folderId ?? null,
             userId: ctx.userId,
             isPinned: input.isPinned ?? false,

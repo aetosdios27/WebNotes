@@ -1,4 +1,4 @@
-import { Context, Data, Duration, Effect, Schedule } from "effect";
+import { Context, Data, Duration, Effect, Exit, Schedule } from "effect";
 import type { Folder, Note } from "../storage/types";
 
 export class LocalStoreError extends Data.TaggedError("LocalStoreError")<{
@@ -54,7 +54,9 @@ export const uploadLocalNotes = Effect.gen(function* () {
       yield* localStep("checkpoint", () => local.checkpoint(key, JSON.stringify(folder)));
     }
   }
-  yield* Effect.forEach(snapshot.notes, (note) => Effect.gen(function* () {
+  // Run each note to completion, even when a sibling fails: an interrupted fiber would
+  // abandon a request the server may still commit after the caller moves on (e.g. a delete).
+  const outcomes = yield* Effect.forEach(snapshot.notes, (note) => Effect.exit(Effect.gen(function* () {
     const key = `note:${note.id}`;
     const body = yield* Effect.tryPromise({
       try: () => bodies.read(note.id),
@@ -72,7 +74,9 @@ export const uploadLocalNotes = Effect.gen(function* () {
     yield* network(key, () => cloud.createNote(note));
     if (body !== null) yield* network(`body:${note.id}`, () => cloud.syncBody(note.id, body));
     yield* localStep("checkpoint", () => local.checkpoint(key, version));
-  }), { concurrency: 3, discard: true });
+  })), { concurrency: 3 });
+  const failed = outcomes.find(Exit.isFailure);
+  if (failed) return yield* Effect.failCause(failed.cause);
   yield* localStep("finish", () => local.finish(snapshot));
   return snapshot.notes.length;
 });
