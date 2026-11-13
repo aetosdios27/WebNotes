@@ -19,6 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
 import Collaboration, { isChangeOrigin } from "@tiptap/extension-collaboration";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
@@ -42,6 +43,7 @@ import RightSidebar from "./RightSidebar";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useNoteSync } from "@/hooks/useNoteSync";
+import { createContentSnapshot } from "@/lib/content-snapshot";
 
 import {
   Table,
@@ -513,6 +515,43 @@ function HydratedEditor({
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const snapshot = createContentSnapshot((content) => {
+      const store = useNotesStore.getState();
+      // Closing a deleted note must not try to recreate its snapshot.
+      if (!store.notes.some((note) => note.id === noteId)) return;
+      void store.updateNote(noteId, { content }).catch((error: unknown) => {
+        console.error("Failed to save note content snapshot:", error);
+      });
+    });
+    const onUpdate = ({
+      transaction,
+    }: {
+      transaction: Parameters<typeof isChangeOrigin>[0];
+    }) => {
+      // Yjs undo/redo is a local edit too, despite using a Yjs-origin transaction.
+      if (
+        !isChangeOrigin(transaction) ||
+        transaction.getMeta(ySyncPluginKey)?.isUndoRedoOperation === true
+      ) {
+        snapshot.schedule(editor.getHTML());
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") snapshot.flush();
+    };
+    editor.on("update", onUpdate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", snapshot.flush);
+    return () => {
+      editor.off("update", onUpdate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", snapshot.flush);
+      snapshot.flush();
+    };
+  }, [editor, noteId]);
 
   // Seed legacy HTML only after both applicable providers have hydrated.
   const hasSeededLegacy = useRef(false);
