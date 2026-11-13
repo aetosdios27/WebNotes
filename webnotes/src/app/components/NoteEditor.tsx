@@ -19,8 +19,10 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
-import Collaboration from "@tiptap/extension-collaboration";
+import Collaboration, { isChangeOrigin } from "@tiptap/extension-collaboration";
 import * as Y from "yjs";
+import { IndexeddbPersistence } from "y-indexeddb";
+import { useSession } from "next-auth/react";
 import { SlashCommand } from "./SlashCommandExtension";
 import { slashCommandSuggestion } from "./SlashCommands";
 import { Toolbar } from "./Toolbar";
@@ -311,7 +313,38 @@ interface InnerEditorProps {
   onEditorClick: (e: React.MouseEvent) => void;
 }
 
-function InnerEditor({
+function InnerEditor(props: InnerEditorProps) {
+  const [ydoc] = useState(() => new Y.Doc());
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const persistence = new IndexeddbPersistence(
+      "webnotes-note-" + props.noteId,
+      ydoc
+    );
+    void persistence.whenSynced.then(() => {
+      if (active) setIsHydrated(true);
+    });
+    return () => {
+      active = false;
+      void persistence.destroy();
+      ydoc.destroy();
+    };
+  }, [props.noteId, ydoc]);
+
+  if (!isHydrated) {
+    return (
+      <div className="flex items-center justify-center h-full bg-black">
+        <div className="animate-pulse text-zinc-500">Loading note...</div>
+      </div>
+    );
+  }
+  return <HydratedEditor {...props} ydoc={ydoc} />;
+}
+
+function HydratedEditor({
+  ydoc,
   noteId,
   activeNote,
   allNotes,
@@ -329,23 +362,28 @@ function InnerEditor({
   titleInputRef,
   onTitleChange,
   onEditorClick,
-}: InnerEditorProps) {
-  // Fresh Y.Doc per note — created on mount, destroyed on unmount
-  const [ydoc] = useState(() => new Y.Doc());
-  const [isHydrated, setIsHydrated] = useState(false);
+}: InnerEditorProps & { ydoc: Y.Doc }) {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
+  const [wasEmptyAfterLocalHydration] = useState(
+    () => ydoc.getXmlFragment("default").length === 0
+  );
+  const hasEditedBody = useRef(false);
   const isSyncingRef = useRef(false);
   const hasPendingChangesRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Fetch full note from server
   // ---------------------------------------------------------------------------
-  const { data: fullNote, isLoading } = trpc.notes.byId.useQuery(
+  const { data: fullNote, isFetched } = trpc.notes.byId.useQuery(
     { id: noteId },
-    { staleTime: 0, refetchOnWindowFocus: false }
+    { enabled: isAuthenticated, staleTime: 0, refetchOnWindowFocus: false }
   );
 
   // ---------------------------------------------------------------------------
@@ -366,7 +404,7 @@ function InnerEditor({
 
   // Normal async sync
   const syncToServer = useCallback(async () => {
-    if (isSyncingRef.current) return;
+    if (!isAuthenticatedRef.current || isSyncingRef.current) return;
     isSyncingRef.current = true;
     onSavingStatusChange(true);
     try {
@@ -387,7 +425,7 @@ function InnerEditor({
 
   // Emergency sync via sendBeacon — survives page close/refresh
   const sendBeaconSync = useCallback(() => {
-    if (!hasPendingChangesRef.current) return;
+    if (!isAuthenticatedRef.current || !hasPendingChangesRef.current) return;
     try {
       const fullState = Y.encodeStateAsUpdate(ydoc);
       const base64 = uint8ArrayToBase64(fullState);
@@ -422,49 +460,25 @@ function InnerEditor({
     return () => {
       debouncedSync.flush();
       sendBeaconSync();
-      ydoc.destroy();
     };
-  }, [ydoc, debouncedSync, sendBeaconSync]);
+  }, [debouncedSync, sendBeaconSync]);
 
-  // ---------------------------------------------------------------------------
-  // Hydrate Y.Doc when server data arrives
-  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!fullNote || isHydrated) return;
+    if (!isAuthenticated || !fullNote?.yjsState) return;
     try {
-      if (fullNote.yjsState) {
-        const bytes = base64ToUint8Array(fullNote.yjsState);
-        Y.applyUpdate(ydoc, bytes, "remote");
-      }
-      setIsHydrated(true);
+      Y.applyUpdate(ydoc, base64ToUint8Array(fullNote.yjsState), "remote");
     } catch (err) {
       console.error("❌ Hydration failed:", err);
-      setSyncError("Failed to load note");
+      setSyncError("Failed to load note from server");
     }
-  }, [fullNote, isHydrated, ydoc]);
-
-  // Legacy content migration (old notes that have content but no yjsState)
-  useEffect(() => {
-    if (!isHydrated || !editorRef.current || editorRef.current.isDestroyed)
-      return;
-    if (!fullNote) return;
-    if (!fullNote.yjsState && fullNote.content) {
-      const fragment = ydoc.getXmlFragment("default");
-      if (fragment.length === 0) {
-        editorRef.current.commands.setContent(fullNote.content, {
-          emitUpdate: false,
-        });
-        syncToServer();
-      }
-    }
-  }, [isHydrated, fullNote, ydoc, syncToServer]);
+  }, [isAuthenticated, fullNote, ydoc]);
 
   // ---------------------------------------------------------------------------
   // Listen for local Yjs changes → trigger debounced sync
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const handler = (_update: Uint8Array, origin: unknown) => {
-      if (origin === "remote" || !isHydrated) return;
+      if (!isAuthenticated || origin === "remote") return;
       hasPendingChangesRef.current = true;
       debouncedSync();
     };
@@ -473,7 +487,7 @@ function InnerEditor({
       ydoc.off("update", handler);
       debouncedSync.cancel();
     };
-  }, [ydoc, isHydrated, debouncedSync]);
+  }, [ydoc, isAuthenticated, debouncedSync]);
 
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
@@ -609,6 +623,9 @@ function InnerEditor({
           return false;
         },
       },
+      onUpdate: ({ transaction }) => {
+        if (!isChangeOrigin(transaction)) hasEditedBody.current = true;
+      },
       onCreate: ({ editor: e }) => {
         editorRef.current = e;
       },
@@ -624,6 +641,33 @@ function InnerEditor({
     editorRef.current = editor;
   }, [editor]);
 
+  // Seed legacy HTML only after both applicable providers have hydrated.
+  const hasSeededLegacy = useRef(false);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || hasSeededLegacy.current) return;
+    if (status === "loading" || (isAuthenticated && !isFetched)) return;
+    hasSeededLegacy.current = true;
+    const content = (isAuthenticated ? fullNote?.content : undefined) || activeNote.content;
+    // Mounting Tiptap inserts an empty paragraph into an empty fragment.
+    const isUnwritten =
+      ydoc.getXmlFragment("default").length === 0 ||
+      (wasEmptyAfterLocalHydration && editor.isEmpty && !hasEditedBody.current);
+    if (isUnwritten && content) {
+      editor.commands.setContent(content, { emitUpdate: false });
+      if (isAuthenticated) void syncToServer();
+    }
+  }, [
+    wasEmptyAfterLocalHydration,
+    editor,
+    status,
+    isAuthenticated,
+    isFetched,
+    fullNote,
+    activeNote.content,
+    ydoc,
+    syncToServer,
+  ]);
+
   useEffect(() => {
     if (editor && !editor.isDestroyed) editor.setEditable(!isReadingMode);
   }, [editor, isReadingMode]);
@@ -631,14 +675,6 @@ function InnerEditor({
   // ---------------------------------------------------------------------------
   // Render — exact same DOM structure as working deployed version
   // ---------------------------------------------------------------------------
-  if (isLoading || !isHydrated) {
-    return (
-      <div className="flex items-center justify-center h-full bg-black">
-        <div className="animate-pulse text-zinc-500">Loading note...</div>
-      </div>
-    );
-  }
-
   return (
     <>
       {syncError && (
