@@ -8,6 +8,7 @@ export function noteText(content: Note["content"]) {
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<\/(p|li|h[1-6]|div)>/gi, "\n")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<[^>]*>/g, "");
   return text
     .replace(/&nbsp;/g, " ")

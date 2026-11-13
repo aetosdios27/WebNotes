@@ -24,9 +24,6 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
 import { SlashCommand } from "./SlashCommandExtension";
 import { slashCommandSuggestion } from "./SlashCommands";
-import { Toolbar } from "./Toolbar";
-import NoteSettings from "./NoteSettings";
-import ReadingModeToggle from "./ReadingModeToggle";
 import { MathInline, MathBlock } from "./extensions/math";
 import { CodeBlock } from "./extensions/CodeBlock";
 import UniqueID from "./extensions/UniqueID";
@@ -37,7 +34,10 @@ import { createNoteLinkSuggestion } from "./extensions/noteLinkSuggestion";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
-import { PanelRight } from "lucide-react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import { Toolbar } from "./Toolbar";
+import { useNotesStore } from "@/store/useNotesStore";
+import { NoteMeta } from "./NoteSummary";
 import RightSidebar from "./RightSidebar";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -549,10 +549,7 @@ function HydratedEditor({
       {syncError && (
         <div className="absolute top-0 left-0 right-0 z-[100] bg-red-900/90 text-white px-4 py-2 flex items-center justify-between">
           <span className="text-sm">⚠️ {syncError}</span>
-          <button
-            onClick={dismissError}
-            className="text-xs hover:text-red-200"
-          >
+          <button onClick={dismissError} className="text-xs hover:text-red-200">
             Dismiss
           </button>
         </div>
@@ -560,6 +557,11 @@ function HydratedEditor({
 
       {editor && (
         <>
+          <BubbleMenu editor={editor}>
+            <div className="rounded-lg bg-popover shadow-lg">
+              <Toolbar editor={editor} />
+            </div>
+          </BubbleMenu>
           <TableControls editor={editor} />
           <TableGripHandles editor={editor} />
           <TableCellMenu editor={editor} />
@@ -568,57 +570,10 @@ function HydratedEditor({
 
       <div className="flex-1 flex flex-row overflow-hidden w-full h-full">
         <div className="flex-1 flex flex-col min-w-0 relative h-full">
-          <div
-            className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ReadingModeToggle
-              isReading={isReadingMode}
-              onToggle={onToggleReadingMode}
-            />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleRightSidebar();
-              }}
-              className={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
-                isRightSidebarOpen
-                  ? "text-yellow-500 bg-zinc-800"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-              }`}
-              title="Toggle Info Sidebar"
-              aria-label="Toggle Info Sidebar"
-              aria-expanded={isRightSidebarOpen}
-            >
-              <PanelRight className="h-4 w-4" />
-            </button>
-            {onDeleteNote && (
-              <NoteSettings
-                note={activeNote}
-                onDelete={() => onDeleteNote(activeNote.id)}
-                onUpdate={(u) => onNoteUpdate({ ...activeNote, ...u })}
-              />
-            )}
-          </div>
-
           {editor && <TableOfContents editor={editor} />}
 
-          <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
+          <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-8 md:pt-[34px] editor-scroll-container relative">
             <div className="max-w-[600px] mx-auto pb-32">
-              <div
-                className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
-                  isReadingMode
-                    ? "opacity-0 pointer-events-none"
-                    : "opacity-100"
-                }`}
-              >
-                {editor ? (
-                  <Toolbar editor={editor} />
-                ) : (
-                  <div className="h-10" aria-hidden="true" />
-                )}
-              </div>
-
               <input
                 ref={titleInputRef}
                 type="text"
@@ -632,11 +587,18 @@ function HydratedEditor({
                   }
                 }}
                 placeholder="Untitled"
-                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[26px] break-words py-0 leading-[1.08] ${fontClass} ${
+                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[10px] tracking-[-.036em] break-words py-0 leading-[1.08] ${fontClass} ${
                   isReadingMode ? "cursor-default" : ""
                 }`}
                 aria-label="Note title"
               />
+
+              <div className="text-[13.5px] text-muted mb-[26px]">
+                <NoteMeta
+                  note={activeNote}
+                  folders={useNotesStore.getState().folders}
+                />
+              </div>
 
               <div
                 className="min-h-[500px] relative pb-8"
@@ -830,19 +792,18 @@ export default function NoteEditor({
       <style jsx global>{`
         #note-editor-root[data-font="serif"] .ProseMirror,
         #note-editor-root[data-font="serif"] .ProseMirror * {
-          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times,
-            serif !important;
+          font-family:
+            ui-serif, Georgia, Cambria, "Times New Roman", Times, serif !important;
         }
         #note-editor-root[data-font="mono"] .ProseMirror,
         #note-editor-root[data-font="mono"] .ProseMirror * {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          font-family:
+            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
             "Liberation Mono", "Courier New", monospace !important;
         }
         #note-editor-root[data-font="sans"] .ProseMirror,
         #note-editor-root[data-font="sans"] .ProseMirror * {
-          font-family: ui-sans-serif, system-ui, -apple-system,
-            BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-            sans-serif !important;
+          font-family: var(--font-geist-sans), sans-serif !important;
         }
         .ProseMirror {
           word-wrap: break-word !important;
