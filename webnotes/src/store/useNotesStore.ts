@@ -1,5 +1,6 @@
 // src/store/useNotesStore.ts
 import { create } from "zustand";
+import { clearDocument } from "y-indexeddb";
 import { subscribeWithSelector } from "zustand/middleware";
 import { isTauri, TauriDB, type TauriNote } from "@/lib/tauri";
 import { storage } from "@/lib/storage";
@@ -412,6 +413,7 @@ export const useNotesStore = create<NotesState>()(
         } else {
           await storage.deleteNote(id);
         }
+        await clearDocument("webnotes-note-" + id);
 
         set((state) => ({
           pendingOperations: state.pendingOperations - 1,
