@@ -138,6 +138,8 @@ export class HybridStorageAdapter {
     if (this.shouldUseCloud()) {
       try {
         await this.cloud.deleteNote(id);
+        // A pending device copy would otherwise be re-uploaded by the next migration.
+        await this.local.deleteNote(id);
       } catch (error) {
         await this.local.deleteNote(id);
       }
@@ -208,6 +210,8 @@ export class HybridStorageAdapter {
     if (this.shouldUseCloud()) {
       try {
         await this.cloud.deleteFolder(id);
+        // A pending device copy would otherwise be re-uploaded by the next migration.
+        await this.local.deleteFolder(id);
       } catch {
         await this.local.deleteFolder(id);
       }
