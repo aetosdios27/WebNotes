@@ -158,16 +158,9 @@ export default function Home() {
     }
   }, [createFolder]);
   const update = useCallback(
-    async (note: Note) => {
+    async (id: string, changes: Partial<Note>) => {
       try {
-        await updateNote(note.id, {
-          title: note.title,
-          content: note.content,
-          font: note.font,
-          isPinned: note.isPinned,
-          pinnedAt: note.pinnedAt,
-          folderId: note.folderId,
-        });
+        await updateNote(id, changes);
       } catch {
         toast.error("Failed to update note");
       }

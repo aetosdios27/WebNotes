@@ -1,24 +1,24 @@
-// Capture HTML when a local edit happens, rather than reading the editor later:
-// remote changes can arrive while a snapshot is waiting to be saved.
+// Local edits mark the snapshot dirty; serialize the latest body only when saving.
 export function createContentSnapshot(
+  read: () => string | undefined,
   save: (html: string) => void,
   delayMs = 1000,
 ) {
-  let pending: string | undefined;
+  let dirty = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const flush = () => {
     clearTimeout(timer);
     timer = undefined;
-    if (pending === undefined) return;
-    const html = pending;
-    pending = undefined;
-    save(html);
+    if (!dirty) return;
+    dirty = false;
+    const html = read();
+    if (html !== undefined) save(html);
   };
 
   return {
-    schedule(html: string) {
-      pending = html;
+    schedule() {
+      dirty = true;
       clearTimeout(timer);
       timer = setTimeout(flush, delayMs);
     },

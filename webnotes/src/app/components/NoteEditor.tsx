@@ -62,7 +62,7 @@ import {
 interface NoteEditorProps {
   activeNote: Note | undefined;
   allNotes: Note[];
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
   onNavigateNote: (noteId: string) => void;
@@ -290,7 +290,7 @@ interface InnerEditorProps {
   fontClass: string;
   isReadingMode: boolean;
   isRightSidebarOpen: boolean;
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onNavigateNote: (noteId: string) => void;
   onDeleteNote?: (noteId: string) => void;
@@ -364,6 +364,8 @@ function HydratedEditor({
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
   const hasEditedBody = useRef(false);
+  const contentSnapshot = useRef<ReturnType<typeof createContentSnapshot> | null>(null);
+  const hasCheckedSnapshot = useRef(false);
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
   // ---------------------------------------------------------------------------
@@ -518,14 +520,18 @@ function HydratedEditor({
 
   useEffect(() => {
     if (!editor) return;
-    const snapshot = createContentSnapshot((content) => {
-      const store = useNotesStore.getState();
-      // Closing a deleted note must not try to recreate its snapshot.
-      if (!store.notes.some((note) => note.id === noteId)) return;
-      void store.updateNote(noteId, { content }).catch((error: unknown) => {
-        console.error("Failed to save note content snapshot:", error);
-      });
-    });
+    const snapshot = createContentSnapshot(
+      () => (editor.isDestroyed ? undefined : editor.getHTML()),
+      (content) => {
+        const store = useNotesStore.getState();
+        // Closing a deleted note must not try to recreate its snapshot.
+        if (!store.notes.some((note) => note.id === noteId)) return;
+        void store.updateNote(noteId, { content }).catch((error: unknown) => {
+          console.error("Failed to save note content snapshot:", error);
+        });
+      },
+    );
+    contentSnapshot.current = snapshot;
     const onUpdate = ({
       transaction,
     }: {
@@ -536,7 +542,7 @@ function HydratedEditor({
         !isChangeOrigin(transaction) ||
         transaction.getMeta(ySyncPluginKey)?.isUndoRedoOperation === true
       ) {
-        snapshot.schedule(editor.getHTML());
+        snapshot.schedule();
       }
     };
     const onVisibilityChange = () => {
@@ -550,6 +556,7 @@ function HydratedEditor({
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", snapshot.flush);
       snapshot.flush();
+      contentSnapshot.current = null;
     };
   }, [editor, noteId]);
 
@@ -577,6 +584,19 @@ function HydratedEditor({
     activeNote.content,
     ydoc,
   ]);
+
+  // HydratedEditor already waits for IndexedDB. Wait for the server pull and
+  // legacy seed above before repairing a snapshot missed during an earlier close.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || hasCheckedSnapshot.current) return;
+    if (
+      !hasSeededLegacy.current ||
+      status === "loading" ||
+      (isAuthenticated && !pulled)
+    ) return;
+    hasCheckedSnapshot.current = true;
+    if (editor.getHTML() !== activeNote.content) contentSnapshot.current?.schedule();
+  }, [editor, status, isAuthenticated, pulled, activeNote.content]);
 
   useEffect(() => {
     if (editor && !editor.isDestroyed) editor.setEditable(!isReadingMode);
@@ -730,8 +750,11 @@ export default function NoteEditor({
   useEffect(() => () => flushTitle(), [activeNote?.id, flushTitle]);
 
   useEffect(() => {
+    setTitle(activeNote?.title || "");
+  }, [activeNote?.id, activeNote?.title]);
+
+  useEffect(() => {
     if (activeNote) {
-      setTitle(activeNote.title || "");
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
         setTimeout(
           () => titleInputRef.current?.focus(),
@@ -758,7 +781,7 @@ export default function NoteEditor({
             (note) => note.id === activeNote.id
           );
           if (latest)
-            onNoteUpdate({ ...latest, title: newTitle, updatedAt: new Date() });
+            onNoteUpdate(activeNote.id, { title: newTitle });
         };
         titleSaveTimeoutRef.current = setTimeout(
           flushTitle,
