@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { differenceInCalendarDays } from "date-fns";
+import { marked } from "marked";
 import type { Note, Folder } from "@/lib/storage/types";
 
 // Plain text keeps stored HTML inert, including scripts and remote resources.
@@ -22,124 +23,50 @@ export function noteText(content: Note["content"]) {
     .trim();
 }
 const MINIATURE_LIMIT = 4_000;
-const EDITOR_BLOCK = /^\s*<(?:p|h[1-6]|ul|ol|li|div|section|pre|blockquote|table|hr|br)(?=[\s/>])/i;
-// A closing tag the walker understands marks HTML even when it does not start with a block;
-// Markdown with literal `Array<T>` has no closing tags and stays Markdown.
-const KNOWN_CLOSING_TAG =
-  /<\/(?:p|h[1-6]|ul|ol|li|div|section|pre|code|blockquote|table|thead|tbody|tfoot|caption|tr|td|th|strong|b|em|i|s|u|mark|span|a|sup|sub)>/i;
+// Elements whose whole subtree is dropped; every other unknown element keeps only its text.
+const UNSAFE = new Set([
+  "script", "style", "iframe", "object", "embed", "svg", "math", "template", "noscript",
+  "link", "meta", "form", "input", "button", "img", "video", "audio", "source", "canvas",
+  "select", "textarea", "frame", "frameset",
+]);
 
-function markdownInline(text: string): ReactNode[] {
-  // Record delimiters once so unmatched openers never rescan the line.
-  const closingBracket: number[] = [];
-  const closingParen: number[] = [];
-  const star: number[] = [];
-  const whitespace: number[] = [];
-  let bracket = text.length;
-  let paren = text.length;
-  let asterisk = text.length;
-  let space = text.length;
-  for (let i = text.length; i >= 0; i--) {
-    if (text[i] === "]") bracket = i;
-    if (text[i] === ")") paren = i;
-    if (text[i] === "*") asterisk = i;
-    if (/\s/.test(text[i] ?? "")) space = i;
-    closingBracket[i] = bracket;
-    closingParen[i] = paren;
-    star[i] = asterisk;
-    whitespace[i] = space;
+// `[[Title]]` is not Markdown; show it as an inert link. indexOf keeps this linear.
+function wikiLinks(text: string, key: number): ReactNode {
+  const parts: ReactNode[] = [];
+  let from = 0;
+  for (;;) {
+    const open = text.indexOf("[[", from);
+    const close = open < 0 ? -1 : text.indexOf("]]", open + 2);
+    if (open < 0 || close < 0) break;
+    parts.push(text.slice(from, open));
+    parts.push(<span className="mini-link" key={`${key}-${open}`}>{text.slice(open + 2, close)}</span>);
+    from = close + 2;
   }
-  const nodes: ReactNode[] = [];
-  let plainStart = 0;
-  for (let i = 0; i < text.length; i++) {
-    let labelStart = i;
-    let labelEnd = i;
-    let end = i;
-    let bold = false;
-    if (text.startsWith("**", i)) {
-      labelStart = i + 2;
-      labelEnd = star[labelStart];
-      if (labelEnd > labelStart && text.startsWith("**", labelEnd)) {
-        end = labelEnd + 2;
-        bold = true;
-      }
-    } else if (text[i] === "[") {
-      const wiki = text[i + 1] === "[";
-      labelStart = i + (wiki ? 2 : 1);
-      labelEnd = closingBracket[labelStart];
-      if (labelEnd > labelStart && labelEnd < text.length) {
-        if (wiki && text[labelEnd + 1] === "]") end = labelEnd + 2;
-        else if (!wiki && text[labelEnd + 1] === "(") {
-          const urlStart = labelEnd + 2;
-          const urlEnd = closingParen[urlStart];
-          if (urlEnd > urlStart && urlEnd < text.length && whitespace[urlStart] > urlEnd)
-            end = urlEnd + 1;
-        }
-      }
-    }
-    if (end === i) continue;
-    nodes.push(text.slice(plainStart, i));
-    nodes.push(
-      <span className={bold ? "mini-bold" : "mini-link"} key={i}>
-        {text.slice(labelStart, labelEnd)}
-      </span>,
-    );
-    i = end - 1;
-    plainStart = end;
-  }
-  nodes.push(text.slice(plainStart));
-  return nodes;
-}
-
-function markdownMiniature(content: string): ReactNode {
-  return content.split("\n").map((line, key) => {
-    const heading = /^#{1,6}\s+(.+)$/.exec(line);
-    const task = /^[-*] \[([ xX])\]\s+(.*)$/.exec(line);
-    const item = /^(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
-    if (heading)
-      return (
-        <span className="mini-heading" key={key}>
-          {markdownInline(heading[1])}
-        </span>
-      );
-    if (task) {
-      const checked = task[1].toLowerCase() === "x";
-      return (
-        <span className={`mini-task${checked ? " mini-done" : ""}`} key={key}>
-          <span
-            className="mini-box"
-            aria-label={checked ? "Checked task" : "Unchecked task"}
-          />
-          {markdownInline(task[2])}
-        </span>
-      );
-    }
-    if (item)
-      return (
-        <span className="mini-item" key={key}>
-          {markdownInline(item[1])}
-        </span>
-      );
-    return (
-      <span className="mini-paragraph" key={key}>
-        {markdownInline(line)}
-      </span>
-    );
-  });
+  if (from === 0) return text;
+  parts.push(text.slice(from));
+  return parts;
 }
 
 // Only generated spans and line breaks reach React; stored attributes never do.
 export function noteMiniature(content: Note["content"]): ReactNode {
   if (!content) return "Empty note";
   content = content.slice(0, MINIATURE_LIMIT);
-  if (!EDITOR_BLOCK.test(content) && !KNOWN_CLOSING_TAG.test(content)) {
-    return markdownMiniature(content);
-  }
-  // Parse recognized editor HTML in a detached template; never emit stored attributes.
+  // Bodies are HTML (current editor) or Markdown (saved by earlier versions), with no
+  // marker. Do what the editor does on load: parse as Markdown, letting raw HTML through.
+  const html = marked.parse(content, { async: false, gfm: true }) as string;
+  // Parse in a detached template; never emit stored attributes.
   const template = document.createElement("template");
-  template.innerHTML = content;
+  template.innerHTML = html;
   const root = template.content;
   function walk(node: Node, key: number): ReactNode {
-    if (node.nodeType === 3) return node.textContent;
+    if (node.nodeType === 3) {
+      let text = node.textContent ?? "";
+      // Markdown output separates blocks with newline-only text nodes.
+      if (!text.trim() && text.includes("\n")) return null;
+      if (node.previousSibling instanceof Element && node.previousSibling.tagName === "INPUT")
+        text = text.trimStart();
+      return wikiLinks(text, key);
+    }
     if (!(node instanceof Element)) return null;
     const tag = node.tagName.toLowerCase();
     const children = () => Array.from(node.childNodes, walk);
@@ -178,8 +105,11 @@ export function noteMiniature(content: Note["content"]): ReactNode {
           </span>
         );
       case "li": {
-        const task = node.getAttribute("data-type") === "taskItem";
-        const checked = task && node.getAttribute("data-checked") === "true";
+        // Editor HTML marks tasks with data attributes; Markdown task lists render a checkbox.
+        const box = node.querySelector(':scope > input[type="checkbox"], :scope > p > input[type="checkbox"]');
+        const task = node.getAttribute("data-type") === "taskItem" || box !== null;
+        const checked =
+          node.getAttribute("data-checked") === "true" || (box?.hasAttribute("checked") ?? false);
         return (
           <span
             className={
@@ -229,7 +159,7 @@ export function noteMiniature(content: Note["content"]): ReactNode {
       case "br":
         return <br key={key} />;
       default:
-        return null;
+        return UNSAFE.has(tag) ? null : <span key={key}>{children()}</span>;
     }
   }
   return Array.from(root.childNodes, walk);

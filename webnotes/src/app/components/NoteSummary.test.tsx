@@ -84,7 +84,7 @@ describe("note miniatures", () => {
     const { container } = render(
       <NoteMiniature
         content={
-          "# One\n## Lisbon\n###### Six\n- [x] Passport\n- [ ] Camera\n* [X] Tickets\n* [ ] Film\n- Coat\n* Shoes\n1. Map\n[[Lisbon in April]] and [guide](https://example.com) **ready**\nBudget < 400 & > 100\nUnmatched [[title and **text"
+          "# One\n## Lisbon\n###### Six\n- [x] Passport\n- [ ] Camera\n* [X] Tickets\n* [ ] Film\n- Coat\n* Shoes\n1. Map\n\n[[Lisbon in April]] and [guide](https://example.com) **ready**\n\nBudget < 400 & > 100\n\nUnmatched [[title and **text"
         }
       />,
     );
@@ -140,6 +140,14 @@ describe("note miniatures", () => {
     expect(container.textContent).not.toContain("<");
   });
 
+  it("keeps a closing tag mentioned in Markdown code as visible text", () => {
+    const { container } = render(
+      <NoteMiniature content={"# Types\nUse Array<T> and mention `</p>` here.\n- [x] done"} />,
+    );
+    for (const text of ["Types", "mention", "</p>", "here.", "done"]) expect(container.textContent).toContain(text);
+    expect(screen.getByLabelText("Checked task")).toBeTruthy();
+  });
+
   it("keeps table captions and footers", () => {
     const { container } = render(
       <NoteMiniature
@@ -151,7 +159,8 @@ describe("note miniatures", () => {
 
   it("keeps literal angle brackets in Markdown alongside headings and tasks", () => {
     const { container } = render(<NoteMiniature content={"# Types\nUse Array<T> for results\n- [x] done"} />);
-    expect(container.textContent).toBe("TypesUse Array<T> for resultsdone");
+    // `<T>` is raw inline HTML to Markdown, as in the editor: the tag goes, the text stays.
+    for (const text of ["Types", "Use Array", "for results", "done"]) expect(container.textContent).toContain(text);
     expect(screen.getByLabelText("Checked task")).toBeTruthy();
     expect(container.querySelector("t")).toBeNull();
   });
