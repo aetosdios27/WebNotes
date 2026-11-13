@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { differenceInCalendarDays } from "date-fns";
-import { marked } from "marked";
+import MarkdownIt from "markdown-it";
+import taskLists from "markdown-it-task-lists";
 import type { Note, Folder } from "@/lib/storage/types";
 
 // Plain text keeps stored HTML inert, including scripts and remote resources.
@@ -30,6 +31,15 @@ const UNSAFE = new Set([
   "select", "textarea", "frame", "frameset",
 ]);
 
+// The editor's own parser and task-list plugin (via tiptap-markdown); unlike marked, its
+// link and emphasis scanning stays fast on pathological input.
+const markdown = new MarkdownIt({ html: true }).use(taskLists);
+
+// Separator whitespace only between blocks; inside a paragraph a newline is a space.
+const BLOCK_PARENTS = new Set([
+  "ul", "ol", "li", "table", "thead", "tbody", "tfoot", "tr", "blockquote", "section", "div",
+]);
+
 // `[[Title]]` is not Markdown; show it as an inert link. indexOf keeps this linear.
 function wikiLinks(text: string, key: number): ReactNode {
   const parts: ReactNode[] = [];
@@ -53,7 +63,7 @@ export function noteMiniature(content: Note["content"]): ReactNode {
   content = content.slice(0, MINIATURE_LIMIT);
   // Bodies are HTML (current editor) or Markdown (saved by earlier versions), with no
   // marker. Do what the editor does on load: parse as Markdown, letting raw HTML through.
-  const html = marked.parse(content, { async: false, gfm: true }) as string;
+  const html = markdown.render(content);
   // Parse in a detached template; never emit stored attributes.
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -61,8 +71,12 @@ export function noteMiniature(content: Note["content"]): ReactNode {
   function walk(node: Node, key: number): ReactNode {
     if (node.nodeType === 3) {
       let text = node.textContent ?? "";
-      // Markdown output separates blocks with newline-only text nodes.
-      if (!text.trim() && text.includes("\n")) return null;
+      if (!text.trim() && text.includes("\n")) {
+        const parent = node.parentNode;
+        const between =
+          !(parent instanceof Element) || BLOCK_PARENTS.has(parent.tagName.toLowerCase());
+        return between ? null : " ";
+      }
       if (node.previousSibling instanceof Element && node.previousSibling.tagName === "INPUT")
         text = text.trimStart();
       return wikiLinks(text, key);

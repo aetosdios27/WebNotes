@@ -148,6 +148,21 @@ describe("note miniatures", () => {
     expect(screen.getByLabelText("Checked task")).toBeTruthy();
   });
 
+  it("parses link-heavy pathological Markdown quickly", () => {
+    const start = performance.now();
+    const miniature = noteMiniature("[a](".repeat(1000));
+    expect(performance.now() - start).toBeLessThan(100);
+    const { container } = render(<>{miniature}</>);
+    expect(container.textContent).toContain("[a](");
+  });
+
+  it("keeps a space between inline words split across lines", () => {
+    const { container, rerender } = render(<NoteMiniature content={"**hello**\n**world**"} />);
+    expect(container.textContent).toContain("hello world");
+    rerender(<NoteMiniature content={"<p><strong>hello</strong>\n<em>world</em></p>"} />);
+    expect(container.textContent).toContain("hello world");
+  });
+
   it("keeps table captions and footers", () => {
     const { container } = render(
       <NoteMiniature
