@@ -4,10 +4,12 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../init";
 import { TRPCError } from "@trpc/server";
 import * as Y from "yjs";
+import { createUpdateLog } from "@/lib/sync/update-log";
+import { decodeClientUpdate, UpdateInputError } from "@/lib/sync/update-input";
 
 export const notesRouter = router({
   // ==========================================================================
-  // SYNC (CRDT MERGE)
+  // SYNC (APPEND-ONLY CRDT UPDATES)
   // ==========================================================================
 
   sync: protectedProcedure
@@ -18,65 +20,34 @@ export const notesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      console.log("🔄 SYNC: userId:", ctx.userId, "noteId:", input.id);
-
-      // 1. Fetch current state WITH ownership check
       const note = await ctx.prisma.note.findFirst({
         where: { id: input.id, userId: ctx.userId },
-        select: { yjsState: true },
+        select: { id: true },
       });
 
       if (!note) {
-        console.error(
-          "❌ SYNC: Note not found!",
-          input.id,
-          "user:",
-          ctx.userId
-        );
+        console.error("❌ SYNC: Note not found!", input.id, "user:", ctx.userId);
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      // 2. Merge Yjs states
-      const mergedDoc = new Y.Doc();
-
-      if (note.yjsState) {
-        try {
-          Y.applyUpdate(mergedDoc, new Uint8Array(note.yjsState));
-        } catch (e) {
-          console.error("❌ SYNC: Failed to apply existing state:", e);
-        }
-      }
-
+      let incomingUpdate: Uint8Array;
       try {
-        const incomingUpdate = Buffer.from(input.update, "base64");
-        Y.applyUpdate(mergedDoc, new Uint8Array(incomingUpdate));
-      } catch (e) {
-        console.error("❌ SYNC: Failed to apply incoming update:", e);
-        mergedDoc.destroy();
+        incomingUpdate = decodeClientUpdate(input.update);
+      } catch (error) {
+        if (!(error instanceof UpdateInputError)) throw error;
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid Yjs update",
+          code: error.code === "TOO_LARGE" ? "PAYLOAD_TOO_LARGE" : "BAD_REQUEST",
+          message: error.message,
         });
       }
 
-      const newState = Buffer.from(Y.encodeStateAsUpdate(mergedDoc));
-      mergedDoc.destroy();
-
-      console.log(
-        "✅ SYNC: Saving",
-        newState.length,
-        "bytes for note:",
-        input.id
-      );
-
-      // 3. Save
+      const log = createUpdateLog(ctx.prisma);
+      await log.appendUpdate(input.id, incomingUpdate);
       await ctx.prisma.note.update({
         where: { id: input.id },
-        data: {
-          yjsState: newState,
-          updatedAt: new Date(),
-        },
+        data: { updatedAt: new Date() },
       });
+      await log.compactIfNeeded(input.id);
 
       return { success: true };
     }),
@@ -98,8 +69,6 @@ export const notesRouter = router({
     .query(async ({ ctx, input }) => {
       const limit = input?.limit ?? 50;
 
-      console.log("📋 LIST: userId:", ctx.userId, "folderId:", input?.folderId);
-
       const notes = await ctx.prisma.note.findMany({
         where: {
           userId: ctx.userId,
@@ -118,18 +87,6 @@ export const notesRouter = router({
           { updatedAt: "desc" },
         ],
       });
-
-      console.log(
-        "📋 LIST: Found",
-        notes.length,
-        "notes:",
-        notes.map((n) => ({
-          id: n.id.slice(0, 8),
-          title: n.title,
-          hasYjs: !!n.yjsState,
-          contentLen: n.content?.length ?? 0,
-        }))
-      );
 
       let nextCursor: string | undefined = undefined;
       if (notes.length > limit) {
@@ -153,8 +110,6 @@ export const notesRouter = router({
   byId: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      console.log("🔍 BYID: userId:", ctx.userId, "noteId:", input.id);
-
       const note = await ctx.prisma.note.findFirst({
         where: {
           id: input.id,
@@ -172,17 +127,8 @@ export const notesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Note not found" });
       }
 
-      const yjsBase64 = note.yjsState
-        ? Buffer.from(note.yjsState).toString("base64")
-        : null;
-
-      console.log("✅ BYID: Found note:", {
-        id: note.id.slice(0, 8),
-        title: note.title,
-        hasYjs: !!yjsBase64,
-        yjsLen: yjsBase64?.length ?? 0,
-        contentLen: note.content?.length ?? 0,
-      });
+      const state = await createUpdateLog(ctx.prisma).readState(input.id);
+      const yjsBase64 = state ? Buffer.from(state).toString("base64") : null;
 
       return {
         ...note,
@@ -210,15 +156,6 @@ export const notesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      console.log(
-        "➕ CREATE: userId:",
-        ctx.userId,
-        "noteId:",
-        input.id,
-        "title:",
-        input.title
-      );
-
       // Initialize empty YDoc for new note
       const doc = new Y.Doc();
       const state = Buffer.from(Y.encodeStateAsUpdate(doc));
@@ -235,8 +172,6 @@ export const notesRouter = router({
           isPinned: false,
         },
       });
-
-      console.log("✅ CREATE: Note created:", note.id.slice(0, 8));
 
       return note;
     }),
@@ -260,15 +195,6 @@ export const notesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, htmlContent, textContent, ...metadata } = input;
 
-      console.log("✏️ UPDATE: userId:", ctx.userId, "noteId:", id, "fields:", {
-        hasHtmlContent: htmlContent !== undefined && htmlContent !== null,
-        htmlContentLen: htmlContent?.length ?? 0,
-        hasTextContent: textContent !== undefined && textContent !== null,
-        font: metadata.font,
-        isPinned: metadata.isPinned,
-        folderId: metadata.folderId,
-      });
-
       const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
       };
@@ -291,8 +217,6 @@ export const notesRouter = router({
       if (metadata.folderId !== undefined)
         updateData.folderId = metadata.folderId;
 
-      console.log("✏️ UPDATE: Applying:", updateData);
-
       const result = await ctx.prisma.note.updateMany({
         where: { id, userId: ctx.userId },
         data: updateData,
@@ -305,8 +229,6 @@ export const notesRouter = router({
           message: "Note not found or access denied",
         });
       }
-
-      console.log("✅ UPDATE: Success, matched:", result.count);
 
       return ctx.prisma.note.findUnique({ where: { id } });
     }),
@@ -337,8 +259,6 @@ export const notesRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      console.log("🗑️ DELETE: userId:", ctx.userId, "noteId:", input.id);
-
       const result = await ctx.prisma.note.deleteMany({
         where: { id: input.id, userId: ctx.userId },
       });
@@ -355,8 +275,6 @@ export const notesRouter = router({
           message: "Note not found or access denied",
         });
       }
-
-      console.log("✅ DELETE: Deleted note:", input.id.slice(0, 8));
 
       return { success: true };
     }),
