@@ -254,7 +254,7 @@ export default function Sidebar({
                   <Button
                     aria-label="New note"
                     onClick={() => createNote()}
-                    className="h-11 w-11 rounded-xl border border-line bg-ink p-0 text-background shadow-none transition-colors hover:bg-background"
+                    className="h-11 w-11 rounded-xl border border-line bg-ink p-0 text-background shadow-none transition-colors hover:opacity-85"
                   >
                     <FilePlus size={18} />
                   </Button>

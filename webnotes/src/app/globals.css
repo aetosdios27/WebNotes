@@ -611,7 +611,7 @@ body {
     .ProseMirror
     li.task-item
     > label
-    > input[type="checkbox"]:hover {
+    > input[type="checkbox"]:not(:checked):hover {
     border-color: var(--ink) !important;
     background: var(--selected) !important;
   }

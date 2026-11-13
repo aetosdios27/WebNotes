@@ -203,7 +203,7 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
                   ${isActive ? activeWidth : baseWidth}
                   ${
                     isActive
-                      ? "h-1 bg-background  opacity-100"
+                      ? "h-1 bg-ink opacity-100"
                       : "h-[2px] bg-zinc-600 group-hover/item:bg-zinc-400 opacity-40"
                   }
                 `}
