@@ -316,8 +316,8 @@ export default function CommandPalette({
                           }`}
                         >
                           {filter === "all" && "All"}
-                          {filter === "pinned" && "📌 Pinned"}
-                          {filter === "recent" && "🕐 Recent"}
+                          {filter === "pinned" && "Pinned"}
+                          {filter === "recent" && "Recent"}
                         </button>
                       ),
                     )}
