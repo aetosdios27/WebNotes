@@ -1,6 +1,27 @@
+// @vitest-environment jsdom
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { JSDOM } from "jsdom";
+
+// Bun's native test runner does not read Vitest's environment directive.
+if (typeof document === "undefined") {
+  const { window } = new JSDOM("<!doctype html><html><body></body></html>");
+  for (const key of [
+    "window",
+    "document",
+    "Node",
+    "Element",
+    "HTMLElement",
+    "navigator",
+  ] as const) {
+    Object.defineProperty(globalThis, key, {
+      value: key === "window" ? window : window[key],
+      configurable: true,
+      writable: true,
+    });
+  }
+}
+const { cleanup, render, screen } = await import("@testing-library/react");
 import { NoteMiniature, NoteMeta, formatNoteTime } from "./NoteSummary";
 
 afterEach(cleanup);
@@ -58,11 +79,64 @@ describe("note miniatures", () => {
     expect(container.querySelector("img,script,template")).toBeNull();
   });
 
-  it("keeps Markdown-ish plain text as text and updates when notes change", () => {
-    const content =
-      "## Trip\n- [x] Passport\n[[Packing list]]\nBudget < 400 & > 100";
-    const { container, rerender } = render(<NoteMiniature content={content} />);
-    expect(container.textContent).toBe(content);
+  it("renders Markdown headings, tasks, lists, bold and inert link text", () => {
+    const { container } = render(
+      <NoteMiniature
+        content={
+          "# One\n## Lisbon\n###### Six\n- [x] Passport\n- [ ] Camera\n* [X] Tickets\n* [ ] Film\n- Coat\n* Shoes\n1. Map\n[[Lisbon in April]] and [guide](https://example.com) **ready**\nBudget < 400 & > 100\nUnmatched [[title and **text"
+        }
+      />,
+    );
+    expect(
+      Array.from(
+        container.querySelectorAll(".mini-heading"),
+        (node) => node.textContent,
+      ),
+    ).toEqual(["One", "Lisbon", "Six"]);
+    expect(
+      screen
+        .getAllByLabelText("Checked task")
+        .map((node) => node.parentElement?.textContent),
+    ).toEqual(["Passport", "Tickets"]);
+    expect(
+      screen
+        .getAllByLabelText("Unchecked task")
+        .map((node) => node.parentElement?.textContent),
+    ).toEqual(["Camera", "Film"]);
+    expect(container.querySelectorAll(".mini-done")).toHaveLength(2);
+    expect(
+      Array.from(
+        container.querySelectorAll(".mini-item"),
+        (node) => node.textContent,
+      ),
+    ).toEqual(["Coat", "Shoes", "Map"]);
+    expect(screen.getByText("Lisbon in April").className).toBe("mini-link");
+    expect(screen.getByText("guide").className).toBe("mini-link");
+    expect(screen.getByText("ready").className).toBe("mini-bold");
+    expect(screen.getByText("Budget < 400 & > 100")).toBeTruthy();
+    expect(screen.getByText("Unmatched [[title and **text")).toBeTruthy();
+    expect(container.querySelector("a,[href],input")).toBeNull();
+  });
+
+  it("keeps crafted wrapper escapes inert and preserves visible text", () => {
+    const { container } = render(
+      <NoteMiniature
+        content={
+          '<</template>/template><img src="/escape" onerror="alert(1)"><p>Still safe</p>'
+        }
+      />,
+    );
+    expect(container.textContent).toBe("</template>Still safe");
+    expect(
+      container.querySelector("img,script,template,[src],[onerror]"),
+    ).toBeNull();
+  });
+
+  it("updates when notes change", () => {
+    const { container, rerender } = render(
+      <NoteMiniature content="Plain text" />,
+    );
+    expect(container.textContent).toBe("Plain text");
     rerender(<NoteMiniature content="<p>Another note</p>" />);
     expect(container.textContent).toBe("Another note");
     rerender(<NoteMiniature content={null} />);
@@ -102,6 +176,16 @@ describe("note times", () => {
     expect(formatNoteTime(new Date(2026, 9, 21), options)).toBe("21 Oct");
     expect(formatNoteTime(new Date(2026, 8, 24), options)).toBe("24 Sept");
     expect(formatNoteTime(new Date(2025, 9, 24), options)).toBe("24 Oct 2025");
+  });
+  it("includes last year across New Year while keeping Yesterday", () => {
+    const options = { now: new Date(2026, 0, 2, 12), locale: "en-GB" };
+    expect(formatNoteTime(new Date(2025, 11, 31), options)).toBe("31 Dec 2025");
+    expect(
+      formatNoteTime(new Date(2025, 11, 31), {
+        ...options,
+        now: new Date(2026, 0, 1, 12),
+      }),
+    ).toBe("Yesterday");
   });
   it("puts folder first on cards and last in the preview", () => {
     const date = new Date();

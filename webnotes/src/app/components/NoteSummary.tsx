@@ -21,19 +21,70 @@ export function noteText(content: Note["content"]) {
     .replace(/&quot;/g, '"')
     .trim();
 }
+function markdownInline(text: string): ReactNode[] {
+  const tokens =
+    /\[\[([^\]\n]+)\]\]|\[([^\]\n]+)\]\([^\s)]+\)|\*\*([^*\n]+)\*\*/g;
+  const nodes: ReactNode[] = [];
+  let end = 0;
+  for (const match of text.matchAll(tokens)) {
+    nodes.push(text.slice(end, match.index));
+    nodes.push(
+      <span className={match[3] ? "mini-bold" : "mini-link"} key={match.index}>
+        {match[1] ?? match[2] ?? match[3]}
+      </span>,
+    );
+    end = match.index + match[0].length;
+  }
+  nodes.push(text.slice(end));
+  return nodes;
+}
+
+function markdownMiniature(content: string): ReactNode {
+  return content.split("\n").map((line, key) => {
+    const heading = /^#{1,6}\s+(.+)$/.exec(line);
+    const task = /^[-*] \[([ xX])\]\s+(.*)$/.exec(line);
+    const item = /^(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
+    if (heading)
+      return (
+        <span className="mini-heading" key={key}>
+          {markdownInline(heading[1])}
+        </span>
+      );
+    if (task) {
+      const checked = task[1].toLowerCase() === "x";
+      return (
+        <span className={`mini-task${checked ? " mini-done" : ""}`} key={key}>
+          <span
+            className="mini-box"
+            aria-label={checked ? "Checked task" : "Unchecked task"}
+          />
+          {markdownInline(task[2])}
+        </span>
+      );
+    }
+    if (item)
+      return (
+        <span className="mini-item" key={key}>
+          {markdownInline(item[1])}
+        </span>
+      );
+    return (
+      <span className="mini-paragraph" key={key}>
+        {markdownInline(line)}
+      </span>
+    );
+  });
+}
+
 // Only generated spans and line breaks reach React; stored attributes never do.
 export function noteMiniature(content: Note["content"]): ReactNode {
   if (!content) return "Empty note";
-  // Do not interpret Markdown or literal comparison operators as HTML.
-  if (!/<\/?[a-z][^>]*>/i.test(content)) return content;
-  // Template contents cannot load images/frames. Strip template delimiters so
-  // stored HTML cannot close the inert wrapper and escape into the document.
-  const html = content.replace(/<\/?template\b[^>]*>/gi, "");
-  const document = new DOMParser().parseFromString(
-    `<template>${html}</template>`,
-    "text/html",
-  );
-  const root = document.querySelector("template")?.content;
+  // Parse stored HTML in a detached template: no wrapper can be closed by input.
+  // Without element nodes, render the original text with the Markdown tokenizer.
+  const template = document.createElement("template");
+  template.innerHTML = content;
+  const root = template.content;
+  if (!root.childElementCount) return markdownMiniature(content);
   function walk(node: Node, key: number): ReactNode {
     if (node.nodeType === 3) return node.textContent;
     if (!(node instanceof Element)) return null;
@@ -110,11 +161,11 @@ export function noteMiniature(content: Note["content"]): ReactNode {
         return null;
     }
   }
-  return Array.from(root?.childNodes ?? [], walk);
+  return Array.from(root.childNodes, walk);
 }
 
 export function NoteMiniature({ content }: { content: Note["content"] }) {
-  // DOMParser is browser-only. The initial text also keeps SSR/hydration identical.
+  // Template parsing is browser-only. The initial text also keeps SSR/hydration identical.
   const [miniature, setMiniature] = useState<ReactNode>(null);
   useEffect(() => setMiniature(noteMiniature(content)), [content]);
   return (
@@ -144,7 +195,7 @@ export function formatNoteTime(
   });
   if (days === 0) return preview ? `Today at ${clock}` : clock;
   if (days === 1) return preview ? `Yesterday at ${clock}` : "Yesterday";
-  if (days > 1 && days < 7)
+  if (date.getFullYear() === now.getFullYear() && days > 1 && days < 7)
     return date.toLocaleDateString(locale, { weekday: "short" });
   return `${date.getDate()} ${date.toLocaleDateString(locale, { month: "short" })}${date.getFullYear() === now.getFullYear() ? "" : ` ${date.getFullYear()}`}`;
 }
