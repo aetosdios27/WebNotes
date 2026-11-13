@@ -478,16 +478,23 @@ function HydratedEditor({
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const handler = (_update: Uint8Array, origin: unknown) => {
-      if (!isAuthenticated || origin === "remote") return;
+      if (origin === "remote" || status === "unauthenticated") return;
       hasPendingChangesRef.current = true;
-      debouncedSync();
+      if (isAuthenticated) debouncedSync();
     };
     ydoc.on("update", handler);
     return () => {
       ydoc.off("update", handler);
       debouncedSync.cancel();
     };
-  }, [ydoc, isAuthenticated, debouncedSync]);
+  }, [ydoc, status, isAuthenticated, debouncedSync]);
+
+  // Edits typed while the session was still loading are saved once it resolves.
+  useEffect(() => {
+    if (isAuthenticated && isFetched && hasPendingChangesRef.current) {
+      debouncedSync();
+    }
+  }, [isAuthenticated, isFetched, debouncedSync]);
 
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
@@ -647,6 +654,8 @@ function HydratedEditor({
     if (!editor || editor.isDestroyed || hasSeededLegacy.current) return;
     if (status === "loading" || (isAuthenticated && !isFetched)) return;
     hasSeededLegacy.current = true;
+    // Server Yjs state is authoritative, even when the body was cleared on purpose.
+    if (isAuthenticated && fullNote?.yjsState) return;
     const content = (isAuthenticated ? fullNote?.content : undefined) || activeNote.content;
     // Mounting Tiptap inserts an empty paragraph into an empty fragment.
     const isUnwritten =
