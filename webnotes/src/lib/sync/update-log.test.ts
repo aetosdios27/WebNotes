@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { createUpdateLog } from "./update-log";
+import { COMPACT_AFTER_ROWS, createUpdateLog } from "./update-log";
 import { mergeState } from "./state";
 import { MemoryDatabase } from "./testing/memory-database";
 import { makeUpdate, values } from "./testing/updates";
@@ -113,20 +113,20 @@ describe("append-only update log", () => {
     expect(values(await log.readState("note"))).toEqual({ first: "one" });
   });
 
-  test("only compacts above 200 rows, and maintenance failure does not fail the save", async () => {
+  test("only compacts above COMPACT_AFTER_ROWS rows, and maintenance failure does not fail the save", async () => {
     const db = new MemoryDatabase();
     const log = createUpdateLog(db);
     const bytes = makeUpdate("first", "one");
-    for (let i = 0; i < 200; i++) await log.appendUpdate("note", bytes);
+    for (let i = 0; i < COMPACT_AFTER_ROWS; i++) await log.appendUpdate("note", bytes);
     await log.compactIfNeeded("note");
-    expect(db.rows).toHaveLength(200);
+    expect(db.rows).toHaveLength(COMPACT_AFTER_ROWS);
 
     await log.appendUpdate("note", bytes);
     db.failDelete = true;
     const errors = spyOn(console, "error").mockImplementation(() => {});
     try {
       await log.compactIfNeeded("note");
-      expect(db.rows).toHaveLength(201);
+      expect(db.rows).toHaveLength(COMPACT_AFTER_ROWS + 1);
       expect(values(await log.readState("note"))).toEqual({ first: "one" });
       db.failCount = true;
       await log.compactIfNeeded("note");

@@ -4,8 +4,16 @@ export function mergeState(
   snapshot: Uint8Array | null,
   updates: readonly Uint8Array[]
 ): Uint8Array {
-  // The binary API preserves updates whose dependencies have not arrived yet.
-  return Y.mergeUpdates(snapshot ? [snapshot, ...updates] : [...updates]);
+  // Y.mergeUpdates keeps deleted content forever; a GC-enabled doc drops it.
+  // Updates whose dependencies have not arrived stay pending and are still encoded.
+  const doc = new Y.Doc();
+  try {
+    if (snapshot) Y.applyUpdate(doc, snapshot);
+    for (const update of updates) Y.applyUpdate(doc, update);
+    return Y.encodeStateAsUpdate(doc);
+  } finally {
+    doc.destroy();
+  }
 }
 
 export function encodeDiff(

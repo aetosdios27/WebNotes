@@ -1,6 +1,9 @@
 import type { Note, NoteUpdate } from "@prisma/client";
 import { mergeState } from "./state";
 
+// The current client sends the whole document on every save, so keep the log short.
+export const COMPACT_AFTER_ROWS = 50;
+
 type Snapshot = Pick<Note, "yjsState" | "version">;
 type Update = Pick<NoteUpdate, "id" | "data">;
 
@@ -107,7 +110,7 @@ export function createUpdateLog(db: SyncDatabase) {
   async function compactIfNeeded(noteId: string): Promise<void> {
     try {
       const count = await db.noteUpdate.count({ where: { noteId } });
-      if (count > 200) {
+      if (count > COMPACT_AFTER_ROWS) {
         await compact(noteId);
       }
     } catch (error) {

@@ -69,4 +69,28 @@ describe("Yjs state", () => {
   test("merges an empty note into a valid empty state", () => {
     expect(values(mergeState(null, []))).toEqual({});
   });
+
+  test("drops deleted content, so repeated full replacements stay small", () => {
+    const doc = new Y.Doc();
+    const saves: Uint8Array[] = [];
+    try {
+      const text = doc.getText("text");
+      for (let i = 0; i < 8; i++) {
+        text.delete(0, text.length);
+        text.insert(0, String(i).repeat(50_000));
+        saves.push(Y.encodeStateAsUpdate(doc));
+      }
+    } finally {
+      doc.destroy();
+    }
+    const merged = mergeState(null, saves);
+    expect(merged.byteLength).toBeLessThan(2 * 50_000);
+    const check = new Y.Doc();
+    try {
+      Y.applyUpdate(check, merged);
+      expect(check.getText("text").toString()).toBe("7".repeat(50_000));
+    } finally {
+      check.destroy();
+    }
+  });
 });
