@@ -95,7 +95,7 @@ model Note {
   // ✅ Keep content for search/fallback
   content String? @db.Text
 
-  // ✅ CRDT Binary State
+  // Compacted CRDT snapshot; combine with updates to read the current state.
   yjsState Bytes? @map("yjs_state")
 
   // ✅ Optimistic Locking Version
@@ -111,6 +111,7 @@ model Note {
   folder    Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   folderId  String?       @map("folder_id")
   versions  NoteVersion[]
+  updates   NoteUpdate[]
 
   // ✅ Critical Query Indexes
   @@index([userId])
@@ -118,6 +119,17 @@ model Note {
   @@index([userId, isPinned, pinnedAt, updatedAt])
   @@index([updatedAt])
   @@map("notes")
+}
+
+model NoteUpdate {
+  id        BigInt   @id @default(autoincrement())
+  noteId    String   @map("note_id")
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, id])
+  @@map("note_updates")
 }
 
 // ============================================================================

@@ -3,7 +3,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import * as Y from "yjs";
+import { z } from "zod";
+import { createUpdateLog } from "@/lib/sync/update-log";
+import { decodeClientUpdate, UpdateInputError } from "@/lib/sync/update-input";
+
+const syncInput = z.object({ id: z.string().min(1), update: z.string().min(1) });
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,54 +16,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { id, update } = body;
-
-    if (!id || !update) {
+    const input = syncInput.safeParse(await req.json());
+    if (!input.success) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
+
+    const { id, update } = input.data;
 
     // Check the note exists and belongs to this user
     const note = await prisma.note.findFirst({
       where: { id, userId: session.user.id },
-      select: { yjsState: true },
+      select: { id: true },
     });
 
     if (!note) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Merge: load existing state + apply incoming update
-    const mergedDoc = new Y.Doc();
-
-    if (note.yjsState) {
-      try {
-        Y.applyUpdate(mergedDoc, new Uint8Array(note.yjsState));
-      } catch (e) {
-        console.error("Failed to apply existing Yjs state:", e);
-      }
-    }
-
+    let incomingUpdate: Uint8Array;
     try {
-      const incomingUpdate = Buffer.from(update, "base64");
-      Y.applyUpdate(mergedDoc, new Uint8Array(incomingUpdate));
-    } catch (e) {
-      console.error("Failed to apply incoming update:", e);
-      mergedDoc.destroy();
-      return NextResponse.json({ error: "Invalid update" }, { status: 400 });
+      incomingUpdate = decodeClientUpdate(update);
+    } catch (error) {
+      if (!(error instanceof UpdateInputError)) throw error;
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.code === "TOO_LARGE" ? 413 : 400 }
+      );
     }
 
-    const newState = Buffer.from(Y.encodeStateAsUpdate(mergedDoc));
-    mergedDoc.destroy();
-
-    // Save to database
+    const log = createUpdateLog(prisma);
+    await log.appendUpdate(id, incomingUpdate);
     await prisma.note.update({
       where: { id },
-      data: {
-        yjsState: newState,
-        updatedAt: new Date(),
-      },
+      data: { updatedAt: new Date() },
     });
+    await log.compactIfNeeded(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
