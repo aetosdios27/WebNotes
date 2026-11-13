@@ -17,6 +17,8 @@
   --faint: #b9b9b3;
   --highlight: #fbca04;
   --highlight-band: rgba(251, 202, 4, 0.55);
+  --check: var(--ink);
+  --check-ink: var(--background);
   --float: #fff;
   --float-line: rgba(0, 0, 0, 0.08);
   --float-shadow:
@@ -35,6 +37,8 @@
   --muted: #7e7e79;
   --faint: #4b4b48;
   --highlight-band: rgba(251, 202, 4, 0.32);
+  --check: var(--highlight);
+  --check-ink: #111110;
   --float: #1a1a19;
   --float-line: rgba(255, 255, 255, 0.09);
   --float-shadow:
@@ -417,15 +421,19 @@ body {
   width: 100%;
   table-layout: fixed;
 }
+/* Hairline rows, no vertical rules or outer box, as in the approved mockup. */
 .ProseMirror :is(td, th) {
-  border: 1px solid var(--line);
-  padding: 0.5em 0.75em;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0.55em 0.75em 0.55em 0;
   position: relative;
   vertical-align: top;
 }
 .ProseMirror th {
-  background: var(--panel);
   font-weight: 600;
+}
+.ProseMirror tr:last-child > :is(td, th) {
+  border-bottom: 0;
 }
 .ProseMirror .selectedCell::after {
   content: "";
@@ -520,7 +528,16 @@ body {
   :is(table, td, th, pre, blockquote, hr, .callout-block) {
   border-color: var(--line);
 }
-#note-editor-root .ProseMirror :is(pre, .callout-block, th) {
+#note-editor-root .ProseMirror table {
+  border: 0 !important;
+}
+#note-editor-root .ProseMirror :is(td, th) {
+  border-width: 0 0 1px 0;
+}
+#note-editor-root .ProseMirror tr:last-child > :is(td, th) {
+  border-bottom-width: 0;
+}
+#note-editor-root .ProseMirror :is(pre, .callout-block) {
   background: var(--panel);
 }
 #note-editor-root .ProseMirror .selectedCell::after {
@@ -573,15 +590,15 @@ body {
   li.task-item
   > label
   > input[type="checkbox"]:checked {
-  background: var(--ink) !important;
-  border-color: var(--ink) !important;
+  background: var(--check) !important;
+  border-color: var(--check) !important;
 }
 #note-editor-root
   .ProseMirror
   li.task-item
   > label
   > input[type="checkbox"]:checked::after {
-  border-color: var(--background) !important;
+  border-color: var(--check-ink) !important;
 }
 #note-editor-root .ProseMirror li.task-item[data-checked="true"] > div {
   color: var(--muted) !important;
