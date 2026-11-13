@@ -596,7 +596,14 @@ function HydratedEditor({
     ) return;
     hasCheckedSnapshot.current = true;
     // Block IDs are regenerated for fresh empty paragraphs, so compare without them.
-    const withoutIds = (html: string) => html.replace(/ data-id="[^"]*"/g, "");
+    const withoutIds = (html: string) => {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      template.content
+        .querySelectorAll("[data-id]")
+        .forEach((element) => element.removeAttribute("data-id"));
+      return template.innerHTML;
+    };
     if (withoutIds(editor.getHTML()) !== withoutIds(activeNote.content ?? "")) {
       contentSnapshot.current?.schedule();
     }
