@@ -46,6 +46,7 @@ export async function migrateDeviceNotes(userId: string): Promise<number> {
         createFolder: (folder) => trpcVanilla.folders.create.mutate({ id: folder.id, name: folder.name }),
         createNote: (note) => trpcVanilla.notes.create.mutate({
           id: note.id, title: note.title, content: note.content, folderId: note.folderId,
+          isPinned: note.isPinned, pinnedAt: note.pinnedAt, font: note.font,
         }),
         syncBody: (id, update) => trpcVanilla.notes.sync.mutate({ id, update }),
         isRetryable: (cause) => !(cause instanceof TRPCClientError) ||

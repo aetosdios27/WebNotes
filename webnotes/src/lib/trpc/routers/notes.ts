@@ -156,6 +156,9 @@ export const notesRouter = router({
           .nullish()
           .transform((val) => val ?? ""),
         folderId: z.string().nullish(),
+        isPinned: z.boolean().optional(),
+        pinnedAt: z.date().nullish(),
+        font: z.string().nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -175,7 +178,9 @@ export const notesRouter = router({
             yjsState: state,
             folderId: input.folderId ?? null,
             userId: ctx.userId,
-            isPinned: false,
+            isPinned: input.isPinned ?? false,
+            pinnedAt: input.pinnedAt ?? null,
+            font: input.font ?? null,
           },
         }),
       });

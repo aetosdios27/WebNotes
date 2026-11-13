@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { LocalStorageAdapter } from "./local-storage";
 import { CloudStorageAdapter } from "./cloud-storage";
 import { TauriStorageAdapter } from "./tauri-storage"; // <--- NEW
@@ -44,17 +45,23 @@ export class HybridStorageAdapter {
   }
 
   private async detectAuth(): Promise<void> {
+    let userId: string | null = null;
     try {
       const response = await fetch("/api/auth/session");
       if (!response.ok) throw new Error("Could not check session");
       const session = await response.json();
-      this.isAuthenticated = false;
-      if (typeof session?.user?.id !== "string") return;
-      await this.migrateLocalToCloud(session.user.id);
-      this.isAuthenticated = true;
+      userId = typeof session?.user?.id === "string" ? session.user.id : null;
     } catch (error) {
-      this.isAuthenticated = false;
+      console.error("Could not check session", error);
+    }
+    this.isAuthenticated = userId !== null;
+    if (!userId) return;
+    // A failed upload must not hide the account's cloud notes; device copies stay and retry.
+    try {
+      await this.migrateLocalToCloud(userId);
+    } catch (error) {
       console.error("Account upload deferred; device notes retained", error);
+      toast.error("Some notes on this device couldn't be uploaded yet. They're kept here and will retry.");
     }
   }
 
