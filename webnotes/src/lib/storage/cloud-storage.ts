@@ -13,19 +13,36 @@ export class CloudStorageAdapter {
   // ==========================================================================
 
   async getNotes(): Promise<Note[]> {
-    const result = await trpcVanilla.notes.list.query();
+    const notes: Note[] = [];
+    const seenCursors = new Set<string>();
+    const seenNoteIds = new Set<string>();
+    let cursor: string | undefined;
 
-    return result.notes.map((n) => ({
-      id: n.id,
-      title: n.title,
-      content: n.content,
-      folderId: n.folderId ?? null,
-      isPinned: n.isPinned,
-      pinnedAt: n.pinnedAt ?? null,
-      font: n.font ?? null,
-      createdAt: n.createdAt,
-      updatedAt: n.updatedAt,
-    }));
+    while (true) {
+      const result = await trpcVanilla.notes.list.query({ limit: 100, cursor });
+
+      for (const n of result.notes) {
+        if (seenNoteIds.has(n.id)) continue;
+        seenNoteIds.add(n.id);
+        notes.push({
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          folderId: n.folderId ?? null,
+          isPinned: n.isPinned,
+          pinnedAt: n.pinnedAt ?? null,
+          font: n.font ?? null,
+          createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
+        });
+      }
+
+      if (!result.nextCursor || seenCursors.has(result.nextCursor)) break;
+      seenCursors.add(result.nextCursor);
+      cursor = result.nextCursor;
+    }
+
+    return notes;
   }
 
   async createNote(data: Partial<Note>): Promise<Note> {

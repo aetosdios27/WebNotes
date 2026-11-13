@@ -85,13 +85,15 @@ export const notesRouter = router({
           { isPinned: "desc" },
           { pinnedAt: "desc" },
           { updatedAt: "desc" },
+          { id: "asc" },
         ],
       });
 
       let nextCursor: string | undefined = undefined;
       if (notes.length > limit) {
-        const nextItem = notes.pop();
-        nextCursor = nextItem!.id;
+        notes.pop();
+        // The next query skips its cursor, so use the last returned note.
+        nextCursor = notes[notes.length - 1]?.id;
       }
 
       return {
