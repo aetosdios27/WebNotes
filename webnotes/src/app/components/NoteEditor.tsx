@@ -4,7 +4,6 @@
 
 import type { Editor } from "@tiptap/react";
 import type { Note } from "@/lib/storage/types";
-import { useDebouncedCallback } from "use-debounce";
 import {
   useEditor,
   EditorContent,
@@ -42,7 +41,7 @@ import { PanelRight } from "lucide-react";
 import RightSidebar from "./RightSidebar";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import { trpc } from "@/lib/trpc/client";
+import { useNoteSync } from "@/hooks/useNoteSync";
 
 import {
   Table,
@@ -161,20 +160,6 @@ const sanitizeHtml = (html: string): string =>
       "style",
     ],
   });
-
-const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++)
-    binary += String.fromCharCode(bytes[i]);
-  return window.btoa(binary);
-};
-
-const base64ToUint8Array = (base64: string): Uint8Array => {
-  const bin = window.atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-};
 
 // =============================================================================
 // CUSTOM MARKS
@@ -363,139 +348,18 @@ function HydratedEditor({
   onTitleChange,
   onEditorClick,
 }: InnerEditorProps & { ydoc: Y.Doc }) {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const isAuthenticated = status === "authenticated";
-  const isAuthenticatedRef = useRef(isAuthenticated);
-  isAuthenticatedRef.current = isAuthenticated;
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const { error: syncError, pulled, hasServerState, dismissError } = useNoteSync({
+    id: noteId,
+    doc: ydoc,
+    userId: isAuthenticated ? session?.user?.id : undefined,
+    onSavingStatusChange,
+  });
 
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
-  const [wasEmptyAfterLocalHydration] = useState(
-    () => ydoc.getXmlFragment("default").length === 0
-  );
   const hasEditedBody = useRef(false);
-  const isSyncingRef = useRef(false);
-  const hasPendingChangesRef = useRef(false);
-
-  // ---------------------------------------------------------------------------
-  // Fetch full note from server
-  // ---------------------------------------------------------------------------
-  const { data: fullNote, isFetched } = trpc.notes.byId.useQuery(
-    { id: noteId },
-    { enabled: isAuthenticated, staleTime: 0, refetchOnWindowFocus: false }
-  );
-
-  // ---------------------------------------------------------------------------
-  // Sync mutation (normal async save)
-  // ---------------------------------------------------------------------------
-  const syncMutation = trpc.notes.sync.useMutation({
-    onSuccess: () => {
-      setSyncError(null);
-      isSyncingRef.current = false;
-      hasPendingChangesRef.current = false;
-    },
-    onError: (err) => {
-      console.error("❌ Sync failed:", noteId, err.message);
-      setSyncError(err.message);
-      isSyncingRef.current = false;
-    },
-  });
-
-  // Normal async sync
-  const syncToServer = useCallback(async () => {
-    if (!isAuthenticatedRef.current || isSyncingRef.current) return;
-    isSyncingRef.current = true;
-    onSavingStatusChange(true);
-    try {
-      const fullState = Y.encodeStateAsUpdate(ydoc);
-      const base64 = uint8ArrayToBase64(fullState);
-      await syncMutation.mutateAsync({ id: noteId, update: base64 });
-    } catch (err) {
-      console.error("Sync error:", err);
-    } finally {
-      onSavingStatusChange(false);
-      isSyncingRef.current = false;
-    }
-  }, [noteId, ydoc, onSavingStatusChange, syncMutation]);
-
-  const debouncedSync = useDebouncedCallback(() => {
-    syncToServer();
-  }, EDITOR_CONFIG.AUTOSAVE_DELAY_MS);
-
-  // Emergency sync via sendBeacon — survives page close/refresh
-  const sendBeaconSync = useCallback(() => {
-    if (!isAuthenticatedRef.current || !hasPendingChangesRef.current) return;
-    try {
-      const fullState = Y.encodeStateAsUpdate(ydoc);
-      const base64 = uint8ArrayToBase64(fullState);
-      navigator.sendBeacon(
-        "/api/notes/sync-beacon",
-        new Blob([JSON.stringify({ id: noteId, update: base64 })], {
-          type: "application/json",
-        })
-      );
-      hasPendingChangesRef.current = false;
-    } catch (err) {
-      console.error("Beacon sync failed:", err);
-    }
-  }, [noteId, ydoc]);
-
-  // ---------------------------------------------------------------------------
-  // Save on page refresh / tab close
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      debouncedSync.flush();
-      sendBeaconSync();
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [debouncedSync, sendBeaconSync]);
-
-  // ---------------------------------------------------------------------------
-  // Save on unmount (note switch) — flush debounce + beacon as backup
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    return () => {
-      debouncedSync.flush();
-      sendBeaconSync();
-    };
-  }, [debouncedSync, sendBeaconSync]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !fullNote?.yjsState) return;
-    try {
-      Y.applyUpdate(ydoc, base64ToUint8Array(fullNote.yjsState), "remote");
-    } catch (err) {
-      console.error("❌ Hydration failed:", err);
-      setSyncError("Failed to load note from server");
-    }
-  }, [isAuthenticated, fullNote, ydoc]);
-
-  // ---------------------------------------------------------------------------
-  // Listen for local Yjs changes → trigger debounced sync
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const handler = (_update: Uint8Array, origin: unknown) => {
-      if (origin === "remote" || status === "unauthenticated") return;
-      hasPendingChangesRef.current = true;
-      if (isAuthenticated) debouncedSync();
-    };
-    ydoc.on("update", handler);
-    return () => {
-      ydoc.off("update", handler);
-      debouncedSync.cancel();
-    };
-  }, [ydoc, status, isAuthenticated, debouncedSync]);
-
-  // Edits typed while the session was still loading are saved once it resolves.
-  useEffect(() => {
-    if (isAuthenticated && isFetched && hasPendingChangesRef.current) {
-      debouncedSync();
-    }
-  }, [isAuthenticated, isFetched, debouncedSync]);
-
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
   // ---------------------------------------------------------------------------
@@ -652,29 +516,25 @@ function HydratedEditor({
   const hasSeededLegacy = useRef(false);
   useEffect(() => {
     if (!editor || editor.isDestroyed || hasSeededLegacy.current) return;
-    if (status === "loading" || (isAuthenticated && !isFetched)) return;
+    if (status === "loading" || (isAuthenticated && !pulled)) return;
     hasSeededLegacy.current = true;
     // Server Yjs state is authoritative, even when the body was cleared on purpose.
-    if (isAuthenticated && fullNote?.yjsState) return;
-    const content = (isAuthenticated ? fullNote?.content : undefined) || activeNote.content;
-    // Mounting Tiptap inserts an empty paragraph into an empty fragment.
-    const isUnwritten =
-      ydoc.getXmlFragment("default").length === 0 ||
-      (wasEmptyAfterLocalHydration && editor.isEmpty && !hasEditedBody.current);
+    if (isAuthenticated && hasServerState) return;
+    const content = activeNote.content;
+    // Tiptap's empty-paragraph placeholder can already be persisted locally from an
+    // earlier open, so judge by visible emptiness, not by the fragment being empty.
+    const isUnwritten = editor.isEmpty && !hasEditedBody.current;
     if (isUnwritten && content) {
       editor.commands.setContent(content, { emitUpdate: false });
-      if (isAuthenticated) void syncToServer();
     }
   }, [
-    wasEmptyAfterLocalHydration,
     editor,
     status,
     isAuthenticated,
-    isFetched,
-    fullNote,
+    pulled,
+    hasServerState,
     activeNote.content,
     ydoc,
-    syncToServer,
   ]);
 
   useEffect(() => {
@@ -690,7 +550,7 @@ function HydratedEditor({
         <div className="absolute top-0 left-0 right-0 z-[100] bg-red-900/90 text-white px-4 py-2 flex items-center justify-between">
           <span className="text-sm">⚠️ {syncError}</span>
           <button
-            onClick={() => setSyncError(null)}
+            onClick={dismissError}
             className="text-xs hover:text-red-200"
           >
             Dismiss
