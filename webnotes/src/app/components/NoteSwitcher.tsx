@@ -97,7 +97,12 @@ export default function NoteSwitcher({
                 ),
               );
             }
-            if (event.key === "Enter") {
+            // Chips and Close keep their own Enter; only the input and options choose.
+            const target = event.target as HTMLElement;
+            if (
+              event.key === "Enter" &&
+              (target === input.current || target.closest('[role="option"]'))
+            ) {
               event.preventDefault();
               choose();
             }
