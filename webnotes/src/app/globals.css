@@ -16,6 +16,8 @@
   --muted: #8b8b86;
   --faint: #b9b9b3;
   --highlight: #fbca04;
+  /* One caret for every text field. Light paper needs a deeper amber to stay visible. */
+  --caret: #9a7300;
   --highlight-band: rgba(251, 202, 4, 0.55);
   --check: var(--ink);
   --check-ink: var(--background);
@@ -54,6 +56,7 @@
 }
 .dark {
   color-scheme: dark;
+  --caret: #fbca04;
   --danger: #f97066;
   --background: #101010;
   --panel: #161615;
@@ -407,7 +410,7 @@ body {
   letter-spacing: -0.004em;
   font-weight: 400;
   color: var(--reading);
-  caret-color: var(--highlight);
+  caret-color: var(--caret);
 }
 .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
   color: var(--ink);
@@ -1899,4 +1902,11 @@ input:checked + span > .task-check path,
 
 .theme-toggle:is(:hover, :focus-visible) svg.lucide {
   color: var(--ink);
+}
+
+/* Title, body, code and every input share one caret. */
+input,
+textarea,
+[contenteditable="true"] {
+  caret-color: var(--caret);
 }

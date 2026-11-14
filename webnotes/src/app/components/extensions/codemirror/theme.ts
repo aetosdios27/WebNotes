@@ -15,12 +15,12 @@ export const codeBlockTheme = EditorView.theme(
       fontFamily: FONT_FAMILY,
     },
     ".cm-content": {
-      caretColor: "#eab308",
+      caretColor: "var(--caret)",
       fontFamily: FONT_FAMILY,
       padding: "12px 0",
     },
     ".cm-cursor, .cm-dropCursor": {
-      borderLeftColor: "#eab308",
+      borderLeftColor: "var(--caret)",
       borderLeftWidth: "2px",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
@@ -54,7 +54,7 @@ export const codeBlockTheme = EditorView.theme(
     },
     // Force cursor visibility and blinking
     "&.cm-focused .cm-cursor": {
-      borderLeftColor: "#eab308",
+      borderLeftColor: "var(--caret)",
       borderLeftWidth: "2px",
       display: "block",
     },
