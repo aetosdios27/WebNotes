@@ -1,0 +1,35 @@
+name: CodeQL Rust
+
+# Rust lives only in the parked TUI and the Tauri shell, and takes ~6 min to
+# analyze, so it runs when that code changes and weekly, not on every PR.
+on:
+  push:
+    branches: [main]
+    paths: ["webnotes/cli/**", "webnotes/src-tauri/**"]
+  pull_request:
+    paths: ["webnotes/cli/**", "webnotes/src-tauri/**"]
+  schedule:
+    - cron: "17 3 * * 1"
+
+concurrency:
+  group: codeql-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  security-events: write
+  contents: read
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: rust
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:rust
