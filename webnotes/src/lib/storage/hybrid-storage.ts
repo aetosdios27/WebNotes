@@ -75,7 +75,10 @@ export class HybridStorageAdapter {
     });
     if (!hasLocalData) return;
     const { migrateDeviceNotes } = await import("../migration/browser");
-    await migrateDeviceNotes(userId);
+    const count = await migrateDeviceNotes(userId);
+    if (count > 0) {
+      toast.success(`${count} ${count === 1 ? "note is" : "notes are"} now syncing`);
+    }
   }
 
   private async sync(): Promise<void> {
