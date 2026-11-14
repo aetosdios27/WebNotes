@@ -38,7 +38,9 @@ JSON attachments include the control, theme, viewport, expected and actual.
 Mutation probes are browser-only, opt-in and never affect production code:
 `UI_MUTATION=icon bun run test:ui --project=dark-1280 --grep 'A icon'`.
 Other values/checks are `disabled`/B, `targets`/C, `overflow`/D,
-`duplicates`/E, `consequences`/F. Each must exit nonzero with a **new violation**,
+`duplicates`/E, `consequences`/F.
+`node e2e/mutations.mjs` runs all probes and also temporarily fixes Home to
+32×32 (`resolved`), requiring the known-issue mechanism to reject the stale entry. Each must exit nonzero with a **new violation**,
 not merely an expected baseline failure. In particular `icon` restores the
 original global `--ink` hover rule, including the yellow New note button.
 

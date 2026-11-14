@@ -31,6 +31,7 @@ export const test = base.extend({
     const mutations: Record<string, string> = {
       disabled: 'button:disabled:hover { color: red !important; background: red !important; }',
       targets: '.window-bar .bar-icon { min-width: 8px !important; width: 8px !important; height: 8px !important; padding: 0 !important; }',
+      resolved: '.window-bar .home-mark { width: 32px !important; height: 32px !important; }',
       overflow: 'html { min-width: 2000px !important; }',
     };
     const css = mutations[process.env.UI_MUTATION || ''];

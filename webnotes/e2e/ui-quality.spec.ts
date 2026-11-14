@@ -52,6 +52,13 @@ async function openContext(page: Page) {
   await expect(page.getByRole('menu').first()).toBeVisible();
 }
 
+async function showAccount(page: Page) {
+  // No cloud user ID: exercise the actual account UI with local notes.
+  await page.route('**/api/auth/session', route => route.fulfill({ json: { user: { name: 'UI Tester', email: 'ui@example.test' }, expires: '2099-01-01T00:00:00Z' } }));
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Account:', exact: false })).toBeVisible();
+}
+
 test('A icon and label agree on hover, Tab focus and menu highlight', async ({ page }) => {
   const failures: Violation[] = [];
   await hoverColours(page.locator('body'), failures, 'hover');
@@ -119,6 +126,8 @@ test('C interactive hit targets', async ({ page }) => {
   await page.keyboard.press('Escape');
   await openContext(page);
   await scan(page.getByRole('menu').first());
+  await showAccount(page);
+  await scan(page.locator('.window-right'));
   report('C', failures);
 });
 
@@ -181,11 +190,7 @@ test('E title bar concepts are not duplicated in More', async ({ page }) => {
 for (const signedIn of [false, true]) test(`F title bar clicks have no immediate consequences (${signedIn ? 'account' : 'guest'})`, async ({ page }) => {
   // Network fixture exercises the real account UI without credentials, a database,
   // or a production test hook. Notes remain in the signed-out local adapter.
-  if (signedIn) {
-    await page.route('**/api/auth/session', route => route.fulfill({ json: { user: { name: 'UI Tester', email: 'ui@example.test' }, expires: '2099-01-01T00:00:00Z' } }));
-    await page.reload();
-    await expect(page.getByRole('button', { name: 'Account:', exact: false })).toBeVisible();
-  }
+  if (signedIn) await showAccount(page);
   const failures: Violation[] = [];
   const signouts: string[] = [];
   page.on('request', request => { if (request.url().includes('/api/auth/signout')) signouts.push(request.url()); });
