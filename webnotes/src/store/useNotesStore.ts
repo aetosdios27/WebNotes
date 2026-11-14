@@ -1,7 +1,8 @@
 // src/store/useNotesStore.ts
 import { defaultNoteFont } from "@/lib/note-fonts";
 import { toast } from "sonner";
-import { PendingDeletes } from "@/lib/pending-deletes";
+import { PendingDeletes, recoverAfterAuth } from "@/lib/pending-deletes";
+import { createSessionGuard, resolveRestoredNote } from "@/lib/undo-restore";
 import { create } from "zustand";
 import { clearDocument } from "y-indexeddb";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -96,6 +97,7 @@ const sortNotes = (notes: Note[]): Note[] => {
 };
 
 let deletes: PendingDeletes | undefined;
+const sessionGuard = createSessionGuard();
 function pendingDeletes() {
   return deletes ??= new PendingDeletes(localStorage, async ({ id, scope }) => {
     if (isTauri) await TauriDB.deleteNote(id);
@@ -172,7 +174,11 @@ export const useNotesStore = create<NotesState>()(
 
       const handleOnline = () => {
         set({ isOnline: true, syncStatus: SYNC_STATUS.SYNCED });
-        void pendingDeletes().recover(isTauri ? "tauri" : storage.deleteScope);
+        void recoverAfterAuth(
+          storage,
+          isTauri,
+          (scope) => pendingDeletes().recover(scope),
+        ).catch(() => { /* Auth refresh failed; recovery will retry on the next reconnect. */ });
       };
 
       const handleOffline = () => {
@@ -213,6 +219,7 @@ export const useNotesStore = create<NotesState>()(
     },
 
     logout: () => {
+      sessionGuard.invalidate();
       get()._destroyListeners();
       set({
         user: null,
@@ -424,17 +431,25 @@ export const useNotesStore = create<NotesState>()(
       const note = get().notes.find((n) => n.id === id);
       if (!note) return () => false;
       const wasOpen = get().activeNoteId === id;
+      const token = sessionGuard.token();
       const undo = pendingDeletes().stage({ id, scope: isTauri ? "tauri" : storage.deleteScope });
       set((state) => ({
         notes: state.notes.filter((n) => n.id !== id),
         activeNoteId: wasOpen ? null : state.activeNoteId,
       }));
       return () => {
-        if (!undo()) return false;
+        // A stale undo closure (from before an account switch) must not restore
+        // the old account's note. Leave the journal entry so it still commits.
+        if (!sessionGuard.isValid(token) || !undo()) return false;
+        const { note: restored, folderDropped } = resolveRestoredNote(
+          note,
+          get().folders.map((f) => f.id),
+        );
         set((state) => ({
-          notes: sortNotes([...state.notes.filter(n => n.id !== id), note]),
+          notes: sortNotes([...state.notes.filter(n => n.id !== id), restored]),
           activeNoteId: wasOpen ? id : state.activeNoteId,
         }));
+        if (folderDropped) toast("Note restored to All notes — its folder was deleted");
         return true;
       };
     },

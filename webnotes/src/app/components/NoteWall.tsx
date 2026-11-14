@@ -13,6 +13,7 @@ import {
 import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
 import { NoteMeta, NoteMiniature } from "./NoteSummary";
 import { RollingText } from "./ui/rolling-text";
+import { whenCurrent } from "@/lib/edit-guard";
 
 function FolderTabInput({ name, folders, id, save, cancel }: {
   name: string; folders: Folder[]; id: string;
@@ -23,11 +24,13 @@ function FolderTabInput({ name, folders, id, save, cancel }: {
   const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const finished = useRef(false);
+  const mounted = useRef(true);
   useEffect(() => {
     input.current?.focus();
     input.current?.select();
     input.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, []);
+  useEffect(() => () => { mounted.current = false; }, []);
   async function commit(blur = false) {
     if (finished.current) return;
     const trimmed = value.trim();
@@ -38,8 +41,13 @@ function FolderTabInput({ name, folders, id, save, cancel }: {
     }
     finished.current = true;
     setSaving(true);
-    try { await save(trimmed); cancel(); }
-    catch { finished.current = false; setSaving(false); setError("Could not save folder. Try again."); }
+    // A slow save must not close a newer editor or discard its draft.
+    await whenCurrent(
+      () => save(trimmed),
+      () => mounted.current,
+      () => cancel(),
+      () => { finished.current = false; setSaving(false); setError("Could not save folder. Try again."); },
+    );
   }
   return <div className="folder-tab-edit">
     <div className="folder-tab-field" data-invalid={Boolean(error)}>
