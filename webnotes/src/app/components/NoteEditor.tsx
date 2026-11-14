@@ -648,6 +648,7 @@ function HydratedEditor({
             <div className="max-w-[600px] mx-auto pb-32">
               <input
                 ref={titleInputRef}
+                autoFocus={!activeNote.title && !activeNote.content}
                 type="text"
                 value={title}
                 disabled={isReadingMode}
@@ -763,17 +764,6 @@ export default function NoteEditor({
   useEffect(() => {
     setTitle(activeNote?.title || "");
   }, [activeNote?.id, activeNote?.title]);
-
-  useEffect(() => {
-    if (activeNote) {
-      if (!activeNote.title && !activeNote.content && titleInputRef.current) {
-        setTimeout(
-          () => titleInputRef.current?.focus(),
-          EDITOR_CONFIG.TITLE_FOCUS_DELAY_MS
-        );
-      }
-    }
-  }, [activeNote?.id, activeNote?.title, activeNote?.content]);
 
   const fontClass = useMemo(
     () => getFontClass(activeNote?.font),

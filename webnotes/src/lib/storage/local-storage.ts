@@ -40,7 +40,7 @@ export class LocalStorageAdapter {
   async createNote(note: Partial<Note>): Promise<Note> {
     const newNote: Note = {
       id: note.id || uuidv4(),
-      title: note.title || 'Untitled',
+      title: note.title ?? 'Untitled',
       content: note.content || '',
       folderId: note.folderId || null,
       createdAt: note.createdAt || new Date(),
