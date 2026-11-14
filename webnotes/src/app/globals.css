@@ -1,8 +1,90 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap");
-
 @import "tailwindcss";
 @import "tippy.js/dist/tippy.css";
 @import "katex/dist/katex.min.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+:root {
+  color-scheme: light;
+  --background: #fff;
+  --panel: #f6f6f4;
+  --wall: #f3f3f0;
+  --card: #fff;
+  --selected: #eeeeea;
+  --line: #e8e8e4;
+  --ink: #111110;
+  --reading: #3d3d3a;
+  --muted: #8b8b86;
+  --faint: #b9b9b3;
+  --highlight: #fbca04;
+  --highlight-band: rgba(251, 202, 4, 0.55);
+  --check: var(--ink);
+  --check-ink: var(--background);
+  --float: #fff;
+  --float-line: rgba(0, 0, 0, 0.08);
+  --float-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05), 0 14px 36px rgba(0, 0, 0, 0.12);
+}
+.dark {
+  color-scheme: dark;
+  --background: #101010;
+  --panel: #161615;
+  --wall: #0a0a0a;
+  --card: #161615;
+  --selected: #1f1f1e;
+  --line: #222221;
+  --ink: #f4f4f1;
+  --reading: #c9c9c4;
+  --muted: #7e7e79;
+  --faint: #4b4b48;
+  --highlight-band: rgba(251, 202, 4, 0.32);
+  --check: var(--highlight);
+  --check-ink: #111110;
+  --float: #1a1a19;
+  --float-line: rgba(255, 255, 255, 0.09);
+  --float-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 30px 80px rgba(0, 0, 0, 0.75);
+}
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --color-background: var(--background);
+  --color-panel: var(--panel);
+  --color-wall: var(--wall);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-reading: var(--reading);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-highlight: var(--highlight);
+  --color-selected: var(--selected);
+  --color-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--muted);
+  --color-popover: var(--float);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--background);
+  --color-secondary: var(--panel);
+  --color-secondary-foreground: var(--ink);
+  --color-accent: var(--selected);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #fff;
+}
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  kbd {
+    font-family: inherit;
+  }
+}
 
 /* ============================================================
   ROOT / WINDOW BEHAVIOR
@@ -19,7 +101,7 @@ html {
 }
 
 body {
-  @apply bg-black text-zinc-200;
+  @apply bg-background text-ink;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -38,11 +120,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-800 rounded-full;
+  @apply bg-selected rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-zinc-700;
+  @apply bg-line;
 }
 
 /* ============================================================
@@ -50,12 +132,12 @@ body {
 ============================================================
 */
 ::selection {
-  background: rgba(250, 204, 21, 0.3);
+  background: var(--highlight-band);
   color: inherit;
 }
 
 .ProseMirror ::selection {
-  background: rgba(250, 204, 21, 0.3);
+  background: var(--highlight-band);
 }
 
 /* ============================================================
@@ -63,23 +145,23 @@ body {
 ============================================================
 */
 .ProseMirror {
-  word-wrap: break-word !important;
-  word-break: break-word !important;
-  overflow-wrap: break-word !important;
-  white-space: pre-wrap !important;
-  max-width: 100% !important;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
   outline: none;
 }
 
 .ProseMirror p {
-  margin-top: 0.25em !important;
-  margin-bottom: 0.25em !important;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #52525b;
+  color: var(--muted);
   pointer-events: none;
   height: 0;
 }
@@ -112,25 +194,25 @@ body {
 }
 
 .ProseMirror ul {
-  list-style-type: disc !important;
-  padding-left: 1.5rem !important;
-  margin: 0.25rem 0 !important;
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
 }
 .ProseMirror ol {
-  list-style-type: decimal !important;
-  padding-left: 1.5rem !important;
-  margin: 0.25rem 0 !important;
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
 }
 .ProseMirror li {
-  display: list-item !important;
-  margin: 0.125rem 0 !important;
+  display: list-item;
+  margin: 0.125rem 0;
 }
 .ProseMirror li p {
-  margin: 0 !important;
+  margin: 0;
 }
 .ProseMirror ul > li::marker,
 .ProseMirror ol > li::marker {
-  color: #71717a !important;
+  color: var(--muted);
 }
 
 /*
@@ -139,25 +221,27 @@ body {
    - Enforce JetBrains Mono everywhere
 */
 .ProseMirror code {
-  @apply bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded text-sm;
-  font-family: "JetBrains Mono", monospace !important;
+  @apply bg-selected text-reading px-1.5 py-0.5 rounded text-sm;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 /* Apply gray box only to pre tags that are NOT our custom code block */
 .ProseMirror pre:not(:has(.code-block)) {
-  @apply bg-zinc-900 text-zinc-300 p-4 rounded-lg overflow-x-auto my-4;
+  @apply bg-panel text-reading p-4 rounded-lg overflow-x-auto my-4;
 }
 
 .ProseMirror pre,
 .code-block,
 .code-block pre,
 .code-block code {
-  font-family: "JetBrains Mono", monospace !important;
-  font-feature-settings: "liga" on, "calt" on;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-feature-settings:
+    "liga" on,
+    "calt" on;
 }
 
 .ProseMirror blockquote {
-  @apply border-l-4 border-zinc-700 pl-4 italic text-zinc-400 my-4;
+  @apply border-l-4 border-line pl-4 italic text-muted my-4;
 }
 
 /* ============================================================
@@ -166,14 +250,14 @@ body {
 */
 .code-block .hljs-comment,
 .code-block .hljs-quote {
-  color: #545454;
+  color: var(--code-comment);
   font-style: italic;
 }
 
 .code-block .hljs-keyword,
 .code-block .hljs-selector-tag,
 .code-block .hljs-subst {
-  color: #c792ea;
+  color: var(--code-keyword);
 }
 
 .code-block .hljs-number,
@@ -181,12 +265,12 @@ body {
 .code-block .hljs-variable,
 .code-block .hljs-template-variable,
 .code-block .hljs-attr {
-  color: #f78c6c;
+  color: var(--code-number);
 }
 
 .code-block .hljs-string,
 .code-block .hljs-doctag {
-  color: #c3e88d;
+  color: var(--code-string);
 }
 
 .code-block .hljs-title,
@@ -194,32 +278,32 @@ body {
 .code-block .hljs-selector-id,
 .code-block .hljs-type,
 .code-block .hljs-class .hljs-title {
-  color: #ffcb6b;
+  color: var(--code-title);
 }
 
 .code-block .hljs-tag,
 .code-block .hljs-name,
 .code-block .hljs-attribute {
-  color: #f07178;
+  color: var(--code-tag);
 }
 
 .code-block .hljs-regexp,
 .code-block .hljs-link {
-  color: #89ddff;
+  color: var(--code-link);
 }
 
 .code-block .hljs-symbol,
 .code-block .hljs-bullet {
-  color: #82aaff;
+  color: var(--code-symbol);
 }
 
 .code-block .hljs-built_in,
 .code-block .hljs-builtin-name {
-  color: #ffcb6b;
+  color: var(--code-title);
 }
 
 .code-block .hljs-meta {
-  color: #a1a1aa;
+  color: var(--code-comment);
 }
 
 .code-block .hljs-deletion {
@@ -276,21 +360,822 @@ body {
   border-color: rgba(250, 204, 21, 0.2);
 }
 
-/* ============================================================
-  FONT OVERRIDES
-============================================================
-*/
-.font-serif .ProseMirror,
-.font-serif .ProseMirror * {
-  font-family: var(--font-serif), ui-serif, Georgia, serif !important;
+/* Editor rules deliberately outrank Tailwind typography without !important. */
+.ProseMirror.ProseMirror {
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 17px;
+  line-height: 1.62;
+  letter-spacing: -0.004em;
+  font-weight: 400;
+  color: var(--reading);
+  caret-color: var(--highlight);
+}
+.ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+.ProseMirror h1 {
+  font-size: 28px;
+}
+.ProseMirror h2 {
+  font-size: 21px;
+  margin-top: 1.75em;
+}
+.ProseMirror h3 {
+  font-size: 18px;
+}
+.ProseMirror p {
+  margin: 0 0 0.65em;
+}
+.ProseMirror :is(a, [data-type="noteLink"], .note-link) {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+  background: linear-gradient(var(--highlight-band), var(--highlight-band)) 0
+    88%/100% 38% no-repeat;
+}
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.ProseMirror li[data-type="taskItem"] {
+  display: flex;
+  gap: 0.75em;
+  align-items: baseline;
+}
+.ProseMirror li[data-type="taskItem"] > div {
+  flex: 1;
+  min-width: 0;
+}
+.ProseMirror input[type="checkbox"] {
+  accent-color: var(--ink);
+}
+.ProseMirror li[data-checked="true"] > div {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+/* Hairline rows, no vertical rules or outer box, as in the approved mockup. */
+.ProseMirror :is(td, th) {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0.55em 0.75em 0.55em 0;
+  position: relative;
+  vertical-align: top;
+}
+.ProseMirror th {
+  font-weight: 600;
+}
+.ProseMirror tr:last-child > :is(td, th) {
+  border-bottom: 0;
+}
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--selected);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--muted);
+  pointer-events: none;
+}
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+.ProseMirror pre code {
+  padding: 0;
+  background: transparent;
+}
+.ProseMirror [data-type="callout"] {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1em;
+}
+.math-inline-render.ring-2 {
+  background: var(--selected);
+  box-shadow: 0 0 0 2px var(--line);
+}
+@media (hover: hover) {
+  .math-inline-render:hover,
+  .math-block-render:hover {
+    background: var(--panel);
+    border-color: var(--line);
+  }
+}
+@media (max-width: 600px) {
+  .ProseMirror.ProseMirror {
+    font-size: 16.5px;
+  }
+}
+/* Compatibility with the editor-owned styles until that component is migrated. */
+#note-editor-root .bg-black {
+  background: var(--background);
+}
+#note-editor-root .text-white {
+  color: var(--ink);
+}
+#note-editor-root :is(.text-zinc-400, .text-zinc-500) {
+  color: var(--muted);
+}
+#note-editor-root :is(.bg-zinc-900, .bg-zinc-800) {
+  background: var(--panel);
+}
+#note-editor-root :is(.border-zinc-800, .border-zinc-700) {
+  border-color: var(--line);
+}
+#note-editor-root [aria-label="Note title"] {
+  font-family: var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.036em;
+  color: var(--ink);
+  line-height: 1.08;
+}
+/* These two declarations must outrank NoteEditor's embedded !important fonts. */
+#note-editor-root#note-editor-root[data-font="sans"] .ProseMirror,
+#note-editor-root#note-editor-root[data-font="sans"] .ProseMirror * {
+  font-family: var(--font-geist-sans), sans-serif !important;
+}
+#note-editor-root#note-editor-root
+  .ProseMirror
+  :is(pre, code, .cm-editor, .cm-editor *) {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+}
+#note-editor-root
+  .ProseMirror
+  :is(a.note-link, .note-link-placeholder, .subnote-item) {
+  color: var(--ink);
+  border: 0;
+  border-radius: 0;
+  padding: 0 1px;
+  background: linear-gradient(var(--highlight-band), var(--highlight-band)) 0
+    88%/100% 38% no-repeat;
+}
+#note-editor-root
+  .ProseMirror
+  :is(table, td, th, pre, blockquote, hr, .callout-block) {
+  border-color: var(--line);
+}
+#note-editor-root .ProseMirror table {
+  border: 0 !important;
+}
+#note-editor-root .ProseMirror :is(td, th) {
+  border-width: 0 0 1px 0;
+}
+#note-editor-root .ProseMirror tr:last-child > :is(td, th) {
+  border-bottom-width: 0;
+}
+#note-editor-root .ProseMirror :is(pre, .callout-block) {
+  background: var(--panel);
+}
+#note-editor-root .ProseMirror .selectedCell::after {
+  border-color: var(--line);
+}
+#note-editor-root .ProseMirror .column-resize-handle {
+  background: var(--muted);
+}
+#note-editor-root .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+#note-editor-root .ProseMirror h1 {
+  font-size: 28px;
+}
+#note-editor-root .ProseMirror h2 {
+  font-size: 21px;
+  margin-top: 1.75em;
+}
+#note-editor-root .ProseMirror h3 {
+  font-size: 18px;
+}
+#note-editor-root .ProseMirror blockquote {
+  color: var(--muted);
+}
+#note-editor-root .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--muted);
+}
+#note-editor-root {
+  background: var(--background);
+  color: var(--ink);
+}
+#note-editor-root .text-yellow-500 {
+  color: var(--ink);
+}
+#note-editor-root .code-block {
+  color: var(--code-ink);
+}
+#note-editor-root#note-editor-root .ProseMirror pre * {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+}
+/* Embedded checkbox rules in NoteEditor require narrow important overrides. */
+#note-editor-root .ProseMirror li.task-item > label > input[type="checkbox"] {
+  border-color: var(--muted) !important;
+}
+#note-editor-root
+  .ProseMirror
+  li.task-item
+  > label
+  > input[type="checkbox"]:checked {
+  background: var(--check) !important;
+  border-color: var(--check) !important;
+}
+#note-editor-root
+  .ProseMirror
+  li.task-item
+  > label
+  > input[type="checkbox"]:checked::after {
+  border-color: var(--check-ink) !important;
+}
+#note-editor-root .ProseMirror li.task-item[data-checked="true"] > div {
+  color: var(--muted) !important;
+}
+#note-editor-root .ProseMirror .selectedCell {
+  background-color: var(--selected) !important;
+}
+@media (hover: hover) {
+  #note-editor-root
+    .ProseMirror
+    li.task-item
+    > label
+    > input[type="checkbox"]:not(:checked):hover {
+    border-color: var(--ink) !important;
+    background: var(--selected) !important;
+  }
 }
 
-.font-mono .ProseMirror,
-.font-mono .ProseMirror * {
-  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace !important;
+/* The title owns the page hierarchy; document headings step down from it. */
+#note-editor-root .ProseMirror :is(h1, h2, h3) {
+  font-family: var(--font-geist-sans), sans-serif !important;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 30px 0 12px;
+}
+#note-editor-root .ProseMirror > :first-child {
+  margin-top: 0;
+}
+#note-editor-root .ProseMirror p {
+  margin-bottom: 6px;
 }
 
-.font-sans .ProseMirror,
-.font-sans .ProseMirror * {
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif !important;
+/* CSS handles interpolation; the delegated handler retains keyboard/cancel/blur. */
+@media (prefers-reduced-motion: no-preference) {
+  :is(button, [data-pressable], [role="menuitem"], [cmdk-item]) {
+    transition: scale 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  [data-press-feedback] {
+    scale: 0.97;
+  }
+}
+
+.code-block {
+  --code-ink: #242424;
+  --code-comment: #62625f;
+  --code-keyword: #703aa2;
+  --code-number: #984112;
+  --code-string: #386321;
+  --code-title: #755000;
+  --code-tag: #a12e40;
+  --code-link: #176579;
+  --code-symbol: #30599a;
+}
+.dark .code-block {
+  --panel: #0a0a0a;
+  --code-ink: #e4e4e7;
+  --code-comment: #a1a1aa;
+  --code-keyword: #c792ea;
+  --code-number: #f78c6c;
+  --code-string: #c3e88d;
+  --code-title: #ffcb6b;
+  --code-tag: #f07178;
+  --code-link: #89ddff;
+  --code-symbol: #82aaff;
+}
+#note-editor-root .code-block pre {
+  color: var(--code-ink);
+}
+
+/* Language badges use readable neutral ink in both themes. */
+.code-block-header > div > div {
+  color: var(--code-ink) !important;
+  background: var(--selected) !important;
+  border-color: var(--line) !important;
+}
+
+/* The note is the window. Navigation lives in its title bar. */
+.notes-window {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  color: var(--ink);
+}
+.notes-window.home {
+  background: var(--wall);
+}
+.window-bar {
+  height: 52px;
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 380px 1fr;
+  align-items: center;
+  padding: 0 26px;
+  gap: 20px;
+}
+.window-left,
+.window-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.window-right {
+  justify-content: flex-end;
+  gap: 18px;
+}
+.window-bar button {
+  cursor: pointer;
+}
+.window-bar button:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+.window-bar button:active:not(:disabled),
+.note-card:active,
+.new-note:active {
+  transform: scale(0.98);
+}
+.home-mark {
+  margin-right: 7px;
+}
+.home-mark svg {
+  width: 30px;
+  height: 14px;
+  fill: var(--ink);
+}
+.dark .home-mark svg {
+  fill: var(--highlight);
+}
+.history-button,
+.bar-icon {
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 28px;
+  border-radius: 6px;
+}
+.history-button:hover,
+.bar-icon:hover {
+  background: var(--selected);
+  color: var(--ink);
+}
+.title-pill {
+  height: 32px;
+  border-radius: 9px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+.title-pill span {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.writing .title-pill span {
+  color: var(--reading);
+}
+.title-pill kbd {
+  font-size: 11px;
+  color: var(--faint);
+}
+.save-state {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.account-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--selected);
+  font-size: 12px;
+}
+.sign-in {
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.window-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.note-wall {
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 30px;
+}
+.wall-tabs {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 40px 16px;
+}
+.wall-tabs [role="tablist"] {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  flex: 1;
+}
+.wall-tabs [role="tab"] {
+  flex: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.wall-tabs [aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.wall-tabs sup {
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.new-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--background);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.new-note kbd {
+  opacity: 0.5;
+  margin-left: 4px;
+  font-size: 11px;
+}
+.note-grid {
+  columns: 4;
+  column-gap: 14px;
+  padding: 0 40px;
+}
+.note-card {
+  width: 100%;
+  display: block;
+  break-inside: avoid;
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px #0000000a,
+    0 0 0 1px var(--float-line);
+  padding: 16px 17px 14px;
+  margin-bottom: 14px;
+  position: relative;
+  text-align: left;
+  cursor: pointer;
+}
+.note-card:hover {
+  box-shadow: 0 0 0 1px var(--faint);
+}
+.note-card strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  margin-bottom: 7px;
+  padding-right: 14px;
+}
+.note-card p {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 9;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-card footer {
+  margin-top: 11px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.pin-mark {
+  position: absolute;
+  right: 14px;
+  top: 19px;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--highlight);
+  transform: skewX(-28deg);
+}
+.wall-empty,
+.load-notes {
+  padding: 40px;
+  color: var(--muted);
+  text-align: center;
+}
+.wall-empty button,
+.load-notes button {
+  text-decoration: underline;
+  cursor: pointer;
+}
+.switcher-veil {
+  position: fixed;
+  inset: 0;
+  background: #0008;
+  z-index: 100;
+}
+.note-switcher {
+  position: fixed;
+  z-index: 101;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  width: min(800px, calc(100vw - 32px));
+  border-radius: 16px;
+  background: var(--float);
+  color: var(--ink);
+  box-shadow:
+    0 0 0 1px var(--float-line),
+    var(--float-shadow);
+  overflow: hidden;
+  outline: none;
+}
+.switcher-search {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--float-line);
+  color: var(--muted);
+}
+.switcher-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  font-size: 17px;
+  color: var(--ink);
+  outline: none;
+}
+.switcher-search button {
+  padding: 5px;
+  cursor: pointer;
+}
+.switcher-chips {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 4px;
+  overflow-x: auto;
+}
+.switcher-chips button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  flex: none;
+  cursor: pointer;
+}
+.switcher-chips [aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--float);
+}
+.switcher-columns {
+  display: flex;
+  height: 412px;
+  max-height: calc(100dvh - 230px);
+}
+.switcher-results {
+  width: 356px;
+  flex: none;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+.switcher-results button {
+  padding: 9px 12px 10px;
+  border-radius: 10px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.switcher-results button[aria-selected="true"],
+.switcher-actions button[data-selected="true"],
+.switcher-results button:hover {
+  background: var(--selected);
+}
+.switcher-results strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+.switcher-results p {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.switcher-results .no-results {
+  white-space: normal;
+  padding: 15px;
+}
+.switcher-actions h3 {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 14px 12px 5px;
+}
+.switcher-actions button {
+  font-size: 13px;
+}
+.switcher-preview {
+  flex: 1;
+  min-width: 0;
+  margin: 8px 8px 8px 0;
+  border-radius: 12px;
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--float-line);
+  padding: 24px 26px;
+  overflow: auto;
+}
+.switcher-preview h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.preview-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.switcher-preview p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--reading);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.switcher-footer {
+  height: 38px;
+  border-top: 1px solid var(--float-line);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.switcher-footer span:last-child {
+  margin-left: auto;
+}
+.notes-window button:focus-visible,
+.note-switcher button:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
+}
+@media (max-width: 1000px) {
+  .note-grid {
+    columns: 3;
+  }
+  .window-bar {
+    grid-template-columns: 1fr minmax(180px, 320px) 1fr;
+    padding: 0 18px;
+    gap: 12px;
+  }
+  .window-right {
+    gap: 10px;
+  }
+}
+@media (max-width: 640px) {
+  .window-bar {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 0 16px;
+  }
+  .history-button,
+  .save-state,
+  .title-pill kbd {
+    display: none;
+  }
+  .window-right {
+    gap: 6px;
+  }
+  .window-left {
+    gap: 0;
+  }
+  .title-pill {
+    padding: 0 9px;
+  }
+  .wall-tabs {
+    padding: 12px 16px 16px;
+    gap: 12px;
+  }
+  .wall-tabs [role="tablist"] {
+    gap: 18px;
+  }
+  .new-note {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+    gap: 0;
+  }
+  .new-note kbd {
+    display: none;
+  }
+  .note-grid {
+    columns: 2;
+    padding: 0 16px;
+    column-gap: 10px;
+  }
+  .note-card {
+    padding: 13px 13px 11px;
+    margin-bottom: 10px;
+  }
+  .note-card strong {
+    font-size: 14px;
+  }
+  .note-card p {
+    -webkit-line-clamp: 7;
+  }
+  .note-switcher {
+    inset: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .switcher-columns {
+    flex: 1;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+  .switcher-results {
+    width: 100%;
+  }
+  .switcher-preview {
+    display: none;
+  }
+  .switcher-footer {
+    gap: 12px;
+    flex: none;
+  }
+}
+.writing .title-pill {
+  background: var(--selected);
+}
+.home .title-pill {
+  background: var(--card);
+}
+.window-bar {
+  grid-template-columns: 1fr 360px 1fr;
+  padding-inline: 18px;
+}
+@media (max-width: 1000px) {
+  .window-bar {
+    grid-template-columns: 1fr minmax(180px, 320px) 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .window-bar {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    padding-inline: 16px;
+  }
 }

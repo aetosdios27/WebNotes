@@ -30,7 +30,7 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-10 bg-black border-b border-zinc-800 flex items-center px-4 select-none"
+      className="h-10 bg-background border-b border-line flex items-center px-4 select-none"
     >
       {/* spacer to push controls to the right */}
       <div className="flex-1" data-tauri-drag-region />
@@ -40,21 +40,27 @@ export default function TitleBar() {
         <button
           data-tauri-no-drag
           onClick={handleMinimize}
-          className="w-3 h-3 rounded-full bg-[#4A4533] hover:bg-[#FFBD2E] transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-selected hover:text-ink"
           aria-label="Minimize"
-        />
+        >
+          <svg viewBox="0 0 10 10" className="h-2.5 w-2.5"><path d="M2 5h6" stroke="currentColor" strokeWidth="1.2" /></svg>
+        </button>
         <button
           data-tauri-no-drag
           onClick={handleMaximize}
-          className="w-3 h-3 rounded-full bg-[#354535] hover:bg-[#28C840] transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-selected hover:text-ink"
           aria-label="Maximize"
-        />
+        >
+          <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" fill="none"><rect x="2" y="2" width="6" height="6" stroke="currentColor" strokeWidth="1.2" /></svg>
+        </button>
         <button
           data-tauri-no-drag
           onClick={handleClose}
-          className="w-3 h-3 rounded-full bg-[#4A3535] hover:bg-[#FF5F57] transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-destructive hover:text-white"
           aria-label="Close"
-        />
+        >
+          <svg viewBox="0 0 10 10" className="h-2.5 w-2.5"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" /></svg>
+        </button>
       </div>
     </div>
   );

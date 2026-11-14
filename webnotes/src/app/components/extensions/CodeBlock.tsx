@@ -150,13 +150,13 @@ function CodeBlockComponent({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <NodeViewWrapper className="code-block relative my-6 rounded-lg border border-zinc-800 bg-[#0a0a0a] overflow-hidden shadow-sm group">
+    <NodeViewWrapper className="code-block relative my-6 rounded-lg border border-line bg-panel overflow-hidden shadow-sm group">
       {/* HEADER */}
       <div
-        className="flex items-center justify-end px-3 py-2 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm select-none"
+        className="code-block-header flex items-center justify-end px-3 py-2 border-b border-line bg-panel select-none"
         contentEditable={false}
       >
-        <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="flex items-center gap-4 opacity-100 transition-opacity duration-200">
           <OctopusBadge
             lang={currentLang}
             displayName={displayLang}
@@ -164,26 +164,26 @@ function CodeBlockComponent({
             isDetecting={isDetecting}
           />
 
-          <div className="h-3 w-px bg-zinc-800" />
+          <div className="h-3 w-px bg-line" />
 
           <CopyButton
             value={textContent}
-            className="h-6 w-6 !bg-transparent hover:!bg-zinc-800 !border-0 text-zinc-500 hover:text-zinc-300"
+            className="h-6 w-6 !bg-transparent hover:!bg-selected !border-0 text-muted hover:text-ink"
           />
         </div>
       </div>
 
       {/* EDITOR AREA */}
-      <div className="relative flex bg-[#0a0a0a]">
+      <div className="relative flex bg-panel">
         {/* Line Numbers */}
         <div
-          className="flex-shrink-0 flex flex-col items-end gap-0 py-4 pl-3 pr-4 text-right select-none bg-[#0a0a0a] border-r border-zinc-800/50"
+          className="flex-shrink-0 flex flex-col items-end gap-0 py-4 pl-3 pr-4 text-right select-none bg-panel border-r border-line"
           contentEditable={false}
           style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: "13px",
             lineHeight: "1.5",
-            color: "#52525b",
+            color: "var(--muted)",
             minWidth: "2.5em",
           }}
         >
@@ -195,7 +195,7 @@ function CodeBlockComponent({
         {/* The Content */}
         <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           <pre
-            className="!m-0 !p-4 !bg-[#0a0a0a] !border-0 !outline-none !font-[inherit]"
+            className="!m-0 !p-4 !bg-panel !border-0 !outline-none !font-mono"
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: "13px",

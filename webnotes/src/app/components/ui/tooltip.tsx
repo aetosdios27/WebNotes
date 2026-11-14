@@ -1,32 +1,69 @@
-"use client"
-
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
-
-import { cn } from "@/lib/utils"
-
-const TooltipProvider = TooltipPrimitive.Provider
-
-const Tooltip = TooltipPrimitive.Root
-
-const TooltipTrigger = TooltipPrimitive.Trigger
-
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]",
-        className
-      )}
+"use client";
+import * as React from "react";
+import { cn } from "@/lib/utils";
+import { Tooltip as Primitive } from "@base-ui/react/tooltip";
+export const Tooltip = Primitive.Root;
+export function TooltipTrigger({
+  asChild,
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof Primitive.Trigger> & {
+  asChild?: boolean;
+}) {
+  return (
+    <Primitive.Trigger
       {...props}
+      {...(asChild && React.isValidElement(children)
+        ? { render: children }
+        : { children })}
     />
-  </TooltipPrimitive.Portal>
-))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
-
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+  );
+}
+export function TooltipProvider({
+  delayDuration,
+  ...props
+}: React.ComponentProps<typeof Primitive.Provider> & {
+  delayDuration?: number;
+}) {
+  return <Primitive.Provider delay={delayDuration} {...props} />;
+}
+export const TooltipContent = React.forwardRef<
+  React.ComponentRef<typeof Primitive.Popup>,
+  Omit<React.ComponentPropsWithoutRef<typeof Primitive.Popup>, "className"> & {
+    className?: string;
+  } & Pick<
+      React.ComponentProps<typeof Primitive.Positioner>,
+      "side" | "align" | "sideOffset" | "alignOffset"
+    >
+>(
+  (
+    {
+      className,
+      side,
+      align = "center",
+      sideOffset = 4,
+      alignOffset,
+      ...props
+    },
+    ref,
+  ) => (
+    <Primitive.Portal>
+      <Primitive.Positioner
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        alignOffset={alignOffset}
+        className="z-50"
+      >
+        <Primitive.Popup
+          ref={ref}
+          className={cn(
+            "rounded-lg border border-line bg-popover text-ink shadow-lg outline-none px-3 py-1.5 text-xs",
+            className,
+          )}
+          {...props}
+        />
+      </Primitive.Positioner>
+    </Primitive.Portal>
+  ),
+);

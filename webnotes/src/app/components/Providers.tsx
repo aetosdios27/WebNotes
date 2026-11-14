@@ -1,6 +1,8 @@
 // src/app/components/Providers.tsx
 "use client";
 
+import { PressFeedback } from "./ui/press-feedback";
+import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,7 +27,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             refetchOnWindowFocus: false, // Don't refetch when tab regains focus
           },
         },
-      })
+      }),
   );
 
   const [trpcClient] = useState(() =>
@@ -36,16 +38,24 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           transformer: superjson,
         }),
       ],
-    })
+    }),
   );
 
   return (
-    <SessionProvider>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      </trpc.Provider>
-    </SessionProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <SessionProvider>
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <PressFeedback />
+            {children}
+          </QueryClientProvider>
+        </trpc.Provider>
+      </SessionProvider>
+    </ThemeProvider>
   );
 }
