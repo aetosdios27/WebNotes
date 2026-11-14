@@ -8,10 +8,6 @@
 .dark .settings-backdrop {
   background: #0007;
 }
-.settings-direct-backdrop,
-.dark .settings-direct-backdrop {
-  background: var(--wall);
-}
 body:has(.settings-sheet[data-presentation="modal"]) .app-shell {
   transform: scale(0.975);
   transform-origin: center 40%;

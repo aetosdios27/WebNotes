@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { settingsSections } from "@/app/components/settings/sections";
+import Home from "@/app/page";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -12,6 +13,7 @@ export default async function SettingsPage({
 }) {
   const { section } = await params;
   if (!settingsSections.some(({ id }) => id === section)) notFound();
-  // The persistent layout owns the sheet, for direct and in-app visits alike.
-  return null;
+  // The persistent layout owns the sheet. A direct visit or a refresh still
+  // shows the notes app behind it, exactly as when opened from inside the app.
+  return <Home />;
 }

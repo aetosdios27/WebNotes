@@ -270,7 +270,7 @@ export function SettingsSheet({
     >
       <Dialog.Portal>
         <Dialog.Backdrop
-          className={`settings-backdrop ${presentation === "direct" ? "settings-direct-backdrop" : ""}`}
+          className="settings-backdrop"
         />
         <Dialog.Popup
           ref={focusOnMount}
