@@ -148,9 +148,13 @@ export const notesRouter = router({
     .input(
       z.object({
         id: idInput.optional(),
-        title: titleInput
+        // Notes written before the 200-character limit still upload; their
+        // titles are shortened rather than the whole note being rejected.
+        title: z
+          .string()
+          .max(10_000)
           .nullish()
-          .transform((val) => val ?? ""),
+          .transform((val) => (val ?? "").slice(0, 200)),
         content: contentInput
           .nullish()
           .transform((val) => val ?? ""),

@@ -1859,7 +1859,6 @@ input:checked + span > .task-check path,
 }
 
 /* Text constraints apply to legacy notes and folders as well as new input. */
-.note-card > strong,
 .switcher-preview h2 {
   overflow-wrap: anywhere;
   display: -webkit-box;

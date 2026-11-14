@@ -7,8 +7,6 @@ import { readBeaconInput } from "@/lib/sync/beacon-input";
 import { createUpdateLog } from "@/lib/sync/update-log";
 import { decodeClientUpdate, UpdateInputError } from "@/lib/sync/update-input";
 
-
-
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();

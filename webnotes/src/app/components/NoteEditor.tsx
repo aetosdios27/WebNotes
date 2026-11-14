@@ -85,8 +85,6 @@ interface SubnoteTooltip {
 // CONSTANTS
 // =============================================================================
 
-
-
 const EDITOR_CONFIG = {
   AUTOSAVE_DELAY_MS: 2000,
   TITLE_FOCUS_DELAY_MS: 50,
