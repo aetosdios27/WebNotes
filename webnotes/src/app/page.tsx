@@ -299,6 +299,9 @@ export default function Home() {
     },
   ];
   const menuActions: NoteMenuActions = {
+    open: (id) => {
+      navigate(id);
+    },
     createNote: () => {
       void newNote();
     },
