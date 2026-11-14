@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { Plus } from "lucide-react";
-import { NoteMeta, noteText } from "./NoteSummary";
+import { NoteMeta, NoteMiniature } from "./NoteSummary";
 
 export default function NoteWall({
   notes,
@@ -90,7 +90,7 @@ export default function NoteWall({
           >
             {note.isPinned && <span className="pin-mark" aria-label="Pinned" />}
             <strong>{note.title || "Untitled"}</strong>
-            <p>{noteText(note.content) || "Empty note"}</p>
+            <NoteMiniature content={note.content} />
             <footer>
               <NoteMeta note={note} folders={folders} />
             </footer>

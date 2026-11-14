@@ -866,7 +866,7 @@ body {
 .note-card:hover {
   box-shadow: 0 0 0 1px var(--faint);
 }
-.note-card strong {
+.note-card > strong {
   display: block;
   font-size: 15px;
   font-weight: 600;
@@ -874,7 +874,7 @@ body {
   margin-bottom: 7px;
   padding-right: 14px;
 }
-.note-card p {
+.note-card > .note-miniature {
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--muted);
@@ -1043,7 +1043,8 @@ body {
   color: var(--muted);
   margin-bottom: 14px;
 }
-.switcher-preview p {
+.switcher-preview > p,
+.switcher-preview > .note-miniature {
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--reading);
@@ -1127,10 +1128,10 @@ body {
     padding: 13px 13px 11px;
     margin-bottom: 10px;
   }
-  .note-card strong {
+  .note-card > strong {
     font-size: 14px;
   }
-  .note-card p {
+  .note-card > .note-miniature {
     -webkit-line-clamp: 7;
   }
   .note-switcher {
@@ -1178,4 +1179,84 @@ body {
     grid-template-columns: 30px minmax(0, 1fr) auto;
     padding-inline: 16px;
   }
+}
+
+/* Inert excerpts share the editor's miniature task and link language. */
+.note-miniature {
+  display: block;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.note-miniature .mini-paragraph,
+.note-miniature .mini-heading,
+.note-miniature .mini-list,
+.note-miniature .mini-item {
+  display: block;
+}
+.note-miniature .mini-heading,
+.note-miniature .mini-bold {
+  font-weight: 600;
+}
+.note-miniature .mini-paragraph + .mini-paragraph,
+.note-miniature .mini-paragraph + .mini-list,
+.note-miniature .mini-heading {
+  margin-top: 8px;
+}
+.note-miniature .mini-item {
+  padding-left: 12px;
+  position: relative;
+}
+.note-miniature .mini-item::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+}
+.note-miniature .mini-list .mini-list {
+  padding-left: 12px;
+}
+.note-miniature .mini-task {
+  display: block;
+  position: relative;
+  padding-left: 18px;
+  min-height: 21px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.note-miniature .mini-task > .mini-paragraph {
+  margin: 0;
+}
+.note-miniature .mini-box {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  border: 1.3px solid var(--faint);
+  border-radius: 3.5px;
+}
+.note-miniature .mini-done {
+  color: var(--faint);
+}
+.note-miniature .mini-done > .mini-box {
+  background: var(--faint);
+}
+.note-miniature .mini-link {
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0 1px;
+  background: linear-gradient(var(--highlight-band), var(--highlight-band)) 0
+    88% / 100% 38% no-repeat;
+}
+.switcher-preview .mini-task {
+  min-height: 25px;
+  padding-left: 22px;
+}
+.switcher-preview .mini-box {
+  width: 13px;
+  height: 13px;
+}
+
+.note-miniature .mini-code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  white-space: pre-wrap;
 }
