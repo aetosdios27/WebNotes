@@ -189,9 +189,11 @@ export default function Home() {
     if (id !== null) {
       if (notesRef.current.some((n) => n.id === id)) {
         setActiveNote(id);
-      } else if (useNotesStore.getState().syncStatus !== "unsynced") {
-        // Only call a note missing when the notes actually loaded; a failed
-        // load keeps the URL so the note opens once it does.
+      } else if (useNotesStore.getState().loadFailed) {
+        // The notes never loaded, so the note may well exist: keep its URL,
+        // but don't claim to show it.
+        setActiveNote(null);
+      } else {
         replaceUrl("/");
         toast("That note isn't here");
       }

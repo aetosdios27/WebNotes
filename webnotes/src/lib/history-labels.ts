@@ -61,7 +61,9 @@ export function historyLabels(env: Env) {
   /** Change the current entry's URL, keeping its place in history. */
   function replace(url: string): HistoryLabel {
     const current = adopt();
-    env.history.replaceState(withLabel(env.history.state, current), "", url);
+    // Only our own fields: Next treats state carrying its internal `__NA` as
+    // its own call and would skip syncing the router to the new URL.
+    env.history.replaceState(withLabel(null, current), "", url);
     return current;
   }
   return {

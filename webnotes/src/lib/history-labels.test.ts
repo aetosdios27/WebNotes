@@ -94,4 +94,13 @@ describe("history labels", () => {
     const refreshed = historyLabels(b); // same storage, new instance
     expect(refreshed.canGoForward(refreshed.adopt())).toBe(true);
   });
+
+  test("replace hands Next only our fields, so its router follows the new URL", () => {
+    const b = fakeBrowser();
+    const h = historyLabels(b);
+    b.history.replaceState({ __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: {} }, "");
+    h.adopt();
+    h.replace("/");
+    expect(Object.keys(b.history.state as object).sort()).toEqual(["__base", "__webnotes"]);
+  });
 });
