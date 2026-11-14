@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
+import "@scritto/core/ssr.css";
 import "./globals.css";
 
 import Providers from "@/app/components/Providers";

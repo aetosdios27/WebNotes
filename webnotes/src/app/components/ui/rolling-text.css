@@ -1,0 +1,22 @@
+/* Reserve the surrounding layout while Scritto animates its own box. */
+.rolling-text {
+  display: inline-grid;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.rolling-text > * {
+  grid-area: 1 / 1;
+}
+.rolling-reserve {
+  visibility: hidden;
+}
+/* Scritto animates its own width; counts only need even digit widths. */
+.rolling-count {
+  font-variant-numeric: tabular-nums;
+}
+.rolling-text > .rolling-visual {
+  justify-self: start;
+}
+.rolling-text > .sr-only {
+  grid-area: auto;
+}

@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 import { motionTiming } from "./ui/motion-tokens";
+import { RollingText } from "./ui/rolling-text";
 
 export default function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -60,7 +61,8 @@ export default function ThemeToggle() {
         </span>
       </TooltipTrigger>
       <TooltipContent role="tooltip" side="bottom" sideOffset={8}>
-        {label}
+        Switch to{" "}
+        <RollingText value={dark ? "light" : "dark"} reserve="light" /> theme
       </TooltipContent>
     </Tooltip>
   );

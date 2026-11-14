@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
+import { RollingText } from "./ui/rolling-text";
 import { TaskCheck } from "./TaskCheck";
 import { Folder as FolderIcon } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
@@ -221,18 +222,27 @@ export function NoteMeta({
   note,
   folders,
   preview = false,
+  live = false,
 }: {
   note: Note;
   folders: Folder[];
   preview?: boolean;
+  live?: boolean;
 }) {
+  const [now, setNow] = useState<Date>();
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, [live]);
   const folder = folders.find((folder) => folder.id === note.folderId);
-  const time = formatNoteTime(note.updatedAt, { preview });
+  const time = formatNoteTime(note.updatedAt, { preview, now });
+  const timestamp = live ? <RollingText key={note.id} value={time} /> : time;
   return (
     <span className="note-meta">
-      {preview && time}
+      {preview && timestamp}
       {folder && <span className="meta-folder">{preview && " · "}<FolderIcon aria-hidden="true" /><span className="folder-meta-name">{folder.name}</span></span>}
-      {!preview && <>{folder && " · "}{time}</>}
+      {!preview && <>{folder && " · "}{timestamp}</>}
     </span>
   );
 }

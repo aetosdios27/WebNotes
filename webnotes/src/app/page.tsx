@@ -20,6 +20,7 @@ import {
 import NoteActionsMenu, {
   type NoteMenuActions,
 } from "./components/NoteActionsMenu";
+import { RollingText } from "./components/ui/rolling-text";
 import ThemeToggle from "./components/ThemeToggle";
 import { useSettings } from "./components/settings/SettingsProvider";
 import AccountMenu from "./components/AccountMenu";
@@ -400,20 +401,20 @@ export default function Home() {
         >
           {activeNote ? <FileText /> : <Search />}
           <span>
-            {activeNote
-              ? activeNote.title || "Untitled"
-              : `Search ${notes.length} notes`}
+            {activeNote ? (
+              activeNote.title || "Untitled"
+            ) : (
+              <>
+                Search <RollingText value={notes.length} /> notes
+              </>
+            )}
           </span>
           <kbd>⌘K</kbd>
         </button>
         <div className="window-right">
           {activeNote && (
             <>
-              <span
-                key={`${isOnline}:${isSaving}:${syncStatus}:${pendingOperations > 0}`}
-                className="save-state"
-                role="status"
-              >
+              <span className="save-state" role="status">
                 {!isOnline || syncStatus === "unsynced" ? (
                   <CloudOff aria-hidden="true" />
                 ) : isSaving ||
@@ -423,15 +424,20 @@ export default function Home() {
                 ) : (
                   <Check aria-hidden="true" />
                 )}
-                {!isOnline
-                  ? "Offline"
-                  : isSaving ||
-                      syncStatus === "syncing" ||
-                      pendingOperations > 0
-                    ? "Saving"
-                    : syncStatus === "unsynced"
-                      ? "Unsaved"
-                      : "Saved"}
+                <RollingText
+                  reserve="Unsaved"
+                  value={
+                    !isOnline
+                      ? "Offline"
+                      : isSaving ||
+                          syncStatus === "syncing" ||
+                          pendingOperations > 0
+                        ? "Saving"
+                        : syncStatus === "unsynced"
+                          ? "Unsaved"
+                          : "Saved"
+                  }
+                />
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger
