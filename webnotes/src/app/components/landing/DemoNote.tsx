@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Search } from "lucide-react";
 import s from "./Landing.module.css";
 
 const samples = {
@@ -229,7 +230,8 @@ export default function DemoNote() {
       <div className={s.demoHint}>
         <span>{hint}</span>
         <button onClick={openSearch} aria-label="Find a sample note">
-          Find a note ↗
+          <Search size={14} strokeWidth={1.5} aria-hidden="true" />
+          Find a note
         </button>
       </div>
       <dialog

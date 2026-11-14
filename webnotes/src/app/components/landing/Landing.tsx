@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  CloudCheck,
+  Code2,
+  Eye,
+  Sigma,
+  Table2,
+} from "lucide-react";
 import DemoNote from "./DemoNote";
 import s from "./Landing.module.css";
 
@@ -44,7 +53,7 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
   const button = (
     <button className={s.primary} disabled={busy} onClick={() => void start()}>
       {busy ? "Opening your page…" : "Just start writing"}
-      <span aria-hidden="true">↗</span>
+      <ArrowRight size={19} strokeWidth={1.5} aria-hidden="true" />
     </button>
   );
   return (
@@ -57,9 +66,12 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
           </a>
           <nav aria-label="Main navigation">
             <a className={s.explore} href="#inside">
-              A look inside
+              <Eye size={16} strokeWidth={1.5} aria-hidden="true" />A look
+              inside
             </a>
-            <a href="/signin">Sign in ↗</a>
+            <a href="/signin" className={s.ghost}>
+              Sign in
+            </a>
           </nav>
         </header>
         <main id="top">
@@ -75,7 +87,9 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
               </p>
               <div className={s.actions}>
                 {button}
-                <a href="/signin">Sign in</a>
+                <a href="/signin" className={s.ghost}>
+                  Sign in
+                </a>
               </div>
               {error && <p role="alert">{error}</p>}
             </div>
@@ -97,72 +111,91 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
                 <br />
                 Code worth keeping. Type / and keep going.
               </p>
-              <div className={s.tabs} aria-label="Editor examples">
+              <div
+                className={s.tabs}
+                data-example={example}
+                aria-label="Editor examples"
+              >
+                <span className={s.activeSegment} aria-hidden="true" />
                 {(["Tables", "Math", "Code"] as const).map((name) => (
                   <button
                     key={name}
                     aria-pressed={example === name}
                     onClick={() => setExample(name)}
                   >
+                    {name === "Tables" ? (
+                      <Table2 size={17} strokeWidth={1.5} aria-hidden="true" />
+                    ) : name === "Math" ? (
+                      <Sigma size={17} strokeWidth={1.5} aria-hidden="true" />
+                    ) : (
+                      <Code2 size={17} strokeWidth={1.5} aria-hidden="true" />
+                    )}
                     {name}
                   </button>
                 ))}
               </div>
             </div>
             <div className={s.sample} data-ui>
-              <article>
-                <h3>
-                  {example === "Tables"
-                    ? "Lisbon, on paper"
-                    : example === "Math"
-                      ? "Split the trip"
-                      : "A small thing to keep"}
-                </h3>
-                <p>
-                  {example === "Code"
-                    ? "For the next time I need it."
-                    : "Eight nights. A little room for the unexpected."}
-                </p>
-                {example === "Tables" ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Budget</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Flights</td>
-                        <td>€312</td>
-                      </tr>
-                      <tr>
-                        <td>Stay, 8 nights</td>
-                        <td>€890</td>
-                      </tr>
-                      <tr>
-                        <td>Food and trains</td>
-                        <td>€400</td>
-                      </tr>
-                      <tr>
-                        <td>Total</td>
-                        <td>€1,602</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                ) : example === "Math" ? (
-                  <div className={s.formula}>€1,602 ÷ 2 = €801</div>
-                ) : (
-                  <pre>
-                    <code>
-                      {
-                        'const trip = {\n  city: "Lisbon",\n  nights: 8,\n};\n\nconsole.log(trip.city);'
-                      }
-                    </code>
-                  </pre>
-                )}
-                <span className={s.command}>/ {example.toLowerCase()}</span>
-              </article>
+              {(["Tables", "Math", "Code"] as const).map((name) => (
+                <article
+                  key={name}
+                  data-active={example === name}
+                  aria-hidden={example !== name}
+                  inert={example !== name}
+                >
+                  <h3>
+                    {name === "Tables"
+                      ? "Lisbon, on paper"
+                      : name === "Math"
+                        ? "Split the trip"
+                        : "A small thing to keep"}
+                  </h3>
+                  <p>
+                    {name === "Code"
+                      ? "For the next time I need it."
+                      : "Eight nights. A little room for the unexpected."}
+                  </p>
+                  {name === "Tables" ? (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Budget</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Flights</td>
+                          <td>€312</td>
+                        </tr>
+                        <tr>
+                          <td>Stay, 8 nights</td>
+                          <td>€890</td>
+                        </tr>
+                        <tr>
+                          <td>Food and trains</td>
+                          <td>€400</td>
+                        </tr>
+                        <tr>
+                          <td>Total</td>
+                          <td>€1,602</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : name === "Math" ? (
+                    <div className={s.formula}>€1,602 ÷ 2 = €801</div>
+                  ) : (
+                    <pre>
+                      <code>
+                        {
+                          'const trip = {\n  city: "Lisbon",\n  nights: 8,\n};\n\nconsole.log(trip.city);'
+                        }
+                      </code>
+                    </pre>
+                  )}
+                  <span className={s.command}>/ {name.toLowerCase()}</span>
+                </article>
+              ))}
             </div>
           </section>
           <section className={s.sync} data-reveal aria-labelledby="sync-title">
@@ -171,30 +204,34 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
               data-ui
               aria-label="Packing list shown on a computer and phone"
             >
-              <article>
-                <h3>Packing list</h3>
-                <p>
-                  Carry-on only.
-                  <br />
-                  If it does not fit, it stays.
-                </p>
-                <p>
-                  ✓ Passport
-                  <br />□ Film camera
-                  <br />□ Rain shell
-                </p>
+              <article className={s.packingCard}>
+                <div className={s.packingPaper}>
+                  <h3>Packing list</h3>
+                  <p>
+                    Carry-on only.
+                    <br />
+                    If it does not fit, it stays.
+                  </p>
+                  <PackingChecklist />
+                </div>
               </article>
               <article className={s.phone}>
-                <h3>Packing list</h3>
-                <p>Carry-on only.</p>
-                <p>
-                  ✓ Passport
-                  <br />□ Film camera
-                  <br />□ Rain shell
-                </p>
+                <div className={s.phoneScreen}>
+                  <span className={s.phoneSpeaker} aria-hidden="true" />
+                  <h3>Packing list</h3>
+                  <p>Carry-on only.</p>
+                  <PackingChecklist />
+                  <span className={s.phoneHome} aria-hidden="true" />
+                </div>
               </article>
             </div>
             <div>
+              <CloudCheck
+                className={s.syncIcon}
+                size={26}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
               <h2 id="sync-title">
                 Start here.
                 <br />
@@ -205,7 +242,8 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
                 you want them on your other devices, too.
               </p>
               <a href="/signin" className={s.underlink}>
-                Sign in to sync ↗
+                Sign in to sync{" "}
+                <ArrowRight size={16} strokeWidth={1.5} aria-hidden="true" />
               </a>
             </div>
           </section>
@@ -233,9 +271,35 @@ export default function Landing({ onStart }: { onStart: () => Promise<void> }) {
             webnotes
           </a>
           <span>Yours to write. Yours to keep.</span>
-          <a href="/signin">Sign in ↗</a>
+          <a href="/signin" className={s.ghost}>
+            Sign in
+          </a>
         </footer>
       </div>
     </div>
+  );
+}
+
+function PackingChecklist() {
+  return (
+    <ul className={s.checklist} aria-label="Packing checklist">
+      {["Passport", "Film camera", "Rain shell"].map((item, index) => (
+        <li key={item}>
+          <span
+            className={s.checkbox}
+            data-checked={index === 0}
+            aria-hidden="true"
+          >
+            {index === 0 && <Check size={13} strokeWidth={1.5} />}
+          </span>
+          <span>
+            {item}
+            <span className={s.srOnly}>
+              {index === 0 ? ", packed" : ", still to pack"}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

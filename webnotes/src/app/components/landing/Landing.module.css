@@ -1,4 +1,16 @@
 .landing {
+  --landing-shadow-raised:
+    0 1px 2px rgb(56 43 24 / 0.12), 0 20px 54px -14px rgb(56 43 24 / 0.17);
+  --landing-shadow-device:
+    0 1px 2px rgb(56 43 24 / 0.2), 0 16px 32px -8px rgb(56 43 24 / 0.22);
+  --landing-surface-border: rgb(68 53 30 / 0.12);
+  --landing-top-highlight: rgb(255 255 255 / 0.85);
+  --landing-frame: var(--panel);
+  --landing-paper: color-mix(in srgb, var(--card), white 2%);
+  --landing-radius-window: 18px;
+  --landing-window-padding: 10px;
+  position: relative;
+  isolation: isolate;
   height: 100%;
   overflow: auto;
   overflow-x: hidden;
@@ -10,7 +22,26 @@
 .landing * {
   box-sizing: border-box;
 }
+.landing::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: url("/paper-grain.svg") repeat;
+  opacity: 0.03;
+  z-index: 0;
+}
+:global(.dark) .landing {
+  --landing-shadow-raised:
+    0 1px 2px rgb(0 0 0 / 0.4), 0 22px 54px -12px rgb(0 0 0 / 0.45);
+  --landing-shadow-device:
+    0 1px 2px rgb(0 0 0 / 0.6), 0 18px 34px -8px rgb(0 0 0 / 0.55);
+  --landing-surface-border: rgb(255 255 255 / 0.09);
+  --landing-top-highlight: rgb(255 255 255 / 0.09);
+}
 .wrap {
+  position: relative;
+  z-index: 1;
   max-width: 1328px;
   margin: auto;
   padding: 0 48px;
@@ -39,7 +70,8 @@
 .landing button {
   transition:
     transform 160ms ease,
-    background-color 160ms ease;
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 .landing button:active {
   transform: scale(0.97);
@@ -67,7 +99,7 @@
 .nav nav {
   display: flex;
   align-items: center;
-  gap: 36px;
+  gap: 22px;
   font-size: 14px;
 }
 .nav a,
@@ -123,14 +155,70 @@
 .primary:hover {
   background: #edbf04;
 }
-.primary span {
-  font-size: 22px;
-  font-weight: 400;
+.primary {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -2px 0 #c49c00,
+    0 1px 2px rgb(69 49 0 / 0.2),
+    0 4px 8px -4px rgb(69 49 0 / 0.2);
+}
+.landing .primary:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    inset 0 -1px 0 #c49c00;
+}
+.ghost {
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid var(--landing-surface-border);
+  border-radius: 6px;
+  background: transparent;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+.ghost:hover {
+  background: var(--selected);
+}
+.ghost:active {
+  transform: translateY(1px) scale(0.97);
+}
+.explore,
+.demoHint button,
+.underlink {
+  gap: 8px;
+}
+.landing svg {
+  flex-shrink: 0;
+}
+.explore svg,
+.demoHint svg,
+.tabs svg,
+.syncIcon,
+.underlink svg {
+  color: var(--muted);
+}
+.demoHint button {
+  display: inline-flex;
+  align-items: center;
+}
+.syncIcon {
+  margin-bottom: 20px;
+}
+.demo,
+.sample,
+.packingCard,
+.devices .phone {
+  background: var(--landing-frame);
+  box-shadow:
+    0 0 0 1px var(--landing-surface-border),
+    inset 0 1px 0 var(--landing-top-highlight),
+    var(--landing-shadow-raised);
 }
 .demo {
-  background: var(--wall);
-  padding: 10px;
-  border-radius: 12px;
+  padding: var(--landing-window-padding);
+  border-radius: var(--landing-radius-window);
 }
 .demoBar {
   display: flex;
@@ -163,10 +251,12 @@
 }
 .paper {
   position: relative;
-  background: var(--card);
+  background: var(--landing-paper);
   padding: 38px 32px;
   min-height: 380px;
-  border-radius: 5px;
+  border-radius: calc(
+    var(--landing-radius-window) - var(--landing-window-padding)
+  );
 }
 .paper h2 {
   font-size: 31px !important;
@@ -236,32 +326,77 @@
   scroll-margin-top: 40px;
 }
 .tabs {
-  display: flex;
-  gap: 8px;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  position: relative;
+  isolation: isolate;
+  padding: 4px;
   margin-top: 30px;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--landing-surface-border);
+}
+.activeSegment {
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 6px;
+  background: var(--landing-paper);
+  box-shadow:
+    0 1px 3px rgb(56 43 24 / 0.12),
+    0 0 0 1px var(--landing-surface-border);
+  transition: transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tabs[data-example="Math"] .activeSegment {
+  transform: translateX(100%);
+}
+.tabs[data-example="Code"] .activeSegment {
+  transform: translateX(200%);
 }
 .tabs button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
   border: 0;
-  background: none;
+  background: transparent;
   color: var(--reading);
-  padding: 0 16px;
+  padding: 0 14px;
   min-height: 44px;
-  border-radius: 5px;
+  border-radius: 6px;
   font-size: 14px;
 }
 .tabs button[aria-pressed="true"] {
-  background: var(--selected);
   color: var(--ink);
 }
 .sample {
-  background: var(--wall);
-  padding: 16px;
-  border-radius: 10px;
+  --landing-sample-padding: 12px;
+  --landing-radius-sample: 20px;
+  display: grid;
+  padding: var(--landing-sample-padding);
+  border-radius: var(--landing-radius-sample);
 }
 .sample article {
-  background: var(--card);
+  grid-area: 1 / 1;
+  min-width: 0;
+  background: var(--landing-paper);
+  border-radius: calc(
+    var(--landing-radius-sample) - var(--landing-sample-padding)
+  );
   padding: 32px;
-  min-height: 360px;
+  min-height: 420px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 220ms ease,
+    visibility 220ms;
+}
+.sample article[data-active="true"] {
+  opacity: 1;
+  visibility: visible;
 }
 .sample h3,
 .devices h3 {
@@ -310,7 +445,7 @@
 .sync {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
-  gap: 90px;
+  gap: 60px;
   align-items: center;
   margin: 80px 0 0;
   background: var(--panel);
@@ -321,35 +456,123 @@
   font-size: 17px;
 }
 .devices {
-  position: relative;
-  padding: 0 65px 30px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 155px;
+  align-items: start;
+  gap: 22px;
+  min-width: 0;
 }
-.devices article {
-  background: var(--background);
-  padding: 30px;
-  min-height: 280px;
-  border-radius: 6px;
+.packingCard {
+  padding: 8px;
+  border-radius: 16px;
+  min-width: 0;
+}
+.packingPaper {
+  background: var(--landing-paper);
+  border-radius: 8px;
+  padding: 26px 22px;
+  min-height: 310px;
 }
 .devices p {
-  line-height: 1.9;
-  font-size: 16px;
+  line-height: 1.7;
+  font-size: 15px;
 }
 .devices .phone {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 155px;
-  min-height: 218px;
-  padding: 24px 18px;
-  background: var(--card);
-  border: 5px solid var(--selected);
+  position: relative;
+  margin-top: 62px;
+  padding: 6px;
+  border-radius: 28px;
+  box-shadow:
+    0 0 0 1px var(--landing-surface-border),
+    inset 0 1px 0 var(--landing-top-highlight),
+    var(--landing-shadow-device);
+}
+.phoneScreen {
+  position: relative;
+  background: var(--landing-paper);
   border-radius: 22px;
+  min-height: 272px;
+  padding: 38px 14px 30px;
+}
+.phoneSpeaker {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 5px;
+  border-radius: 5px;
+  background: var(--selected);
+}
+.phoneHome {
+  position: absolute;
+  bottom: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--faint);
 }
 .phone h3 {
   font-size: 17px;
 }
 .phone p {
   font-size: 12px;
+  margin: 14px 0;
+}
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 0;
+}
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  font-size: 15px;
+  color: var(--reading);
+}
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--faint);
+  border-radius: 6px;
+}
+.checkbox[data-checked="true"] {
+  background: var(--check);
+  border-color: var(--check);
+  color: var(--check-ink);
+}
+.phone .checklist {
+  margin-top: 18px;
+}
+.phone .checklist li {
+  font-size: 11px;
+  gap: 6px;
+  min-height: 28px;
+}
+.phone .checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.phone .checkbox svg {
+  width: 10px;
+  height: 10px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .underlink {
   font-size: 14px;
@@ -515,7 +738,7 @@
     gap: 24px;
   }
   .demo {
-    padding: 8px;
+    --landing-window-padding: 8px;
   }
   .demoBar {
     gap: 9px;
@@ -562,7 +785,7 @@
     font-size: 16px;
   }
   .sample {
-    padding: 10px;
+    --landing-sample-padding: 10px;
   }
   .sample article {
     padding: 25px 20px;
@@ -579,21 +802,54 @@
     margin-top: 35px;
     gap: 40px;
   }
+  .sync {
+    padding: 30px 18px;
+  }
   .devices {
-    padding-right: 55px;
+    grid-template-columns: minmax(0, 1fr) 126px;
+    gap: 14px;
   }
-  .devices article {
-    padding: 22px;
+  .packingCard {
+    padding: 6px;
+    border-radius: 14px;
   }
-  .devices .phone {
-    padding: 20px 14px;
-    width: 135px;
+  .packingPaper {
+    padding: 22px 12px;
+    min-height: 285px;
+  }
+  .packingPaper h3 {
+    font-size: 20px;
   }
   .devices p {
-    font-size: 14px;
+    font-size: 13px;
+  }
+  .devices .phone {
+    margin-top: 50px;
+  }
+  .phoneScreen {
+    padding: 36px 10px 28px;
+    min-height: 250px;
+  }
+  .phone h3 {
+    font-size: 16px;
   }
   .phone p {
     font-size: 11px;
+  }
+  .checklist li {
+    font-size: 12px;
+    gap: 7px;
+  }
+  .phone .checklist li {
+    font-size: 10px;
+    gap: 5px;
+  }
+  .tabs {
+    display: grid;
+    max-width: 346px;
+  }
+  .tabs button {
+    padding: 0 11px;
   }
   .closing {
     display: block;
