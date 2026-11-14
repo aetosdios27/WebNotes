@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Search, X } from "lucide-react";
 import type { Note, Folder } from "@/lib/storage/types";
-import { NoteMeta, noteText } from "./NoteSummary";
+import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
 
 export type SwitcherAction = { label: string; run: () => void };
 export default function NoteSwitcher({
@@ -224,9 +224,9 @@ export default function NoteSwitcher({
                 <>
                   <h2>{highlighted.title || "Untitled"}</h2>
                   <div className="preview-meta">
-                    <NoteMeta note={highlighted} folders={folders} />
+                    <NoteMeta note={highlighted} folders={folders} preview />
                   </div>
-                  <p>{noteText(highlighted.content) || "Empty note"}</p>
+                  <NoteMiniature content={highlighted.content} />
                 </>
               ) : (
                 <p>Select a note to preview it.</p>
