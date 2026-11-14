@@ -14,8 +14,10 @@ import {
   Folder as FolderIcon,
 } from "lucide-react";
 import type { Note, Folder } from "@/lib/storage/types";
+import { FittedName } from "./ui/fitted-name";
 import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
 
+const MAX_FOLDERS = 6;
 export type SwitcherAction = { label: string; run: () => void };
 export default function NoteSwitcher({
   open,
@@ -23,6 +25,7 @@ export default function NoteSwitcher({
   notes,
   folders,
   openNote,
+  openFolder,
   createNote,
   actions,
 }: {
@@ -31,6 +34,7 @@ export default function NoteSwitcher({
   notes: Note[];
   folders: Folder[];
   openNote: (id: string) => void;
+  openFolder: (id: string) => void;
   createNote: (title: string) => void;
   actions: SwitcherAction[];
 }) {
@@ -56,17 +60,35 @@ export default function NoteSwitcher({
         .slice(0, 100),
     [notes, filter, query],
   );
+  const needle = query.trim().toLowerCase();
+  // Folders lead when the query names one; selecting one opens it on the wall.
+  const folderMatches =
+    needle && filter === "recent"
+      ? folders.filter((f) => f.name.toLowerCase().includes(needle))
+      : [];
+  const folderResults = folderMatches.slice(0, MAX_FOLDERS);
   const matchingActions = actions.filter((action) =>
     action.label.toLowerCase().includes(query.toLowerCase()),
   );
-  const count = results.length + matchingActions.length;
+  const offset = folderResults.length;
+  const count = offset + results.length + matchingActions.length;
   const activeIndex = Math.min(index, Math.max(0, count - 1));
-  const highlighted = results[activeIndex];
-  const activeId = highlighted
-    ? `result-${highlighted.id}`
-    : count
-      ? `action-${activeIndex - results.length}`
-      : undefined;
+  const highlightedFolder = folderResults[activeIndex];
+  const highlighted = results[activeIndex - offset];
+  const activeId = highlightedFolder
+    ? `folder-${highlightedFolder.id}`
+    : highlighted
+      ? `result-${highlighted.id}`
+      : count
+        ? `action-${activeIndex - offset - results.length}`
+        : undefined;
+  const folderCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const note of notes)
+      if (note.folderId) counts.set(note.folderId, (counts.get(note.folderId) ?? 0) + 1);
+    return counts;
+  }, [notes]);
+  const folderCount = (id: string) => folderCounts.get(id) ?? 0;
   useEffect(() => {
     if (!open) {
       setQuery("");
@@ -82,8 +104,9 @@ export default function NoteSwitcher({
     onOpenChange(false);
   }
   function choose() {
-    if (highlighted) openNote(highlighted.id);
-    else matchingActions[activeIndex - results.length]?.run();
+    if (highlightedFolder) openFolder(highlightedFolder.id);
+    else if (highlighted) openNote(highlighted.id);
+    else matchingActions[activeIndex - offset - results.length]?.run();
     close();
   }
   return (
@@ -185,11 +208,55 @@ export default function NoteSwitcher({
               className="switcher-results"
               id="note-results"
               role="listbox"
-              aria-label="Notes and actions"
+              aria-label="Folders, notes and actions"
             >
               <SlidingIndicator value={`${activeIndex}:${query}:${filter}`} />
+              {folderResults.length > 0 && (
+                <div role="group" aria-label="Folders" className="switcher-folders">
+                  <h3>
+                    Folders
+                    <span>
+                      {folderMatches.length > folderResults.length
+                        ? `${folderResults.length} of ${folderMatches.length}`
+                        : folderMatches.length}{" "}
+                      found · newest first
+                    </span>
+                  </h3>
+                  {folderResults.map((folder, i) => (
+                    <button
+                      ref={i === activeIndex ? selected : undefined}
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      id={`folder-${folder.id}`}
+                      key={folder.id}
+                      title={folder.name}
+                      onFocus={() => setIndex(i)}
+                      onMouseEnter={() => {
+                        setIndex(i);
+                        input.current?.focus();
+                      }}
+                      onClick={() => {
+                        openFolder(folder.id);
+                        close();
+                      }}
+                    >
+                      <FolderIcon className="result-icon" aria-hidden="true" />
+                      <strong>
+                        <FittedName name={folder.name} query={needle} className="fitted-name" />
+                        <span className="sr-only">{folder.name}</span>
+                      </strong>
+                      <p>
+                        {folderCount(folder.id)}{" "}
+                        {folderCount(folder.id) === 1 ? "note" : "notes"}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div role="group" aria-label="Notes">
-                {results.map((note, i) => (
+                {results.map((note, n) => {
+                  const i = offset + n;
+                  return (
                   <button
                     ref={i === activeIndex ? selected : undefined}
                     role="option"
@@ -210,9 +277,10 @@ export default function NoteSwitcher({
                     <strong>{note.title || "Untitled"}</strong>
                     <p>{noteText(note.content) || "Empty note"}</p>
                   </button>
-                ))}
+                  );
+                })}
               </div>
-              {!results.length && (
+              {!results.length && !folderResults.length && (
                 <p className="no-results">
                   <FileSearch className="empty-icon" aria-hidden="true" />
                   No matching notes. ⌘↵ creates “{query || "Untitled"}”.
@@ -227,18 +295,18 @@ export default function NoteSwitcher({
                 {matchingActions.map((action, i) => (
                   <button
                     ref={
-                      activeIndex === results.length + i ? selected : undefined
+                      activeIndex === offset + results.length + i ? selected : undefined
                     }
                     role="option"
-                    aria-selected={activeIndex === results.length + i}
+                    aria-selected={activeIndex === offset + results.length + i}
                     id={`action-${i}`}
                     key={action.label}
-                    data-selected={activeIndex === results.length + i}
+                    data-selected={activeIndex === offset + results.length + i}
                     onMouseEnter={() => {
-                      setIndex(results.length + i);
+                      setIndex(offset + results.length + i);
                       input.current?.focus();
                     }}
-                    onFocus={() => setIndex(results.length + i)}
+                    onFocus={() => setIndex(offset + results.length + i)}
                     onClick={() => {
                       action.run();
                       close();
@@ -251,7 +319,23 @@ export default function NoteSwitcher({
               </div>
             </div>
             <aside className="switcher-preview" aria-label="Note preview">
-              {highlighted ? (
+              {highlightedFolder ? (
+                <>
+                  <h2>{highlightedFolder.name}</h2>
+                  <div className="preview-meta">
+                    <FolderIcon aria-hidden="true" />
+                    {folderCount(highlightedFolder.id)}{" "}
+                    {folderCount(highlightedFolder.id) === 1 ? "note" : "notes"} · ↵ opens the folder
+                  </div>
+                  <ul className="preview-folder-notes">
+                    {notes
+                      .filter((n) => n.folderId === highlightedFolder.id)
+                      .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+                      .slice(0, 6)
+                      .map((n) => <li key={n.id}>{n.title || "Untitled"}</li>)}
+                  </ul>
+                </>
+              ) : highlighted ? (
                 <>
                   <h2>{highlighted.title || "Untitled"}</h2>
                   <div className="preview-meta">

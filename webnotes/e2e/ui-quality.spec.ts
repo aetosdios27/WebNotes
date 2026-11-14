@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, report, longTitle, type Violation } from './fixtures';
+import { test, expect, report, longTitle, nearDuplicates, type Violation } from './fixtures';
 import { concepts, navigationAllowlist, smallTargetAllowlist } from './registry';
 
 const interactive = 'button, a[href], [role="tab"], [role^="menuitem"], input, select, textarea, [tabindex="0"]';
@@ -77,6 +77,59 @@ async function showAccount(page: Page) {
   await expect(page.getByRole('button', { name: 'Account:', exact: false })).toBeVisible();
 }
 
+// The library is a rail beside the wall, or a sheet behind "Open folders" on a phone.
+async function openLibrary(page: Page) {
+  const rail = page.locator('.folder-rail');
+  if (await rail.isVisible()) return rail;
+  await page.getByRole('button', { name: 'Open folders', exact: true }).click();
+  const sheet = page.locator('.folder-sheet');
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+async function closeLibrary(page: Page) {
+  if (await page.locator('.folder-sheet').isVisible()) await page.keyboard.press('Escape');
+  await expect(page.locator('.folder-sheet')).toHaveCount(0);
+}
+// The selected row must read as selected: its own fill, clearly off the
+// surface behind it, and heavier type than its neighbours.
+async function selectedRow(library: Locator, state: string): Promise<Violation[]> {
+  return library.evaluate((root, state) => {
+    // Computed colours are rgb() or, from color-mix(), color(srgb 0–1 channels).
+    const parse = (c: string) => {
+      const n = (c.match(/[\d.]+/g) || []).map(Number);
+      return c.startsWith('color(') ? n.map((v, i) => (i < 3 ? v * 255 : v)) : n;
+    };
+    const over = (top: number[], bottom: number[]) => {
+      const a = top[3] ?? 1;
+      return [0, 1, 2].map(i => top[i] * a + bottom[i] * (1 - a)).concat(1);
+    };
+    const backdrop = (el: Element | null): number[] => {
+      const layers: number[][] = [];
+      for (; el; el = el.parentElement) {
+        const c = parse(getComputedStyle(el).backgroundColor);
+        if (c.length && (c[3] ?? 1) > 0) layers.push(c);
+        if (c.length && (c[3] ?? 1) === 1) break;
+      }
+      return layers.reverse().reduce((under, layer) => over(layer, under), [255, 255, 255, 1]);
+    };
+    const luminance = (c: number[]) => {
+      const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const active = root.querySelector('.library-row[aria-current="true"]');
+    const other = root.querySelector('.library-row:not([aria-current="true"])');
+    if (!active || !other) return [{ id: `${state}: selected row`, expected: 'one selected row among others', actual: 'none' }];
+    const fill = backdrop(active), surface = backdrop(active.parentElement);
+    const [hi, lo] = [luminance(fill), luminance(surface)].sort((a, b) => b - a);
+    const contrast = (hi + 0.05) / (lo + 0.05);
+    const failures = [];
+    if (contrast < 1.05) failures.push({ id: `${state}: selected row fill`, expected: 'contrast >= 1.05 with the rail', actual: contrast.toFixed(3) });
+    const weight = (el: Element) => Number(getComputedStyle(el).fontWeight);
+    if (weight(active) <= weight(other)) failures.push({ id: `${state}: selected row weight`, expected: `> ${weight(other)}`, actual: `${weight(active)}` });
+    return failures;
+  }, state);
+}
+
 test('A icon and label agree on hover, Tab focus and menu highlight', async ({ page }) => {
   const failures: Violation[] = [];
   await hoverColours(page.locator('body'), failures, 'hover');
@@ -99,6 +152,25 @@ test('A icon and label agree on hover, Tab focus and menu highlight', async ({ p
     await open(page);
     await hoverColours(page.locator('[role="menu"]').first(), failures, open === openMore ? 'more highlight' : 'context highlight', () => open(page));
     await page.keyboard.press('Escape');
+  }
+  // Library: every row and button on hover, the selected row, and folder actions.
+  let library = await openLibrary(page);
+  failures.push(...await selectedRow(library, 'library'));
+  await hoverColours(library, failures, 'library hover');
+  const folderRow = () => library.locator('.library-folders .library-row').first();
+  await folderRow().click({ button: 'right' });
+  await expect(page.getByRole('menu').first()).toBeVisible();
+  await hoverColours(page.getByRole('menu').first(), failures, 'folder menu highlight', async () => {
+    library = await openLibrary(page);
+    await folderRow().click({ button: 'right' });
+  });
+  await page.keyboard.press('Escape');
+  await closeLibrary(page);
+  if (await page.locator('.folder-rail').isVisible()) {
+    await page.getByRole('button', { name: 'Collapse library', exact: true }).click();
+    failures.push(...await selectedRow(page.locator('.folder-rail'), 'collapsed'));
+    await hoverColours(page.locator('.folder-rail'), failures, 'collapsed hover');
+    await page.getByRole('button', { name: 'Expand library', exact: true }).click();
   }
   // The side panel and the Settings sheet are surfaces too.
   await closeMenus(page);
@@ -135,11 +207,13 @@ test('C interactive hit targets', async ({ page }) => {
       // A visually hidden input is not the hit target; its label wraps it.
       if (await control.evaluate(el => el instanceof HTMLInputElement && getComputedStyle(el).opacity === '0')) continue;
       const titleBar = await control.evaluate(el => !!el.closest('.window-bar'));
+      // Every library control, labelled or not, is a full 32px target.
+      const library = await control.evaluate(el => !!el.closest('.folder-rail, .folder-sheet'));
       const iconOnly = !(await control.innerText()).trim();
-      if (!titleBar && !iconOnly) continue;
-      if (!titleBar && await control.evaluate((el, allowlist) => Object.keys(allowlist).some(selector => el.matches(selector)), smallTargetAllowlist)) continue;
+      if (!titleBar && !library && !iconOnly) continue;
+      if (!titleBar && !library && await control.evaluate((el, allowlist) => Object.keys(allowlist).some(selector => el.matches(selector)), smallTargetAllowlist)) continue;
       const box = await control.boundingBox();
-      const minimum = titleBar ? 32 : 24;
+      const minimum = titleBar || library ? 32 : 24;
       if (box && (box.width < minimum || box.height < minimum)) failures.push({ id: await name(control), expected: `>= ${minimum}×${minimum}`, actual: `${box.width}×${box.height}` });
     }
   }
@@ -150,6 +224,17 @@ test('C interactive hit targets', async ({ page }) => {
   for (const control of wallTargets) {
     const box = await control.boundingBox();
     if (box && (box.width < 32 || box.height < 32)) failures.push({ id: `wall: ${await name(control)}`, expected: '>= 32×32', actual: `${box.width}×${box.height}` });
+  }
+  const library = await openLibrary(page);
+  await scan(library);
+  await library.getByRole('button', { name: 'New folder', exact: true }).click();
+  await scan(library);
+  await page.keyboard.press('Escape');
+  await closeLibrary(page);
+  if (await page.locator('.folder-rail').isVisible()) {
+    await page.getByRole('button', { name: 'Collapse library', exact: true }).click();
+    await scan(page.locator('.folder-rail'));
+    await page.getByRole('button', { name: 'Expand library', exact: true }).click();
   }
   await page.keyboard.press('Control+k');
   await expect(page.getByRole('combobox')).toBeVisible();
@@ -179,6 +264,25 @@ async function overflow(page: Page, scope: string, state: string): Promise<Viola
     if (style.visibility === 'hidden' || !directText || style.overflowX !== 'visible' || el.scrollWidth <= el.clientWidth + 1) return [];
     return [{ id: `${state}: ${el.tagName}.${el.className}: ${el.textContent?.trim().slice(0, 85)}`, expected: `scrollWidth <= ${el.clientWidth}`, actual: `${el.scrollWidth}` }];
   })), state);
+}
+
+// Long folder names shorten in the middle: what is painted fits, keeps both
+// ends, and near-duplicates stay distinct.
+async function fittedNames(scope: Locator, state: string): Promise<Violation[]> {
+  return scope.locator('.row-name, .fitted-name').evaluateAll((spans, { state, nearDuplicates }) => {
+    const failures: Violation[] = [];
+    const painted = new Map<string, string>();
+    for (const span of spans) {
+      const full = span.closest('[title]')?.getAttribute('title') || '';
+      const text = span.textContent || '';
+      painted.set(full, text);
+      if (span.scrollWidth > span.clientWidth + 1) failures.push({ id: `${state}: ${full}`, expected: `scrollWidth <= ${span.clientWidth}`, actual: `${span.scrollWidth}` });
+      if (text !== full && (!text.includes(' … ') || !full.startsWith(text.split(' … ')[0]) || !full.endsWith(text.split(' … ')[1]))) failures.push({ id: `${state}: ${full}`, expected: 'start … end of the full name', actual: text });
+    }
+    const [a, b] = nearDuplicates.map(name => painted.get(name));
+    if (a !== undefined && b !== undefined && a === b) failures.push({ id: `${state}: near-duplicates`, expected: 'distinct', actual: a });
+    return failures;
+  }, { state, nearDuplicates });
 }
 
 test('D extreme text fits wall, switcher and menus', async ({ page }) => {
@@ -217,6 +321,26 @@ test('D extreme text fits wall, switcher and menus', async ({ page }) => {
     return failures;
   });
   failures.push(...overlap);
+  const library = await openLibrary(page);
+  failures.push(...await overflow(page, '.folder-rail, .folder-sheet', 'library'));
+  failures.push(...await fittedNames(library, 'library'));
+  const filter = library.getByRole('searchbox', { name: 'Filter folders' });
+  await filter.fill('reference');
+  await expect(library.getByText('2 of 30 folders')).toBeVisible();
+  failures.push(...await fittedNames(library, 'library filtered'));
+  await filter.press('Escape');
+  await expect(filter).toHaveValue('');
+  await library.getByRole('button', { name: 'New folder', exact: true }).click();
+  await library.getByRole('textbox', { name: 'New folder name' }).fill('W'.repeat(60));
+  failures.push(...await overflow(page, '.folder-rail, .folder-sheet', 'library naming'));
+  await page.keyboard.press('Escape');
+  await closeLibrary(page);
+  await page.keyboard.press('Control+k');
+  await page.getByRole('combobox').fill('reference');
+  await expect(page.getByRole('option').filter({ hasText: nearDuplicates[0] })).toBeVisible();
+  failures.push(...await fittedNames(page.locator('.note-switcher'), 'switcher folders'));
+  failures.push(...await overflow(page, '.note-switcher', 'switcher folders'));
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
   await page.getByRole('combobox').fill(longTitle);
   await expect(page.getByRole('option').filter({ hasText: longTitle })).toBeVisible();
@@ -249,6 +373,25 @@ test('E title bar concepts are not duplicated in More', async ({ page }) => {
     const matches = (label: string) => aliases.some(alias => new RegExp(`\\b${alias}\\b`, 'i').test(label));
     if (barNames.some(matches) && menuNames.some(matches)) failures.push({ id: concept, expected: 'one location', actual: `${barNames.filter(matches)} / ${menuNames.filter(matches)}` });
   }
+  await page.keyboard.press('Escape');
+  // One home for each library control: rail or sheet, never both, and no
+  // control repeated between the library and the wall header.
+  const railShown = await page.locator('.folder-rail').isVisible();
+  const opener = await page.getByRole('button', { name: 'Open folders', exact: true }).isVisible();
+  if (railShown === opener) failures.push({ id: 'library entry', expected: 'rail or Open folders, not both', actual: `rail=${railShown} opener=${opener}` });
+  const library = await openLibrary(page);
+  const visibleNames = async (root: Locator) => {
+    const names: string[] = [];
+    for (const control of await root.locator(interactive).all()) if (await control.isVisible()) names.push(await name(control));
+    return names;
+  };
+  const libraryNames = await visibleNames(library);
+  const headerNames = await visibleNames(page.locator('.wall-header'));
+  for (const label of new Set([...libraryNames, ...headerNames])) {
+    const count = [...libraryNames, ...headerNames].filter(n => n === label).length;
+    if (count > 1) failures.push({ id: `library: ${label}`, expected: 'one control', actual: `${count}` });
+  }
+  await closeLibrary(page);
   report('E', failures);
 });
 
@@ -326,13 +469,16 @@ async function selectionFailures(page: Page, root: string, state: string, groups
       const la = lum(a), lb = lum(b);
       return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     };
-    // The surface behind a group: the nearest opaque ancestor background.
+    // Composite translucent rail and panel layers onto their actual backdrop.
     const track = (from: Element): number[] => {
+      const layers: number[][] = [];
       for (let node: Element | null = from; node; node = node.parentElement) {
-        const c = parse(getComputedStyle(node).backgroundColor);
-        if (c && c[3] >= 0.999) return [c[0], c[1], c[2], 1];
+        const colour = parse(getComputedStyle(node).backgroundColor);
+        if (!colour) continue;
+        layers.push(colour);
+        if (colour[3] >= 0.999) break;
       }
-      return [255, 255, 255, 1];
+      return layers.reverse().reduce((background, colour) => over(colour, background), [255, 255, 255, 1]);
     };
     const edges = (el: Element): (number[] | null)[] => {
       const style = getComputedStyle(el);
@@ -359,10 +505,13 @@ async function selectionFailures(page: Page, root: string, state: string, groups
 
     const failures: Violation[] = [];
     const compared: Element[] = [];
-    for (const group of Array.from(element.querySelectorAll('[role="tablist"], nav, fieldset, .switcher-chips'))) {
+    for (const group of [element, ...Array.from(element.querySelectorAll('[role="tablist"], nav, fieldset, .switcher-chips'))]) {
       let items: Element[] = [];
       let isSelected = (el: Element) => false;
-      if (group.matches('[role="tablist"]')) {
+      if (group.matches('.folder-rail, .folder-sheet')) {
+        items = Array.from(group.querySelectorAll('button.library-row'));
+        isSelected = el => el.getAttribute('aria-current') === 'true';
+      } else if (group.matches('[role="tablist"]')) {
         items = Array.from(group.querySelectorAll('[role="tab"]'));
         isSelected = el => el.getAttribute('aria-selected') === 'true';
       } else if (group.matches('.switcher-chips')) {
@@ -436,8 +585,19 @@ async function selectionFailures(page: Page, root: string, state: string, groups
 
 test('G selected options differ visibly from their siblings', async ({ page }) => {
   const failures: Violation[] = [];
-  // The wall tabs.
-  failures.push(...await selectionFailures(page, '.note-wall', 'wall', ['.wall-tabs [role="tablist"]']));
+  // Scopes and folders are one selection group, including on the phone sheet.
+  for (const scope of ['all', 'pinned', 'folder']) {
+    let library = await openLibrary(page);
+    await (scope === 'folder' ? library.locator('.library-folders .library-row').first()
+      : library.locator(`[data-scope="${scope}"]`)).click();
+    library = await openLibrary(page);
+    const selector = await page.locator('.folder-rail').isVisible() ? '.folder-rail' : '.folder-sheet';
+    failures.push(...await selectionFailures(page, selector, `library ${scope}`, [selector]));
+    await closeLibrary(page);
+  }
+  const library = await openLibrary(page);
+  await library.locator('[data-scope="all"]').click();
+  await closeLibrary(page);
   // The switcher filter chips.
   await page.keyboard.press('Control+k');
   await expect(page.locator('.note-switcher')).toBeVisible();

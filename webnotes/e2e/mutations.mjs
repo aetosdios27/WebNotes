@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 mkdirSync('mutation-results', { recursive: true });
 // `resolved` gives the phone Settings list a visible current row, so its G known issue goes stale.
-for (const [mutation, check] of Object.entries({ icon: 'A icon', disabled: 'B disabled', targets: 'C interactive', 'wall-targets': 'C interactive', order: 'D extreme', overflow: 'D extreme', duplicates: 'E title', consequences: 'F title', selection: 'G selected', rail: 'G selected', resolved: 'G selected' })) {
+for (const [mutation, check] of Object.entries({ icon: 'A icon', disabled: 'B disabled', targets: 'C interactive', 'wall-targets': 'C interactive', order: 'D extreme', overflow: 'D extreme', duplicates: 'E title', consequences: 'F title', selected: 'A icon', selection: 'G selected', rail: 'G selected', resolved: 'G selected' })) {
   const project = mutation === 'resolved' ? 'dark-390' : 'dark-1280';
   const result = spawnSync('bun', ['run', 'test:ui', `--project=${project}`, '--grep', check, '--reporter=json', `--output=mutation-results/${mutation}`], {
     env: { ...process.env, UI_MUTATION: mutation }, encoding: 'utf8', timeout: 120_000,
