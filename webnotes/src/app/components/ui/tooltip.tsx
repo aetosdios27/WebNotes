@@ -56,6 +56,7 @@ export const TooltipContent = React.forwardRef<
         className="z-50"
       >
         <Primitive.Popup
+      data-depth="popover"
           ref={ref}
           className={cn(
             "rounded-lg border border-line bg-popover text-ink shadow-lg outline-none px-3 py-1.5 text-xs",

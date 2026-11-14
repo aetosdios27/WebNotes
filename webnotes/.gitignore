@@ -54,3 +54,5 @@ private/docs/
 
 # local codex marker
 .codex
+
+/.audit/

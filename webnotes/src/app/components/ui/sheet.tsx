@@ -45,6 +45,7 @@ export const SheetOverlay = React.forwardRef<
   > & { className?: string }
 >(({ className, ...props }, ref) => (
   <Primitive.Backdrop
+    data-depth="backdrop"
     ref={ref}
     className={cn("fixed inset-0 z-50 bg-black/50", className)}
     {...props}
@@ -65,6 +66,7 @@ export const SheetContent = React.forwardRef<
   <SheetPortal>
     <SheetOverlay />
     <Primitive.Popup
+      data-depth="modal"
       ref={ref}
       className={cn(
         "fixed z-50 grid gap-4 border border-line bg-popover text-ink p-6 shadow-lg",

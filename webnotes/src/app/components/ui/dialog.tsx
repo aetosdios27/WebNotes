@@ -45,6 +45,7 @@ export const DialogOverlay = React.forwardRef<
   > & { className?: string }
 >(({ className, ...props }, ref) => (
   <Primitive.Backdrop
+    data-depth="backdrop"
     ref={ref}
     className={cn("fixed inset-0 z-50 bg-black/50", className)}
     {...props}
@@ -59,6 +60,7 @@ export const DialogContent = React.forwardRef<
   <DialogPortal>
     <DialogOverlay />
     <Primitive.Popup
+      data-depth="modal"
       ref={ref}
       className={cn(
         "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-lg rounded-xl z-50 grid gap-4 border border-line bg-popover text-ink p-6 shadow-lg",

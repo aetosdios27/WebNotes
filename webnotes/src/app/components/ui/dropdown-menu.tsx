@@ -53,6 +53,7 @@ export const DropdownMenuContent = React.forwardRef<
         className="z-50"
       >
         <Primitive.Popup
+      data-depth="popover"
           ref={ref}
           className={cn(
             "min-w-32 max-h-[var(--available-height)] overflow-y-auto rounded-lg border border-line bg-popover p-1 text-ink shadow-lg outline-none",
@@ -93,6 +94,7 @@ export const DropdownMenuSubContent = React.forwardRef<
         className="z-50"
       >
         <Primitive.Popup
+      data-depth="popover"
           ref={ref}
           className={cn(
             "min-w-32 max-h-[var(--available-height)] overflow-y-auto rounded-lg border border-line bg-popover p-1 text-ink shadow-lg outline-none",
