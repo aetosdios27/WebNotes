@@ -8,9 +8,6 @@ import {
   Download,
   LogIn,
   FileText,
-  Check,
-  CloudUpload,
-  CloudOff,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -27,6 +24,9 @@ import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
 import { open } from "@tauri-apps/plugin-shell";
+import { EditorLoading } from "./components/ContentSkeletons";
+import { LoadingRegion } from "./components/ui/skeleton";
+import SyncIndicator from "./components/SyncIndicator";
 import LoadingScreen from "./components/LoadingScreen";
 import { HelpModal } from "./components/HelpModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -52,9 +52,11 @@ import {
 
 const NoteEditor = dynamic(() => import("./components/NoteEditor"), {
   ssr: false,
+  loading: () => <EditorLoading />,
 });
 const VersionPreview = dynamic(() => import("./components/VersionPreview"), {
   ssr: false,
+  loading: () => <EditorLoading />,
 });
 
 export default function Home() {
@@ -82,6 +84,7 @@ export default function Home() {
   } = useNotesStore();
   const { data: session } = useSession();
   const account = isTauri ? user : session?.user;
+  const [syncFailed, setSyncFailed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [help, setHelp] = useState(false);
@@ -354,8 +357,8 @@ export default function Home() {
     link.click();
     URL.revokeObjectURL(url);
   }
-  if (isLoading) return <LoadingScreen />;
   return (
+    <LoadingRegion pending={isLoading} skeleton={<LoadingScreen />} label="Opening your notes" className="home-loading">
     <main className={`notes-window ${activeNote ? "writing" : "home"}`}>
       <header className="window-bar">
         <div className="window-left">
@@ -400,32 +403,10 @@ export default function Home() {
           <kbd>⌘K</kbd>
         </button>
         <div className="window-right">
+          <SyncIndicator online={isOnline} saving={isSaving || syncStatus === "syncing" || pendingOperations > 0}
+                failed={syncFailed || syncStatus === "unsynced"} cloud={Boolean(account)} />
           {activeNote && (
             <>
-              <span
-                key={`${isOnline}:${isSaving}:${syncStatus}:${pendingOperations > 0}`}
-                className="save-state"
-                role="status"
-              >
-                {!isOnline || syncStatus === "unsynced" ? (
-                  <CloudOff aria-hidden="true" />
-                ) : isSaving ||
-                  pendingOperations > 0 ||
-                  syncStatus === "syncing" ? (
-                  <CloudUpload aria-hidden="true" />
-                ) : (
-                  <Check aria-hidden="true" />
-                )}
-                {!isOnline
-                  ? "Offline"
-                  : isSaving ||
-                      syncStatus === "syncing" ||
-                      pendingOperations > 0
-                    ? "Saving"
-                    : syncStatus === "unsynced"
-                      ? "Unsaved"
-                      : "Saved"}
-              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="Share note"
@@ -532,6 +513,7 @@ export default function Home() {
                 allNotes={notes}
                 onNoteUpdate={update}
                 onSavingStatusChange={setIsSaving}
+                onSyncErrorChange={setSyncFailed}
                 onDeleteNote={removeNote}
                 onNavigateNote={navigate}
                 onCreateNote={(title, id) => newNote(title, null, id)}
@@ -597,5 +579,6 @@ export default function Home() {
       </AlertDialog>
       <HelpModal isOpen={help} onClose={() => setHelp(false)} />
     </main>
+    </LoadingRegion>
   );
 }

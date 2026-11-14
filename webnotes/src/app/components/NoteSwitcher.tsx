@@ -204,10 +204,11 @@ export default function NoteSwitcher({
                 ))}
               </div>
               {!results.length && (
-                <p className="no-results">
-                  <FileSearch className="empty-icon" aria-hidden="true" />
-                  No matching notes. ⌘↵ creates “{query || "Untitled"}”.
-                </p>
+                <div className="quiet-state">
+                  <FileSearch aria-hidden="true" />
+                  <p>No notes match this search.</p>
+                  <button onClick={() => { createNote(query.trim()); onOpenChange(false); }}>Create {query.trim() ? "this note" : "a note"}</button>
+                </div>
               )}
               <div
                 className="switcher-actions"

@@ -1,6 +1,9 @@
 // src/app/components/VersionPreview.tsx
 
 "use client";
+import { EditorSkeleton } from "./ContentSkeletons";
+import { LoadingRegion } from "./ui/skeleton";
+import { CloudOff } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc/client";
@@ -105,7 +108,7 @@ export default function VersionPreview({
   onClose,
   onRestore,
 }: VersionPreviewProps) {
-  const { data: version, isLoading } = trpc.versions.get.useQuery({
+  const { data: version, isLoading, refetch } = trpc.versions.get.useQuery({
     versionId,
   });
 
@@ -242,18 +245,10 @@ export default function VersionPreview({
     restoreMutation.mutate({ versionId });
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-black text-zinc-500">
-        Loading version...
-      </div>
-    );
-  }
-
-  if (!version) return null;
-
   return (
-    <div className="flex flex-col h-full bg-black">
+    <LoadingRegion pending={isLoading} skeleton={<EditorSkeleton />} className="version-loading" label="Opening saved version">
+    {!version && !isLoading && <div className="quiet-state"><CloudOff aria-hidden="true" /><p>This saved version couldn’t load.</p><small>Your current note is unchanged.</small><button onClick={() => void refetch()}>Try again</button> <button onClick={onClose}>Back to your note</button></div>}
+    {version && <div className="flex flex-col h-full bg-black">
       {/* HEADER BAR */}
       <div className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50">
         <div className="flex items-center gap-4">
@@ -435,6 +430,7 @@ export default function VersionPreview({
           padding-left: 12px !important;
         }
       `}</style>
-    </div>
+    </div>}
+    </LoadingRegion>
   );
 }
