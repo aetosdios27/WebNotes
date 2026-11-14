@@ -54,13 +54,18 @@ export function RollingText({
           {reserve}
         </span>
       )}
-      <Scritto
-        value={display.text}
-        animated={display.animated}
-        trend={0}
-        transition={transition}
-        edgeFade="auto"
-      />
+      {/* Scritto exposes its glyphs as role="img". Screen readers get the plain
+          text instead, so a count or a status reads as ordinary words. */}
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true" className="rolling-visual">
+        <Scritto
+          value={display.text}
+          animated={display.animated}
+          trend={0}
+          transition={transition}
+          edgeFade="auto"
+        />
+      </span>
     </span>
   );
 }

@@ -4,7 +4,6 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 import { motionTiming } from "./ui/motion-tokens";
-
 import { RollingText } from "./ui/rolling-text";
 
 export default function ThemeToggle() {

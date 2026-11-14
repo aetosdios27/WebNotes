@@ -197,9 +197,11 @@ export default function NoteWall({
                 <span className="tab-label" title={tab.name}>
                   {tab.name}
                 </span>
-                <span className="tab-count">
-                  <RollingText value={tab.count} />
-                </span>
+                {tab.count > 0 && (
+                  <span className="tab-count">
+                    <RollingText value={tab.count} />
+                  </span>
+                )}
               </button>
             ))}
           </div>

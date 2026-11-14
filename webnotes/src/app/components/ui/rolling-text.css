@@ -10,10 +10,13 @@
 .rolling-reserve {
   visibility: hidden;
 }
+/* Scritto animates its own width; counts only need even digit widths. */
 .rolling-count {
-  min-width: 3ch;
   font-variant-numeric: tabular-nums;
 }
-.rolling-text scritto-text {
+.rolling-text > .rolling-visual {
   justify-self: start;
+}
+.rolling-text > .sr-only {
+  grid-area: auto;
 }
