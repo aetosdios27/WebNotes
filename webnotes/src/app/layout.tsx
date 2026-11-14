@@ -24,9 +24,18 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
+const description =
+  "A little space for your thoughts. Local-first notes, synced everywhere.";
+
 export const metadata: Metadata = {
+  // Absolute URLs for the social card; previews resolve against this.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://web-notes-lyart.vercel.app",
+  ),
   title: "WebNotes",
-  description: "A simple, beautiful note-taking app.",
+  description,
+  openGraph: { title: "WebNotes", description, siteName: "WebNotes", type: "website" },
+  twitter: { card: "summary_large_image", title: "WebNotes", description },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -55,9 +64,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
 
       <body
         className={`
