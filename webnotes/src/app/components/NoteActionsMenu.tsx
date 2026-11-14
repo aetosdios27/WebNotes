@@ -138,7 +138,7 @@ export default function NoteActionsMenu({
                     ) : (
                       <Files aria-hidden="true" />
                     )}
-                    {folder.name}
+                    <span className="menu-folder-label" title={folder.name}>{folder.name}</span>
                     <Menu.RadioItemIndicator className="menu-trailing">
                       <Check aria-hidden="true" />
                     </Menu.RadioItemIndicator>

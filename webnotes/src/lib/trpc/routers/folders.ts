@@ -1,3 +1,4 @@
+import { idInput, folderNameInput } from "@/lib/input-limits";
 import { createOwned } from "../create-owned";
 import { z } from "zod";
 import { router, protectedProcedure } from "../init";
@@ -16,8 +17,8 @@ export const foldersRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        id: z.string().optional(), // ✅ FIX: Accept client ID
-        name: z.string().min(1),
+        id: idInput.optional(), // ✅ FIX: Accept client ID
+        name: folderNameInput,
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -38,8 +39,8 @@ export const foldersRouter = router({
   rename: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        newName: z.string().min(1),
+        id: idInput,
+        newName: folderNameInput,
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -57,7 +58,7 @@ export const foldersRouter = router({
 
   // DELETE /api/folders/[id]
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: idInput }))
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.prisma.folder.deleteMany({
         where: { id: input.id, userId: ctx.userId },

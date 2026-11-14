@@ -2,6 +2,8 @@
 
 "use client";
 
+import { FONT_CLASSES } from "@/lib/note-fonts";
+
 import type { Editor } from "@tiptap/react";
 import type { Note } from "@/lib/storage/types";
 import {
@@ -83,11 +85,7 @@ interface SubnoteTooltip {
 // CONSTANTS
 // =============================================================================
 
-const FONT_CLASSES: Record<string, string> = {
-  serif: "font-serif text-lg leading-relaxed",
-  mono: "font-mono text-[0.95rem] leading-7",
-  sans: "font-sans",
-};
+
 
 const EDITOR_CONFIG = {
   AUTOSAVE_DELAY_MS: 2000,
@@ -662,6 +660,7 @@ function HydratedEditor({
               <textarea
                 ref={titleInputRef}
                 rows={1}
+                maxLength={200}
                 value={title}
                 disabled={isReadingMode}
                 onChange={onTitleChange}
@@ -796,7 +795,7 @@ export default function NoteEditor({
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       // A title is one line that wraps; pasted line breaks become spaces.
-      const newTitle = e.target.value.replace(/[\r\n]+/g, " ");
+      const newTitle = e.target.value.replace(/[\r\n]+/g, " ").slice(0, 200);
       setTitle(newTitle);
       if (activeNote?.id) {
         if (titleSaveTimeoutRef.current)
