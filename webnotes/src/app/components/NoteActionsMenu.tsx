@@ -11,6 +11,7 @@ import {
   FolderInput,
   Folder,
   Files,
+  FileText,
   BookOpen,
   Type,
   History,
@@ -24,6 +25,7 @@ import { NOTE_FONTS } from "@/lib/note-fonts";
 import type { Note, Folder as NoteFolder } from "@/lib/storage/types";
 
 export type NoteMenuActions = {
+  open: (id: string) => void;
   createNote: () => void;
   createFolder: () => void;
   help: () => void;
@@ -91,7 +93,118 @@ export default function NoteActionsMenu({
   folderActions,
   onSettings,
 }: Props) {
-  const content = (
+  const noteGroup = note && (
+    <Menu.Group aria-label="Note">
+      <Menu.GroupLabel className="note-menu-label">Note</Menu.GroupLabel>
+      {context && (
+        <Menu.Item
+          className="note-menu-item"
+          onClick={() => actions.open(note.id)}
+        >
+          <FileText aria-hidden="true" />
+          Open
+        </Menu.Item>
+      )}
+      <Menu.Item
+        className="note-menu-item"
+        onClick={() => actions.pin(note.id)}
+      >
+        {note.isPinned ? (
+          <PinOff aria-hidden="true" />
+        ) : (
+          <Pin aria-hidden="true" />
+        )}
+        {note.isPinned ? "Unpin" : "Pin"}
+      </Menu.Item>
+      <Submenu icon={<FolderInput aria-hidden="true" />} label="Move to">
+        <Menu.RadioGroup
+          value={note.folderId ?? ""}
+          onValueChange={(value) => actions.move(note.id, value || null)}
+          aria-label="Move note to folder"
+        >
+          {[{ id: "", name: "All notes" }, ...folders].map((folder) => (
+            <Menu.RadioItem
+              closeOnClick
+              className="note-menu-item"
+              value={folder.id}
+              key={folder.id}
+            >
+              {folder.id ? (
+                <Folder aria-hidden="true" />
+              ) : (
+                <Files aria-hidden="true" />
+              )}
+              <span className="menu-folder-label" title={folder.name}>{folder.name}</span>
+              <Menu.RadioItemIndicator className="menu-trailing">
+                <Check aria-hidden="true" />
+              </Menu.RadioItemIndicator>
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      </Submenu>
+      {!context && (
+        <Menu.CheckboxItem
+          closeOnClick
+          className="note-menu-item"
+          checked={reading}
+          onCheckedChange={(checked) => actions.reading(note.id, checked)}
+        >
+          <BookOpen aria-hidden="true" />
+          Reading mode
+          <Menu.CheckboxItemIndicator className="menu-trailing">
+            <Check aria-hidden="true" />
+          </Menu.CheckboxItemIndicator>
+        </Menu.CheckboxItem>
+      )}
+      <Submenu icon={<Type aria-hidden="true" />} label="Font">
+        <Menu.RadioGroup
+          value={note.font || "sans"}
+          onValueChange={(value) => actions.font(note.id, value)}
+          aria-label="Note font"
+        >
+          {NOTE_FONTS.map(({ id, label }) => (
+            <Menu.RadioItem
+              closeOnClick
+              className="note-menu-item"
+              key={id}
+              value={id}
+            >
+              <Type aria-hidden="true" />
+              {label}
+              <Menu.RadioItemIndicator className="menu-trailing">
+                <Check aria-hidden="true" />
+              </Menu.RadioItemIndicator>
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      </Submenu>
+      <Menu.Item
+        className="note-menu-item"
+        onClick={() => actions.information(note.id)}
+      >
+        <History aria-hidden="true" />
+        Note information & history
+      </Menu.Item>
+    </Menu.Group>
+  );
+  const dangerGroup = note && (
+    <Menu.Group aria-label="Danger">
+      <Menu.Item
+        className="note-menu-item note-menu-danger"
+        onClick={() => actions.remove(note.id)}
+      >
+        <Trash2 aria-hidden="true" />
+        Delete note
+      </Menu.Item>
+    </Menu.Group>
+  );
+  const content = context ? (
+    <Menu.Popup data-depth="popover" className="note-actions-menu">
+      {noteGroup}
+      {note && <Menu.Separator className="note-menu-separator" />}
+      {dangerGroup}
+    </Menu.Popup>
+  ) : (
     <Menu.Popup data-depth="popover" className="note-actions-menu">
       <Menu.Group aria-label="Create">
         <Menu.GroupLabel className="note-menu-label">Create</Menu.GroupLabel>
@@ -104,92 +217,8 @@ export default function NoteActionsMenu({
           New folder<kbd>⌘⇧F</kbd>
         </Menu.Item>
       </Menu.Group>
-      {note && (
-        <>
-          <Menu.Separator className="note-menu-separator" />
-          <Menu.Group aria-label="Note">
-            <Menu.GroupLabel className="note-menu-label">Note</Menu.GroupLabel>
-            <Menu.Item
-              className="note-menu-item"
-              onClick={() => actions.pin(note.id)}
-            >
-              {note.isPinned ? (
-                <PinOff aria-hidden="true" />
-              ) : (
-                <Pin aria-hidden="true" />
-              )}
-              {note.isPinned ? "Unpin" : "Pin"}
-            </Menu.Item>
-            <Submenu icon={<FolderInput aria-hidden="true" />} label="Move to">
-              <Menu.RadioGroup
-                value={note.folderId ?? ""}
-                onValueChange={(value) => actions.move(note.id, value || null)}
-                aria-label="Move note to folder"
-              >
-                {[{ id: "", name: "All notes" }, ...folders].map((folder) => (
-                  <Menu.RadioItem
-                    closeOnClick
-                    className="note-menu-item"
-                    value={folder.id}
-                    key={folder.id}
-                  >
-                    {folder.id ? (
-                      <Folder aria-hidden="true" />
-                    ) : (
-                      <Files aria-hidden="true" />
-                    )}
-                    <span className="menu-folder-label" title={folder.name}>{folder.name}</span>
-                    <Menu.RadioItemIndicator className="menu-trailing">
-                      <Check aria-hidden="true" />
-                    </Menu.RadioItemIndicator>
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Submenu>
-            <Menu.CheckboxItem
-              closeOnClick
-              className="note-menu-item"
-              checked={reading}
-              onCheckedChange={(checked) => actions.reading(note.id, checked)}
-            >
-              <BookOpen aria-hidden="true" />
-              Reading mode
-              <Menu.CheckboxItemIndicator className="menu-trailing">
-                <Check aria-hidden="true" />
-              </Menu.CheckboxItemIndicator>
-            </Menu.CheckboxItem>
-            <Submenu icon={<Type aria-hidden="true" />} label="Font">
-              <Menu.RadioGroup
-                value={note.font || "sans"}
-                onValueChange={(value) => actions.font(note.id, value)}
-                aria-label="Note font"
-              >
-                {NOTE_FONTS.map(({ id, label }) => (
-                  <Menu.RadioItem
-                    closeOnClick
-                    className="note-menu-item"
-                    key={id}
-                    value={id}
-                  >
-                    <Type aria-hidden="true" />
-                    {label}
-                    <Menu.RadioItemIndicator className="menu-trailing">
-                      <Check aria-hidden="true" />
-                    </Menu.RadioItemIndicator>
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Submenu>
-            <Menu.Item
-              className="note-menu-item"
-              onClick={() => actions.information(note.id)}
-            >
-              <History aria-hidden="true" />
-              Note information & history
-            </Menu.Item>
-          </Menu.Group>
-        </>
-      )}
+      {note && <Menu.Separator className="note-menu-separator" />}
+      {noteGroup}
       <Menu.Separator className="note-menu-separator" />
       <Menu.Group aria-label="App">
         <Menu.GroupLabel className="note-menu-label">App</Menu.GroupLabel>
@@ -204,20 +233,8 @@ export default function NoteActionsMenu({
         )}
         {folderActions}
       </Menu.Group>
-      {note && (
-        <>
-          <Menu.Separator className="note-menu-separator" />
-          <Menu.Group aria-label="Danger">
-            <Menu.Item
-              className="note-menu-item note-menu-danger"
-              onClick={() => actions.remove(note.id)}
-            >
-              <Trash2 aria-hidden="true" />
-              Delete note
-            </Menu.Item>
-          </Menu.Group>
-        </>
-      )}
+      {note && <Menu.Separator className="note-menu-separator" />}
+      {dangerGroup}
     </Menu.Popup>
   );
   return context ? (
