@@ -1,5 +1,6 @@
 "use client";
 
+import { SlidingIndicator } from "./ui/sliding-indicator";
 import { useState, useMemo, useEffect } from "react";
 import {
   X,
@@ -142,44 +143,31 @@ export default function RightSidebar({
     <div className="w-full h-full flex flex-col bg-panel border-l border-line">
       {/* HEADER + TABS */}
       <div className="h-12 flex items-center justify-between px-3 border-b border-line flex-shrink-0">
-        <div className="flex bg-selected p-0.5 rounded-lg border border-line">
-          <button
-            onClick={() => setTab("info")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
-              tab === "info"
-                ? "bg-selected text-ink shadow-sm"
-                : "text-muted hover:text-ink hover:bg-selected"
-            }`}
-            title="Links & Connections"
-          >
-            <Link2 size={13} />
-          </button>
-          <button
-            onClick={() => setTab("outline")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
-              tab === "outline"
-                ? "bg-selected text-ink shadow-sm"
-                : "text-muted hover:text-ink hover:bg-selected"
-            }`}
-            title="Table of Contents"
-          >
-            <AlignLeft size={13} />
-          </button>
-          <button
-            onClick={() => setTab("history")}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2 ${
-              tab === "history"
-                ? "bg-selected text-ink shadow-sm"
-                : "text-muted hover:text-ink hover:bg-selected"
-            }`}
-            title="Version History"
-          >
-            <History size={13} />
-          </button>
+        <div role="tablist" aria-label="Note panel" className="pane-tabs">
+          <SlidingIndicator value={tab} />
+          {(
+            [
+              ["info", "Links & connections", Link2],
+              ["outline", "Table of contents", AlignLeft],
+              ["history", "Version history", History],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              aria-label={label}
+              title={label}
+              onClick={() => setTab(id)}
+            >
+              <Icon aria-hidden="true" />
+            </button>
+          ))}
         </div>
 
         <button
           onClick={onClose}
+          aria-label="Close panel"
           className="p-1.5 text-muted hover:text-ink hover:bg-selected rounded transition-colors"
         >
           <X size={16} />
