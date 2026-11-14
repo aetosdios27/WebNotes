@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import { Search, X } from "lucide-react";
+import { SlidingIndicator } from "./ui/sliding-indicator";
+import { ActionIcon } from "./ui/action-icon";
+import { Search, X, FileText } from "lucide-react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
 
@@ -136,6 +138,7 @@ export default function NoteSwitcher({
             </Dialog.Close>
           </div>
           <div className="switcher-chips">
+            <SlidingIndicator value={filter} />
             {[
               { id: "recent", name: "Recent" },
               { id: "pinned", name: "Pinned" },
@@ -160,6 +163,7 @@ export default function NoteSwitcher({
               role="listbox"
               aria-label="Notes and actions"
             >
+              <SlidingIndicator value={`${activeIndex}:${query}:${filter}`} />
               <div role="group" aria-label="Notes">
                 {results.map((note, i) => (
                   <button
@@ -178,6 +182,7 @@ export default function NoteSwitcher({
                       onOpenChange(false);
                     }}
                   >
+                    <FileText className="result-icon" aria-hidden="true" />
                     <strong>{note.title || "Untitled"}</strong>
                     <p>{noteText(note.content) || "Empty note"}</p>
                   </button>
@@ -214,6 +219,7 @@ export default function NoteSwitcher({
                       onOpenChange(false);
                     }}
                   >
+                    <ActionIcon label={action.label} />
                     {action.label}
                   </button>
                 ))}
