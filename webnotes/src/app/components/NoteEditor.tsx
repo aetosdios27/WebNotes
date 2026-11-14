@@ -19,6 +19,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
 import Collaboration, { isChangeOrigin } from "@tiptap/extension-collaboration";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
@@ -42,6 +43,7 @@ import RightSidebar from "./RightSidebar";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useNoteSync } from "@/hooks/useNoteSync";
+import { createContentSnapshot } from "@/lib/content-snapshot";
 
 import {
   Table,
@@ -60,7 +62,7 @@ import {
 interface NoteEditorProps {
   activeNote: Note | undefined;
   allNotes: Note[];
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
   onNavigateNote: (noteId: string) => void;
@@ -288,7 +290,7 @@ interface InnerEditorProps {
   fontClass: string;
   isReadingMode: boolean;
   isRightSidebarOpen: boolean;
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onNavigateNote: (noteId: string) => void;
   onDeleteNote?: (noteId: string) => void;
@@ -362,6 +364,8 @@ function HydratedEditor({
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
   const hasEditedBody = useRef(false);
+  const contentSnapshot = useRef<ReturnType<typeof createContentSnapshot> | null>(null);
+  const hasCheckedSnapshot = useRef(false);
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
   // ---------------------------------------------------------------------------
@@ -514,6 +518,48 @@ function HydratedEditor({
     editorRef.current = editor;
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+    const snapshot = createContentSnapshot(
+      () => (editor.isDestroyed ? undefined : editor.getHTML()),
+      (content) => {
+        const store = useNotesStore.getState();
+        // Closing a deleted note must not try to recreate its snapshot.
+        if (!store.notes.some((note) => note.id === noteId)) return;
+        void store.updateNote(noteId, { content }).catch((error: unknown) => {
+          console.error("Failed to save note content snapshot:", error);
+        });
+      },
+    );
+    contentSnapshot.current = snapshot;
+    const onUpdate = ({
+      transaction,
+    }: {
+      transaction: Parameters<typeof isChangeOrigin>[0];
+    }) => {
+      // Yjs undo/redo is a local edit too, despite using a Yjs-origin transaction.
+      if (
+        !isChangeOrigin(transaction) ||
+        transaction.getMeta(ySyncPluginKey)?.isUndoRedoOperation === true
+      ) {
+        snapshot.schedule();
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") snapshot.flush();
+    };
+    editor.on("update", onUpdate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", snapshot.flush);
+    return () => {
+      editor.off("update", onUpdate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", snapshot.flush);
+      snapshot.flush();
+      contentSnapshot.current = null;
+    };
+  }, [editor, noteId]);
+
   // Seed legacy HTML only after both applicable providers have hydrated.
   const hasSeededLegacy = useRef(false);
   useEffect(() => {
@@ -538,6 +584,30 @@ function HydratedEditor({
     activeNote.content,
     ydoc,
   ]);
+
+  // HydratedEditor already waits for IndexedDB. Wait for the server pull and
+  // legacy seed above before repairing a snapshot missed during an earlier close.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || hasCheckedSnapshot.current) return;
+    if (
+      !hasSeededLegacy.current ||
+      status === "loading" ||
+      (isAuthenticated && !pulled)
+    ) return;
+    hasCheckedSnapshot.current = true;
+    // Block IDs are regenerated for fresh empty paragraphs, so compare without them.
+    const withoutIds = (html: string) => {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      template.content
+        .querySelectorAll("[data-id]")
+        .forEach((element) => element.removeAttribute("data-id"));
+      return template.innerHTML;
+    };
+    if (withoutIds(editor.getHTML()) !== withoutIds(activeNote.content ?? "")) {
+      contentSnapshot.current?.schedule();
+    }
+  }, [editor, status, isAuthenticated, pulled, activeNote.content]);
 
   useEffect(() => {
     if (editor && !editor.isDestroyed) editor.setEditable(!isReadingMode);
@@ -691,8 +761,11 @@ export default function NoteEditor({
   useEffect(() => () => flushTitle(), [activeNote?.id, flushTitle]);
 
   useEffect(() => {
+    setTitle(activeNote?.title || "");
+  }, [activeNote?.id, activeNote?.title]);
+
+  useEffect(() => {
     if (activeNote) {
-      setTitle(activeNote.title || "");
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
         setTimeout(
           () => titleInputRef.current?.focus(),
@@ -719,7 +792,7 @@ export default function NoteEditor({
             (note) => note.id === activeNote.id
           );
           if (latest)
-            onNoteUpdate({ ...latest, title: newTitle, updatedAt: new Date() });
+            onNoteUpdate(activeNote.id, { title: newTitle });
         };
         titleSaveTimeoutRef.current = setTimeout(
           flushTitle,
