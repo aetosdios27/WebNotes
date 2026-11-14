@@ -359,6 +359,11 @@ export const useNotesStore = create<NotesState>()(
       const note = get().notes.find((n) => n.id === id);
       if (!note) throw new Error("Note not found");
 
+      // Reopening an editor can emit an unchanged snapshot. Preserve its timestamps.
+      if (Object.entries(data).every(([key, value]) => Reflect.get(note, key) === value)) {
+        return note;
+      }
+
       const updatedNote: Note = {
         ...note,
         ...data,
