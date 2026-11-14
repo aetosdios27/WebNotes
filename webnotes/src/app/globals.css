@@ -717,8 +717,17 @@ body {
   opacity: 0.28;
   cursor: default;
 }
+/* The logo is the Home button: a full 32px target around the 30×14 mark. */
 .home-mark {
-  margin-right: 14px;
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 32px;
+  margin-right: 8px;
+  border-radius: var(--radius-control);
+}
+.home-mark:hover {
+  background: var(--selected);
 }
 .home-mark svg {
   width: 30px;
