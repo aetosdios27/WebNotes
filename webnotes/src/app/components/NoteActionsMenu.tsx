@@ -3,7 +3,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { useTheme } from "next-themes";
 import {
   FilePlus2,
   FolderPlus,
@@ -15,10 +14,6 @@ import {
   BookOpen,
   Type,
   History,
-  House,
-  Monitor,
-  Sun,
-  Moon,
   CircleHelp,
   Trash2,
   Check,
@@ -29,7 +24,6 @@ import type { Note, Folder as NoteFolder } from "@/lib/storage/types";
 export type NoteMenuActions = {
   createNote: () => void;
   createFolder: () => void;
-  home: () => void;
   help: () => void;
   pin: (id: string) => void;
   remove: (id: string) => void;
@@ -93,7 +87,6 @@ export default function NoteActionsMenu({
   actions,
   folderActions,
 }: Props) {
-  const { theme = "system", setTheme } = useTheme();
   const content = (
     <Menu.Popup data-depth="popover" className="note-actions-menu">
       <Menu.Group aria-label="Create">
@@ -196,51 +189,6 @@ export default function NoteActionsMenu({
       <Menu.Separator className="note-menu-separator" />
       <Menu.Group aria-label="App">
         <Menu.GroupLabel className="note-menu-label">App</Menu.GroupLabel>
-        <Menu.Item className="note-menu-item" onClick={actions.home}>
-          <House aria-hidden="true" />
-          Home<kbd>⌘⇧H</kbd>
-        </Menu.Item>
-        <Submenu icon={<Monitor aria-hidden="true" />} label="Theme">
-          <Menu.RadioGroup
-            value={theme}
-            onValueChange={setTheme}
-            aria-label="Theme preference"
-          >
-            <Menu.RadioItem
-              closeOnClick
-              className="note-menu-item"
-              value="system"
-            >
-              <Monitor aria-hidden="true" />
-              System
-              <Menu.RadioItemIndicator className="menu-trailing">
-                <Check aria-hidden="true" />
-              </Menu.RadioItemIndicator>
-            </Menu.RadioItem>
-            <Menu.RadioItem
-              closeOnClick
-              className="note-menu-item"
-              value="light"
-            >
-              <Sun aria-hidden="true" />
-              Light
-              <Menu.RadioItemIndicator className="menu-trailing">
-                <Check aria-hidden="true" />
-              </Menu.RadioItemIndicator>
-            </Menu.RadioItem>
-            <Menu.RadioItem
-              closeOnClick
-              className="note-menu-item"
-              value="dark"
-            >
-              <Moon aria-hidden="true" />
-              Dark
-              <Menu.RadioItemIndicator className="menu-trailing">
-                <Check aria-hidden="true" />
-              </Menu.RadioItemIndicator>
-            </Menu.RadioItem>
-          </Menu.RadioGroup>
-        </Submenu>
         <Menu.Item className="note-menu-item" onClick={actions.help}>
           <CircleHelp aria-hidden="true" />
           Help & shortcuts<kbd>?</kbd>
