@@ -1,5 +1,6 @@
 "use client";
 
+import { NOTE_FONT_IDS } from "@/lib/note-fonts";
 import type { ReactElement, ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { ContextMenu } from "@base-ui/react/context-menu";
@@ -134,7 +135,7 @@ export default function NoteActionsMenu({
                     ) : (
                       <Files aria-hidden="true" />
                     )}
-                    {folder.name}
+                    <span className="menu-folder-label" title={folder.name}>{folder.name}</span>
                     <Menu.RadioItemIndicator className="menu-trailing">
                       <Check aria-hidden="true" />
                     </Menu.RadioItemIndicator>
@@ -160,15 +161,15 @@ export default function NoteActionsMenu({
                 onValueChange={(value) => actions.font(note.id, value)}
                 aria-label="Note font"
               >
-                {["Sans", "Serif", "Mono"].map((font) => (
+                {NOTE_FONT_IDS.map((font) => (
                   <Menu.RadioItem
                     closeOnClick
                     className="note-menu-item"
-                    key={font}
+                    key={font.charAt(0).toUpperCase() + font.slice(1)}
                     value={font.toLowerCase()}
                   >
                     <Type aria-hidden="true" />
-                    {font}
+                    {font.charAt(0).toUpperCase() + font.slice(1)}
                     <Menu.RadioItemIndicator className="menu-trailing">
                       <Check aria-hidden="true" />
                     </Menu.RadioItemIndicator>
