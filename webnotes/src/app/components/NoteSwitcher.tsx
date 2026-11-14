@@ -76,22 +76,30 @@ export default function NoteSwitcher({
   useEffect(() => {
     selected.current?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, query, filter]);
+  function close() {
+    input.current?.blur();
+    onOpenChange(false);
+  }
   function choose() {
     if (highlighted) openNote(highlighted.id);
     else matchingActions[activeIndex - results.length]?.run();
-    onOpenChange(false);
+    close();
   }
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={(next) => {
+      if (!next) input.current?.blur();
+      onOpenChange(next);
+    }}>
       <Dialog.Portal>
         <Dialog.Backdrop className="switcher-veil" />
         <Dialog.Popup
+          finalFocus={false}
           className="note-switcher"
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
               createNote(query.trim());
-              onOpenChange(false);
+              close();
               return;
             }
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -194,7 +202,7 @@ export default function NoteSwitcher({
                     }}
                     onClick={() => {
                       openNote(note.id);
-                      onOpenChange(false);
+                      close();
                     }}
                   >
                     <FileText className="result-icon" aria-hidden="true" />
@@ -232,7 +240,7 @@ export default function NoteSwitcher({
                     onFocus={() => setIndex(results.length + i)}
                     onClick={() => {
                       action.run();
-                      onOpenChange(false);
+                      close();
                     }}
                   >
                     <ActionIcon label={action.label} />
