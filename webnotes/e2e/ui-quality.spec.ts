@@ -309,20 +309,20 @@ async function selectionFailures(page: Page, root: string, state: string, groups
       }
       return [255, 255, 255, 1];
     };
-    const edges = (el: Element): number[][] => {
+    const edges = (el: Element): (number[] | null)[] => {
       const style = getComputedStyle(el);
-      const out: number[][] = [];
+      const out: (number[] | null)[] = [];
       for (const side of ['Top', 'Right', 'Bottom', 'Left'] as const) {
         if (parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== 'none') {
           const c = parse(style[`border${side}Color`]);
-          if (c) out.push(c);
-        }
+          out.push(c);
+        } else out.push(null);
       }
       for (const m of style.boxShadow.matchAll(/rgba?\([^)]+\)|color\(\s*srgb[^)]+\)|#[0-9a-fA-F]{3,8}/g)) {
         const c = parse(m[0]);
         if (c) out.push(c);
       }
-      return out.filter(c => c[3] > 0.04);
+      return out;
     };
     const textColours = (el: Element): number[][] =>
       [getComputedStyle(el).color, ...Array.from(el.querySelectorAll('svg')).map(svg => getComputedStyle(svg).color)]
@@ -379,24 +379,26 @@ async function selectionFailures(page: Page, root: string, state: string, groups
         if (own) bg = over(own, bg);
         return bg;
       };
-      const base = track(group);
       for (const sibling of rest) {
         const bgDelta = contrast(effectiveBg(item), effectiveBg(sibling));
         let colourDelta = 1;
         for (const a of textColours(item)) for (const b of textColours(sibling)) colourDelta = Math.max(colourDelta, contrast(a, b));
         const itemEdges = edges(item), siblingEdges = edges(sibling);
-        let edgeDelta: number | null = null;
-        if (itemEdges.length && siblingEdges.length)
-          edgeDelta = Math.max(...itemEdges.flatMap(a => siblingEdges.map(b => contrast(a, b))));
-        else if (itemEdges.length || siblingEdges.length) {
-          const present = itemEdges.length ? itemEdges : siblingEdges;
-          edgeDelta = Math.max(...present.map(c => contrast(over(c, base), base)));
+        // Match border sides and shadow layers; crossing unrelated edges lets
+        // identical controls with light and dark borders pass as different.
+        let edgeDelta = 1;
+        for (let i = 0; i < Math.max(itemEdges.length, siblingEdges.length); i++) {
+          const a = itemEdges[i], b = siblingEdges[i];
+          edgeDelta = Math.max(edgeDelta, contrast(
+            a ? over(a, effectiveBg(item)) : effectiveBg(item),
+            b ? over(b, effectiveBg(sibling)) : effectiveBg(sibling),
+          ));
         }
-        if (bgDelta < BG && (edgeDelta === null || edgeDelta < EDGE)) {
+        if (bgDelta < BG && edgeDelta < EDGE) {
           failures.push({
             id: `${state}: ${label(item)} selection invisible`,
             expected: `a surface or edge differs from its sibling by contrast: background >= ${BG} or edge >= ${EDGE}`,
-            actual: `background ${bgDelta.toFixed(2)}x, colour ${colourDelta.toFixed(2)}x, edge ${edgeDelta === null ? 'absent' : `${edgeDelta.toFixed(2)}x`} (sibling: ${label(sibling)})`,
+            actual: `background ${bgDelta.toFixed(2)}x, colour ${colourDelta.toFixed(2)}x, edge ${edgeDelta.toFixed(2)}x (sibling: ${label(sibling)})`,
           });
         }
       }
@@ -427,4 +429,19 @@ test('G selected options differ visibly from their siblings', async ({ page }) =
   await expect(page.locator('.settings-themes')).toBeVisible();
   failures.push(...await selectionFailures(page, '.settings-content', 'settings themes', ['fieldset.settings-themes']));
   report('G', failures);
+});
+
+test('G rejects identical controls with multiple painted edges', async ({ page }) => {
+  await page.setContent(`<main><div role="tablist">
+    <button role="tab" aria-selected="true">Selected</button>
+    <button role="tab" aria-selected="false">Other</button>
+  </div></main><style>
+    main { background: white; }
+    button { background: white; border: 2px solid black; border-top-color: white;
+      box-shadow: 0 1px 0 rgba(0,0,0,.5), 0 2px 0 white; }
+  </style>`);
+  const failures = await selectionFailures(page, 'main', 'identical edges', ['[role="tablist"]']);
+  expect(failures).toHaveLength(1);
+  expect(failures[0].id).toBe('identical edges: Selected selection invisible');
+  expect(failures[0].actual).toContain('edge 1.00x');
 });
