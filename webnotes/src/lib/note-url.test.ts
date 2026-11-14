@@ -67,12 +67,9 @@ describe("wallFilterFromSearch", () => {
     expect(wallFilterFromSearch("?folder=folder-9")).toBe("folder-9");
     expect(wallFilterFromSearch("?folder=a%2Fb%20c")).toBe("a/b c");
   });
-  test("accepts a URLSearchParams object", () => {
-    expect(wallFilterFromSearch(new URLSearchParams("?pinned"))).toBe("pinned");
-    expect(wallFilterFromSearch(new URLSearchParams("?folder=x"))).toBe("x");
-  });
-  test("falls back to all on a malformed escape", () => {
-    expect(wallFilterFromSearch("?folder=%E0%A4%A")).toBe("all");
+  test("decodes once, so an id containing % round-trips", () => {
+    expect(wallFilterFromSearch(wallPath("50%").slice(1))).toBe("50%");
+    expect(() => wallFilterFromSearch("?folder=%E0%A4%A")).not.toThrow();
   });
 });
 

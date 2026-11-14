@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { browserHistoryLabels } from "@/lib/history-labels";
 import { SettingsSheet } from "./SettingsSheet";
 import type { SettingsSection } from "./sections";
 
@@ -44,9 +45,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const destination =
           section ??
           (window.matchMedia("(max-width: 700px)").matches ? "" : "account");
-        window.history.pushState(
-          null,
-          "",
+        // Same numbering as the app's own entries, so the ← → arrows stay true.
+        browserHistoryLabels().push(
           `/settings${destination ? `/${destination}` : ""}`,
         );
       }

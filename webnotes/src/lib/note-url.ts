@@ -31,25 +31,14 @@ export function wallPath(filter: string): string {
 }
 
 /**
- * The wall filter encoded in a set of search params: "pinned" when `?pinned`
- * is present, otherwise the decoded `?folder=` value, otherwise "all".
- * Accepts a query string or any `URLSearchParams`-like object (including
- * Next's `ReadonlyURLSearchParams`).
+ * The wall filter encoded in a query string: "pinned" when `?pinned` is
+ * present, otherwise the `?folder=` value (URLSearchParams already decodes
+ * it), otherwise "all".
  */
-export function wallFilterFromSearch(
-  search: { has(key: string): boolean; get(key: string): string | null } | string,
-): string {
-  const params =
-    typeof search === "string" ? new URLSearchParams(search) : search;
+export function wallFilterFromSearch(search: string): string {
+  const params = new URLSearchParams(search);
   if (params.has("pinned")) return "pinned";
-  const folder = params.get("folder");
-  if (folder === null || folder === "") return "all";
-  try {
-    const decoded = decodeURIComponent(folder);
-    return decoded || "all";
-  } catch {
-    return "all";
-  }
+  return params.get("folder") || "all";
 }
 
 /** Browser tab title for a note, or the plain app title when none is open. */

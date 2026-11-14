@@ -28,6 +28,7 @@ import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
 import { DELETE_UNDO_MS } from "@/lib/pending-deletes";
+import { browserHistoryLabels, type HistoryLabel } from "@/lib/history-labels";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
@@ -69,32 +70,6 @@ const VersionPreview = dynamic(() => import("./components/VersionPreview"), {
   ssr: false,
 });
 
-/** The app's history-entry index, or 0 for entries we did not push. */
-function historyKey(state: unknown): number {
-  if (
-    state &&
-    typeof state === "object" &&
-    typeof (state as { __webnotes?: unknown }).__webnotes === "number"
-  ) {
-    return (state as { __webnotes: number }).__webnotes;
-  }
-  return 0;
-}
-
-const HISTORY_TOP = "webnotes:history-top";
-function readHistoryTop(): number {
-  try {
-    return Number(sessionStorage.getItem(HISTORY_TOP)) || 0;
-  } catch {
-    return 0;
-  }
-}
-function writeHistoryTop(index: number) {
-  try {
-    sessionStorage.setItem(HISTORY_TOP, String(index));
-  } catch {}
-}
-
 export default function Home() {
   const { openSettings, isSettingsOpen } = useSettings();
   const {
@@ -133,18 +108,15 @@ export default function Home() {
     : undefined;
   const [info, setInfo] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
-  // Our position in the browser's own history, so the ← → arrows can stay
-  // disabled at the edges without maintaining a second, drifting history.
-  // Each entry we push is labelled with an increasing index in its state, and
-  // the newest label is the top of the stack (a push drops forward entries).
-  // sessionStorage keeps that top across refreshes.
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const maxHistoryIndex = useRef(0);
-  useEffect(() => {
-    const index = historyKey(window.history.state);
-    maxHistoryIndex.current = Math.max(index, readHistoryTop());
-    setHistoryIndex(index);
+  // Our place in the browser's own history (see src/lib/history-labels.ts),
+  // so the ← → arrows mirror it instead of keeping a second, drifting copy.
+  const labels = useRef<ReturnType<typeof browserHistoryLabels> | null>(null);
+  const [historyLabel, setHistoryLabel] = useState<HistoryLabel>({ index: 0, base: 0 });
+  const adoptHistory = useCallback(() => {
+    labels.current ??= browserHistoryLabels();
+    setHistoryLabel(labels.current.adopt());
   }, []);
+  useEffect(adoptHistory, [adoptHistory]);
   // Bumped whenever the URL changes (push/replace/back/forward) so the effect
   // below re-reads `window.location`. Reading the location directly keeps this
   // page statically prerenderable, which `useSearchParams` would not.
@@ -161,22 +133,16 @@ export default function Home() {
   // --- Browser history is the single source of truth for navigation. --------
   const pushUrl = useCallback(
     (url: string) => {
-      const next = maxHistoryIndex.current + 1;
-      maxHistoryIndex.current = next;
-      writeHistoryTop(next);
-      window.history.pushState({ __webnotes: next }, "", url);
-      setHistoryIndex(next);
+      labels.current ??= browserHistoryLabels();
+      setHistoryLabel(labels.current.push(url));
       syncUrl();
     },
     [syncUrl],
   );
   const replaceUrl = useCallback(
     (url: string) => {
-      window.history.replaceState(
-        { __webnotes: historyKey(window.history.state) },
-        "",
-        url,
-      );
+      labels.current ??= browserHistoryLabels();
+      setHistoryLabel(labels.current.replace(url));
       syncUrl();
     },
     [syncUrl],
@@ -194,15 +160,19 @@ export default function Home() {
 
   // Back/Forward derive from browser history, so there is one history.
   useEffect(() => {
-    const onPopState = (event: PopStateEvent) => {
-      setHistoryIndex(historyKey(event.state));
+    const onPopState = () => {
+      adoptHistory();
       syncUrl();
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [syncUrl]);
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < maxHistoryIndex.current;
+  }, [syncUrl, adoptHistory]);
+  // Any entry pushed outside navigate (Settings, the router) joins the same
+  // numbering as soon as the URL changes.
+  useEffect(adoptHistory, [pathname, adoptHistory]);
+  const canGoBack = historyLabel.index > historyLabel.base;
+  const canGoForward =
+    labels.current !== null && labels.current.canGoForward(historyLabel);
 
   // Keep the store in step with the URL (home, note, or wall filter). Notes
   // load asynchronously, so this waits for them before opening a note.
@@ -219,14 +189,23 @@ export default function Home() {
     if (id !== null) {
       if (notesRef.current.some((n) => n.id === id)) {
         setActiveNote(id);
-      } else {
+      } else if (useNotesStore.getState().syncStatus !== "unsynced") {
+        // Only call a note missing when the notes actually loaded; a failed
+        // load keeps the URL so the note opens once it does.
         replaceUrl("/");
         toast("That note isn't here");
       }
       return;
     }
     setActiveNote(null);
-    setWallFilter(wallFilterFromSearch(window.location.search));
+    const filter = wallFilterFromSearch(window.location.search);
+    const known =
+      filter === "all" ||
+      filter === "pinned" ||
+      useNotesStore.getState().folders.some((f) => f.id === filter);
+    // A bookmarked folder that has since been deleted falls back to All notes.
+    if (!known) replaceUrl("/");
+    setWallFilter(known ? filter : "all");
   }, [urlVersion, pathname, isLoading, setActiveNote, replaceUrl]);
 
   // Browser tab title: the open note's title (or "Untitled"), live as it is
