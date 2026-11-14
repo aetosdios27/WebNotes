@@ -31,12 +31,60 @@ export function logoGlyph(coverage: number) {
 }
 
 /**
- * The field is dot-grid paper: a dot on a regular lattice, quiet next to the
- * mark (`calm` 0) and fully present far from it (`calm` 1). A slow diagonal
- * wave lifts a band of dots to colons as it passes.
+ * Distance in CSS px from every cell to the nearest cell the mark covers,
+ * measured on the cell grid (two-pass chamfer). The field's clearing then
+ * follows the mark's slanted silhouette instead of its bounding box.
  */
-export function fieldGlyph(column: number, row: number, seconds: number, calm: number) {
-  if (calm < 0.35 || column % 3 !== 0 || row % 2 !== 0) return " ";
+export function markDistance(
+  covered: ArrayLike<boolean>,
+  columns: number,
+  rows: number,
+  cellWidth: number,
+  cellHeight: number,
+) {
+  const far = 1e9;
+  const diagonal = Math.hypot(cellWidth, cellHeight);
+  const d = new Float32Array(columns * rows);
+  for (let i = 0; i < d.length; i++) d[i] = covered[i] ? 0 : far;
+  const relax = (i: number, j: number, cost: number) => {
+    if (d[j] + cost < d[i]) d[i] = d[j] + cost;
+  };
+  for (let row = 0; row < rows; row++)
+    for (let column = 0; column < columns; column++) {
+      const i = row * columns + column;
+      if (column > 0) relax(i, i - 1, cellWidth);
+      if (row > 0) {
+        relax(i, i - columns, cellHeight);
+        if (column > 0) relax(i, i - columns - 1, diagonal);
+        if (column < columns - 1) relax(i, i - columns + 1, diagonal);
+      }
+    }
+  for (let row = rows - 1; row >= 0; row--)
+    for (let column = columns - 1; column >= 0; column--) {
+      const i = row * columns + column;
+      if (column < columns - 1) relax(i, i + 1, cellWidth);
+      if (row < rows - 1) {
+        relax(i, i + columns, cellHeight);
+        if (column < columns - 1) relax(i, i + columns + 1, diagonal);
+        if (column > 0) relax(i, i + columns - 1, diagonal);
+      }
+    }
+  return d;
+}
+
+/** How present the field is at a distance from the mark: 0 hugging it, 1 a few cells out. */
+export function fieldPresence(distance: number, cellHeight: number) {
+  const t = Math.min(1, Math.max(0, (distance - cellHeight) / (cellHeight * 3)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * The field is dot-grid paper: a dot on a regular lattice, absent where
+ * `presence` is 0 (right against the mark). A slow diagonal wave lifts a band
+ * of dots to colons as it passes.
+ */
+export function fieldGlyph(column: number, row: number, seconds: number, presence: number) {
+  if (presence <= 0 || column % 3 !== 0 || row % 2 !== 0) return " ";
   const wave = Math.sin((column * 0.5 + row) * 0.12 - seconds * 0.8);
   return wave > 0.92 ? ":" : ".";
 }
