@@ -1900,3 +1900,60 @@ input:checked + span > .task-check path,
 .theme-toggle:is(:hover, :focus-visible) svg.lucide {
   color: var(--ink);
 }
+
+/* Text constraints apply to legacy notes and folders as well as new input. */
+.switcher-preview h2 {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.wall-tabs [role="tablist"] {
+  min-width: 0;
+  height: 44px;
+  scrollbar-width: none;
+}
+.wall-tab-mask {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  --fade-start: 0px;
+  --fade-end: 0px;
+  mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
+}
+.wall-tabs [role="tablist"]::-webkit-scrollbar { display: none; }
+.wall-tab-mask[data-fade-start="true"] { --fade-start: 20px; }
+.wall-tab-mask[data-fade-end="true"] { --fade-end: 20px; }
+.tab-label {
+  max-width: 180px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.switcher-results,
+.switcher-results [role="group"],
+.switcher-results button,
+.switcher-results strong,
+.switcher-results p { min-width: 0; }
+.switcher-results strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.switcher-chips button {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.switcher-chips button svg { display: inline-block; margin-right: 6px; }
+.note-submenu { max-width: min(280px, calc(100vw - 24px)); }
+.menu-folder-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

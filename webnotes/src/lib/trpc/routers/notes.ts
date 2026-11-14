@@ -1,3 +1,4 @@
+import { idInput, titleInput, contentInput, fontInput } from "@/lib/input-limits";
 import { createOwned } from "../create-owned";
 // src/lib/trpc/routers/notes.ts
 
@@ -6,7 +7,7 @@ import { router, protectedProcedure } from "../init";
 import { TRPCError } from "@trpc/server";
 import * as Y from "yjs";
 import { createUpdateLog } from "@/lib/sync/update-log";
-import { decodeClientUpdate, UpdateInputError } from "@/lib/sync/update-input";
+import { decodeClientUpdate, UpdateInputError, updateInput } from "@/lib/sync/update-input";
 
 export const notesRouter = router({
   // ==========================================================================
@@ -16,8 +17,8 @@ export const notesRouter = router({
   sync: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        update: z.string(),
+        id: idInput,
+        update: updateInput,
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -61,8 +62,8 @@ export const notesRouter = router({
     .input(
       z
         .object({
-          folderId: z.string().nullish(),
-          cursor: z.string().nullish(),
+          folderId: idInput.nullish(),
+          cursor: idInput.nullish(),
           limit: z.number().min(1).max(100).default(50),
         })
         .optional()
@@ -111,7 +112,7 @@ export const notesRouter = router({
   // ==========================================================================
 
   byId: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: idInput }))
     .query(async ({ ctx, input }) => {
       const note = await ctx.prisma.note.findFirst({
         where: {
@@ -146,19 +147,21 @@ export const notesRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        id: z.string().optional(),
+        id: idInput.optional(),
+        // Notes written before the 200-character limit still upload; their
+        // titles are shortened rather than the whole note being rejected.
         title: z
           .string()
+          .max(10_000)
+          .nullish()
+          .transform((val) => (val ?? "").slice(0, 200)),
+        content: contentInput
           .nullish()
           .transform((val) => val ?? ""),
-        content: z
-          .string()
-          .nullish()
-          .transform((val) => val ?? ""),
-        folderId: z.string().nullish(),
+        folderId: idInput.nullish(),
         isPinned: z.boolean().optional(),
         pinnedAt: z.date().nullish(),
-        font: z.string().nullish(),
+        font: fontInput.nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -197,13 +200,13 @@ export const notesRouter = router({
   update: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
-        htmlContent: z.string().nullish(),
-        textContent: z.string().nullish(),
-        font: z.string().nullish(),
+        id: idInput,
+        htmlContent: contentInput.nullish(),
+        textContent: contentInput.nullish(),
+        font: fontInput.nullish(),
         isPinned: z.boolean().nullish(),
         pinnedAt: z.date().nullish(),
-        folderId: z.string().nullish(),
+        folderId: idInput.nullish(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -252,7 +255,7 @@ export const notesRouter = router({
   // ==========================================================================
 
   rename: protectedProcedure
-    .input(z.object({ id: z.string(), newName: z.string().min(1) }))
+    .input(z.object({ id: idInput, newName: titleInput.min(1) }))
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.prisma.note.updateMany({
         where: { id: input.id, userId: ctx.userId },
@@ -271,7 +274,7 @@ export const notesRouter = router({
   // ==========================================================================
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: idInput }))
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.prisma.note.deleteMany({
         where: { id: input.id, userId: ctx.userId },
@@ -298,7 +301,7 @@ export const notesRouter = router({
   // ==========================================================================
 
   move: protectedProcedure
-    .input(z.object({ id: z.string(), folderId: z.string().nullish() }))
+    .input(z.object({ id: idInput, folderId: idInput.nullish() }))
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.prisma.note.updateMany({
         where: { id: input.id, userId: ctx.userId },
@@ -323,7 +326,7 @@ export const notesRouter = router({
   // ==========================================================================
 
   togglePin: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: idInput }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.prisma.note.findFirst({
         where: { id: input.id, userId: ctx.userId },

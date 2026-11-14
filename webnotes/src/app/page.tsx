@@ -24,6 +24,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
+import { folderNameInput } from "@/lib/input-limits";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
@@ -156,15 +157,28 @@ export default function Home() {
     },
     [togglePin],
   );
-  const newFolder = useCallback(async () => {
-    const name = prompt("Folder name");
-    if (!name?.trim()) return;
+  const validateFolderName = (raw: string | null, excludeId?: string) => {
+    if (raw === null) return null;
+    const result = folderNameInput.safeParse(raw);
+    if (!result.success) {
+      toast.error(result.error.issues[0].message);
+      return null;
+    }
+    if (folders.some((f) => f.id !== excludeId && f.name.trim().toLowerCase() === result.data.toLowerCase())) {
+      toast.error("A folder with that name already exists");
+      return null;
+    }
+    return result.data;
+  };
+  const newFolder = async () => {
+    const name = validateFolderName(prompt("Folder name"));
+    if (!name) return;
     try {
       await createFolder({ name: name.trim() });
     } catch {
       toast.error("Failed to create folder");
     }
-  }, [createFolder]);
+  };
   const update = useCallback(
     async (id: string, changes: Partial<Note>) => {
       try {
@@ -256,7 +270,7 @@ export default function Home() {
           {
             label: "Rename folder",
             run: () => {
-              const name = prompt("Folder name", selectedFolder.name);
+              const name = validateFolderName(prompt("Folder name", selectedFolder.name), selectedFolder.id);
               if (name?.trim())
                 void updateFolder(selectedFolder.id, {
                   name: name.trim(),
