@@ -3,7 +3,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { SlidingIndicator } from "./ui/sliding-indicator";
 import { ActionIcon } from "./ui/action-icon";
-import { Search, X, FileText, FileSearch } from "lucide-react";
+import {
+  Search,
+  X,
+  FileText,
+  FileSearch,
+  Files,
+  Pin,
+  Folder as FolderIcon,
+} from "lucide-react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
 
@@ -152,6 +160,13 @@ export default function NoteSwitcher({
                   setIndex(0);
                 }}
               >
+                {f.id === "recent" ? (
+                  <Files aria-hidden="true" />
+                ) : f.id === "pinned" ? (
+                  <Pin aria-hidden="true" />
+                ) : (
+                  <FolderIcon aria-hidden="true" />
+                )}
                 {f.name}
               </button>
             ))}

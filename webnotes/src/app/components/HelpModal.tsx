@@ -219,7 +219,10 @@ function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
 
 const appShortcuts = [
   { category: "General", label: "Note switcher", keys: ["⌘", "K"] },
-  { category: "General", label: "New Note", keys: ["⌘", "E"] },
+  { category: "General", label: "New note (outside the editor)", keys: ["N"] },
+  { category: "General", label: "New note", keys: ["⌘", "E"] },
+  { category: "General", label: "Home", keys: ["⌘", "⇧", "H"] },
+  { category: "General", label: "Help (outside the editor)", keys: ["?"] },
   { category: "General", label: "New Folder", keys: ["⌘", "⇧", "F"] },
   { category: "General", label: "Open This Guide", keys: ["⌘", "/"] },
   { category: "Editor", label: "Inline Math", keys: ["⌘", "M"] },

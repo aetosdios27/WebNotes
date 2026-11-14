@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
+import { TaskCheck } from "./TaskCheck";
 import { Folder as FolderIcon } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import MarkdownIt from "markdown-it";
@@ -136,7 +137,7 @@ export function noteMiniature(content: Note["content"]): ReactNode {
               <span
                 className="mini-box"
                 aria-label={checked ? "Checked task" : "Unchecked task"}
-              />
+              ><TaskCheck /></span>
             )}
             {children()}
           </span>

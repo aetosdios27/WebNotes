@@ -16,7 +16,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Typography from "@tiptap/extension-typography";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
+import { CheckedTaskItem } from "./extensions/CheckedTaskItem";
 import { Markdown } from "tiptap-markdown";
 import Collaboration, { isChangeOrigin } from "@tiptap/extension-collaboration";
 import { ySyncPluginKey } from "@tiptap/y-tiptap";
@@ -423,7 +423,7 @@ function HydratedEditor({
       }),
       Callout,
       TaskList.configure({ HTMLAttributes: { class: "task-list" } }),
-      TaskItem.configure({
+      CheckedTaskItem.configure({
         nested: true,
         HTMLAttributes: { class: "task-item" },
       }),
@@ -949,39 +949,6 @@ export default function NoteEditor({
           height: 1.25rem !important;
           margin-top: 0.2rem !important;
           cursor: pointer !important;
-        }
-        .ProseMirror li.task-item > label > input[type="checkbox"] {
-          appearance: none !important;
-          width: 1.125rem !important;
-          height: 1.125rem !important;
-          border: 2px solid #52525b !important;
-          border-radius: 4px !important;
-          background: transparent !important;
-          cursor: pointer !important;
-          transition: all 0.15s ease !important;
-          position: relative !important;
-        }
-        .ProseMirror li.task-item > label > input[type="checkbox"]:hover {
-          border-color: #eab308 !important;
-          background: rgba(234, 179, 8, 0.1) !important;
-        }
-        .ProseMirror li.task-item > label > input[type="checkbox"]:checked {
-          background: #eab308 !important;
-          border-color: #eab308 !important;
-        }
-        .ProseMirror
-          li.task-item
-          > label
-          > input[type="checkbox"]:checked::after {
-          content: "" !important;
-          position: absolute !important;
-          left: 5px !important;
-          top: 2px !important;
-          width: 4px !important;
-          height: 8px !important;
-          border: solid #000 !important;
-          border-width: 0 2px 2px 0 !important;
-          transform: rotate(45deg) !important;
         }
         .ProseMirror li.task-item > div {
           flex: 1 !important;

@@ -167,13 +167,13 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
     [editor],
   );
 
-  if (!editor || headings.length === 0) return null;
+  if (!editor || headings.length < 2) return null;
 
   return (
-    // FIX: Changed 'fixed' to 'absolute' so it stays inside the relative container
-    // Changed 'right-6' to 'right-4' to align better
-    // Added 'h-full' and 'flex flex-col justify-center' to center the rail vertically in the container
-    <div className="hidden xl:flex absolute right-4 top-0 bottom-0 z-50 w-16 group pointer-events-none flex-col justify-center">
+    <nav
+      aria-label="Note outline"
+      className="hidden xl:flex absolute right-4 top-0 bottom-0 z-50 w-16 group pointer-events-none flex-col justify-center"
+    >
       {/* RIGHT: The Minimap Rail */}
       <div
         className="relative w-full pointer-events-auto transition-[height] duration-300"
@@ -256,6 +256,6 @@ export function TableOfContents({ editor }: TableOfContentsProps) {
           })}
         </div>
       </div>
-    </div>
+    </nav>
   );
 }
