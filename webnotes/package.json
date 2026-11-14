@@ -42,6 +42,7 @@
     "@next/bundle-analyzer": "^16.1.6",
     "@prisma/adapter-neon": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@scritto/react": "0.1.0",
     "@tanstack/react-query": "^5.90.20",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-deep-link": "~2.4.7",

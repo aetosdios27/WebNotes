@@ -1,0 +1,19 @@
+/* Reserve the surrounding layout while Scritto animates its own box. */
+.rolling-text {
+  display: inline-grid;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.rolling-text > * {
+  grid-area: 1 / 1;
+}
+.rolling-reserve {
+  visibility: hidden;
+}
+.rolling-count {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+.rolling-text scritto-text {
+  justify-self: start;
+}

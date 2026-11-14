@@ -809,6 +809,7 @@ function HydratedEditor({
 
               <div className="text-[13.5px] text-muted mb-[26px]">
                 <NoteMeta
+                  live
                   note={activeNote}
                   folders={useNotesStore.getState().folders}
                 />

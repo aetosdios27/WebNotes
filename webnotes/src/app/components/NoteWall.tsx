@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
 import { NoteMeta, NoteMiniature } from "./NoteSummary";
+import { RollingText } from "./ui/rolling-text";
 
 function FolderTabInput({ name, folders, id, save, cancel }: {
   name: string; folders: Folder[]; id: string;
@@ -196,9 +197,9 @@ export default function NoteWall({
                 <span className="tab-label" title={tab.name}>
                   {tab.name}
                 </span>
-                {tab.count > 0 && (
-                  <span className="tab-count">{tab.count}</span>
-                )}
+                <span className="tab-count">
+                  <RollingText value={tab.count} />
+                </span>
               </button>
             ))}
           </div>

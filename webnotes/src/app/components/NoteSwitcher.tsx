@@ -1,4 +1,5 @@
 "use client";
+import { RollingText } from "./ui/rolling-text";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { SlidingIndicator } from "./ui/sliding-indicator";
@@ -267,7 +268,9 @@ export default function NoteSwitcher({
             <span>↑↓ Move</span>
             <span>↵ Open</span>
             <span>⌘↵ New note</span>
-            <span>{results.length} notes</span>
+            <span>
+              <RollingText value={results.length} fast /> notes
+            </span>
           </footer>
         </Dialog.Popup>
       </Dialog.Portal>

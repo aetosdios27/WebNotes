@@ -766,13 +766,13 @@ body {
   font-size: 13px;
   text-align: left;
 }
-.title-pill span {
+.title-pill > span {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.writing .title-pill span {
+.writing .title-pill > span {
   color: var(--reading);
 }
 .title-pill kbd {
