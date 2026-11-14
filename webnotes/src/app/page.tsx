@@ -37,6 +37,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import { HelpModal } from "./components/HelpModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import NoteWall from "./components/NoteWall";
+import FolderRail from "./components/FolderRail";
 import NoteSwitcher from "./components/NoteSwitcher";
 import { noteMarkdown } from "@/lib/note-markdown";
 import {
@@ -102,6 +103,7 @@ export default function Home() {
   const [wallFilter, setWallFilter] = useState("all");
   const [folderEditing, setFolderEditing] = useState<string | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [foldersOpen, setFoldersOpen] = useState(false);
   const [isReadingMode, setIsReadingMode] = useState(false);
   const selectedFolder = !activeNoteId
     ? folders.find((f) => f.id === wallFilter)
@@ -672,25 +674,36 @@ export default function Home() {
             </ErrorBoundary>
           )
         ) : (
-          <NoteWall
-            folderEditing={folderEditing}
-            onFolderEditingChange={setFolderEditing}
-            saveFolder={async (id, name) => {
-              if (id === "new") await createFolder({ name });
-              else await updateFolder(id, { name });
-            }}
-            menuActions={menuActions}
-            activeNoteId={activeNoteId}
-            isReadingMode={isReadingMode}
-            filter={wallFilter}
-            onFilterChange={changeWallFilter}
-            notes={notes}
-            folders={folders}
-            openNote={navigate}
-            createNote={(folderId) => {
-              void newNote("", folderId);
-            }}
-          />
+          <div className="home-layout">
+            <FolderRail
+              notes={notes}
+              folders={folders}
+              filter={wallFilter}
+              onFilterChange={changeWallFilter}
+              sheetOpen={foldersOpen}
+              onSheetOpenChange={setFoldersOpen}
+              folderEditing={folderEditing}
+              onFolderEditingChange={setFolderEditing}
+              saveFolder={async (id, name) => {
+                if (id === "new") await createFolder({ name });
+                else await updateFolder(id, { name });
+              }}
+              onDeleteFolder={(id) => { setFoldersOpen(false); setFolderToDelete(id); }}
+            />
+            <NoteWall
+              onOpenFolders={() => setFoldersOpen(true)}
+              menuActions={menuActions}
+              activeNoteId={activeNoteId}
+              isReadingMode={isReadingMode}
+              filter={wallFilter}
+              notes={notes}
+              folders={folders}
+              openNote={navigate}
+              createNote={(folderId) => {
+                void newNote("", folderId);
+              }}
+            />
+          </div>
         )}
       </div>
       <NoteSwitcher
@@ -699,6 +712,11 @@ export default function Home() {
         notes={notes}
         folders={folders}
         openNote={navigate}
+        openFolder={(id) => {
+          setFoldersOpen(false);
+          if (activeNoteId !== null) pushUrl(wallPath(id));
+          else changeWallFilter(id);
+        }}
         createNote={(title) => {
           void newNote(title);
         }}

@@ -2,8 +2,9 @@
 
 From `webnotes/`, install with `bun install --frozen-lockfile`, then
 `bunx playwright install --with-deps chromium` once. Run `bun run test:ui`.
-The runner builds the app and launches `next start` on port 3100. It reuses an
-existing server locally; stop it when finished:
+The runner builds the app and launches `next start` on port 3100 (`UI_PORT`
+overrides it, so parallel checkouts never reuse each other's server). It reuses
+an existing server locally; stop it when finished:
 `lsof -ti tcp:3100 -sTCP:LISTEN | xargs -r kill`.
 
 All checks run on Chromium in light/dark at 1280×800 and 390×844. Each isolated

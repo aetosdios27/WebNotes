@@ -5,10 +5,15 @@ import { knownIssues } from './known-issues';
 import { longTitle } from './seed';
 export { longTitle };
 export const longFolder = 'F'.repeat(78);
+// Near-duplicates differ only at the end: an end ellipsis would make them identical.
+export const nearDuplicates = [
+  'University applications — reference letters, drafts before',
+  'University applications — reference letters, drafts after',
+];
+export const sixtyCharacterFolder = 'Home renovation — materials, quotes and contractor notes, 26';
+const named = [longFolder, 'G'.repeat(60), ...nearDuplicates, sixtyCharacterFolder];
 const createdAt = new Date('2026-01-01T00:00:00Z');
-const folders: Folder[] = Array.from({ length: 30 }, (_, i) => ({ id: `folder-${i}`, name: i === 0 ? longFolder : i === 1 ? 'G'.repeat(60) : `Folder ${i}`, createdAt }));
-// Edits spread over ~16 months from now, so the wall shows dated sections and the month
-// scrubber; 12 pins (note 0 first) overflow two rows at every width, so Pinned folds.
+const folders: Folder[] = Array.from({ length: 30 }, (_, i) => ({ id: `folder-${i}`, name: named[i] ?? `Folder ${i}`, createdAt }));
 const now = Date.now();
 const notes: Note[] = Array.from({ length: 55 }, (_, i) => ({
   id: `note-${i}`, title: i === 0 ? longTitle : i === 1 ? '' : `Seed note ${i}`,
@@ -43,6 +48,7 @@ export const test = base.extend({
       rail: '.settings-rail nav a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }',
       order: '.note-cell:nth-child(2) { order: -1; }',
       'wall-targets': '.month-scrubber .scrub-now { min-height: 20px !important; height: 20px !important; }',
+      selected: '.library-row[data-active] { background: transparent !important; box-shadow: none !important; font-weight: inherit !important; }',
     };
     const css = mutations[process.env.UI_MUTATION || ''];
     if (css) await page.addStyleTag({ content: css });
