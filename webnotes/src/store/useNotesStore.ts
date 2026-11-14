@@ -1,5 +1,7 @@
 // src/store/useNotesStore.ts
 import { defaultNoteFont } from "@/lib/note-fonts";
+import { toast } from "sonner";
+import { PendingDeletes } from "@/lib/pending-deletes";
 import { create } from "zustand";
 import { clearDocument } from "y-indexeddb";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -52,7 +54,7 @@ interface NotesState {
   createNote: (data?: Partial<Note>) => Promise<Note>;
   updateNote: (id: string, data: Partial<Note>) => Promise<Note>;
   updateNoteLocally: (id: string, data: Partial<Note>) => void;
-  deleteNote: (id: string) => Promise<void>;
+  deleteNote: (id: string) => () => boolean;
   togglePin: (id: string) => Promise<Note>;
   moveNote: (noteId: string, folderId: string | null) => Promise<void>;
   setActiveNote: (id: string | null) => void;
@@ -91,6 +93,15 @@ const sortNotes = (notes: Note[]): Note[] => {
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 };
+
+let deletes: PendingDeletes | undefined;
+function pendingDeletes() {
+  return deletes ??= new PendingDeletes(localStorage, async ({ id, scope }) => {
+    if (isTauri) await TauriDB.deleteNote(id);
+    else await storage.deleteNote(id, scope);
+    await clearDocument("webnotes-note-" + id);
+  }, () => toast.error("Deletion will retry when you reopen or reconnect"));
+}
 
 const toTauriNote = (note: Note): TauriNote => ({
   id: note.id,
@@ -159,6 +170,7 @@ export const useNotesStore = create<NotesState>()(
 
       const handleOnline = () => {
         set({ isOnline: true, syncStatus: SYNC_STATUS.SYNCED });
+        void pendingDeletes().recover(isTauri ? "tauri" : storage.deleteScope);
       };
 
       const handleOffline = () => {
@@ -239,6 +251,7 @@ export const useNotesStore = create<NotesState>()(
 
             await TauriDB.init();
             const settings = await storage.getSettings();
+            await pendingDeletes().recover("tauri");
             const [tauriNotes, tauriFolders] = await Promise.all([
               TauriDB.getAllNotes(),
               TauriDB.getAllFolders(),
@@ -246,7 +259,7 @@ export const useNotesStore = create<NotesState>()(
 
             set({
               settings,
-              notes: sortNotes(tauriNotes.map(fromTauriNote)),
+              notes: sortNotes(tauriNotes.map(fromTauriNote).filter(n => !pendingDeletes().has(n.id))),
               folders: tauriFolders.map((f) => ({
                 id: f.id,
                 name: f.name,
@@ -257,6 +270,7 @@ export const useNotesStore = create<NotesState>()(
             });
           } else {
             await storage.refreshAuth?.();
+            await pendingDeletes().recover(storage.deleteScope);
             const [notes, folders, settings] = await Promise.all([
               storage.getNotes(),
               storage.getFolders(),
@@ -264,7 +278,7 @@ export const useNotesStore = create<NotesState>()(
             ]);
 
             set({
-              notes: sortNotes(notes),
+              notes: sortNotes(notes.filter(n => !pendingDeletes().has(n.id))),
               folders,
               settings: settings ?? get().settings,
               isLoading: false,
@@ -348,6 +362,11 @@ export const useNotesStore = create<NotesState>()(
       const note = get().notes.find((n) => n.id === id);
       if (!note) throw new Error("Note not found");
 
+      // Reopening an editor can emit an unchanged snapshot. Preserve its timestamps.
+      if (Object.entries(data).every(([key, value]) => Reflect.get(note, key) === value)) {
+        return note;
+      }
+
       const updatedNote: Note = {
         ...note,
         ...data,
@@ -398,42 +417,23 @@ export const useNotesStore = create<NotesState>()(
       }));
     },
 
-    deleteNote: async (id) => {
-      const previousNotes = get().notes;
-      const note = previousNotes.find((n) => n.id === id);
-      if (!note) return;
-
+    deleteNote: (id) => {
+      const note = get().notes.find((n) => n.id === id);
+      if (!note) return () => false;
+      const wasOpen = get().activeNoteId === id;
+      const undo = pendingDeletes().stage({ id, scope: isTauri ? "tauri" : storage.deleteScope });
       set((state) => ({
         notes: state.notes.filter((n) => n.id !== id),
-        activeNoteId: state.activeNoteId === id ? null : state.activeNoteId,
-        pendingOperations: state.pendingOperations + 1,
-        syncStatus: SYNC_STATUS.SYNCING,
+        activeNoteId: wasOpen ? null : state.activeNoteId,
       }));
-
-      try {
-        if (isTauri) {
-          await TauriDB.deleteNote(id);
-        } else {
-          await storage.deleteNote(id);
-        }
-        await clearDocument("webnotes-note-" + id);
-
+      return () => {
+        if (!undo()) return false;
         set((state) => ({
-          pendingOperations: state.pendingOperations - 1,
-          syncStatus:
-            state.pendingOperations - 1 === 0
-              ? SYNC_STATUS.SYNCED
-              : state.syncStatus,
+          notes: sortNotes([...state.notes.filter(n => n.id !== id), note]),
+          activeNoteId: wasOpen ? id : state.activeNoteId,
         }));
-      } catch (error) {
-        console.error("Failed to delete note:", error);
-        set((state) => ({
-          notes: previousNotes,
-          pendingOperations: state.pendingOperations - 1,
-          syncStatus: SYNC_STATUS.UNSYNCED,
-        }));
-        throw error;
-      }
+        return true;
+      };
     },
 
     togglePin: async (id) => {

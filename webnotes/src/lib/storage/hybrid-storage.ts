@@ -13,6 +13,9 @@ export class HybridStorageAdapter {
 
   private isOnline: boolean = typeof window !== "undefined" && navigator.onLine;
   private isAuthenticated: boolean = false;
+  private userId: string | null = null;
+
+  get deleteScope(): string { return this.userId ?? "device"; }
   private authCheck: Promise<void> | null = null;
 
   constructor() {
@@ -55,6 +58,7 @@ export class HybridStorageAdapter {
     } catch (error) {
       console.error("Could not check session", error);
     }
+    this.userId = userId;
     this.isAuthenticated = userId !== null;
     if (!userId) return;
     // A failed upload must not hide the account's cloud notes; device copies stay and retry.
@@ -136,20 +140,18 @@ export class HybridStorageAdapter {
     return this.local.updateNote(id, data);
   }
 
-  async deleteNote(id: string): Promise<void> {
+  async deleteNote(id: string, scope = this.deleteScope): Promise<void> {
     if (isTauri) return await this.tauri.deleteNote(id);
     // Let an in-flight upload finish first, so it cannot recreate what we delete.
     await this.authCheck;
+    if (scope !== "device" && scope !== this.deleteScope) throw new Error("Delete is waiting for the original account");
+    if (this.isAuthenticated && !this.isOnline) throw new Error("Delete is waiting for a connection");
     if (!this.shouldUseCloud()) return await this.local.deleteNote(id);
 
     await withUploadLock(async () => {
-      try {
-        await this.cloud.deleteNote(id);
-        // A pending device copy would otherwise be re-uploaded by the next migration.
-        await this.local.deleteNote(id);
-      } catch {
-        await this.local.deleteNote(id);
-      }
+      await this.cloud.deleteNote(id);
+      // A pending device copy would otherwise be re-uploaded by the next migration.
+      await this.local.deleteNote(id);
     });
   }
 
