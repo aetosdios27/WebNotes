@@ -15,6 +15,9 @@ const providers = hasGoogleAuth
         httpOptions: {
           timeout: 10000,
         },
+        // Always show Google's account chooser, so someone with several
+        // Google accounts picks one instead of silently reusing the last.
+        authorization: { params: { prompt: "select_account" } },
       }),
     ]
   : [];
