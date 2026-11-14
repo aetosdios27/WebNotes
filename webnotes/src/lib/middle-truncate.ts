@@ -7,13 +7,16 @@ const graphemes = (text: string) => Array.from(segmenter.segment(text), part => 
 export function shortenMiddle(full: string, keep: number): string {
   const parts = graphemes(full);
   const headCount = Math.ceil(keep * 0.55);
-  let head = parts.slice(0, headCount).join("");
-  let tail = parts.slice(parts.length - (keep - headCount)).join("");
+  let head = parts.slice(0, headCount);
+  let tail = parts.slice(parts.length - (keep - headCount));
   const headSpace = head.lastIndexOf(" ");
   if (headSpace > 0 && headSpace >= head.length - 3) head = head.slice(0, headSpace);
   const tailSpace = tail.indexOf(" ");
   if (tailSpace >= 0 && tailSpace <= 3) tail = tail.slice(tailSpace + 1);
-  return `${head.replace(/[\s,·—-]+$/, "")} … ${tail.replace(/^[\s,·—-]+/, "")}`;
+  const separator = /^[\s,·—-]+$/u;
+  while (head.length && separator.test(head[head.length - 1])) head.pop();
+  while (tail.length && separator.test(tail[0])) tail.shift();
+  return `${head.join("")} … ${tail.join("")}`;
 }
 
 /** The longest middle-shortened form of `full` that `fits`, so

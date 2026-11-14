@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { middleTruncate } from "./middle-truncate";
+import { middleTruncate, shortenMiddle } from "./middle-truncate";
 
 const width = (n: number) => (text: string) => text.length <= n;
 
@@ -42,5 +42,12 @@ describe("middle truncation of folder names", () => {
       const parts = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(short), part => part.segment);
       expect(parts.every(part => part === emoji || part === " " || part === "…")).toBe(true);
     }
+  });
+  test("word trimming preserves a space with its combining mark", () => {
+    const source = "ABCDEFGHIJK \u0301abc";
+    const short = shortenMiddle(source, 9);
+    const segments = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(short), part => part.segment);
+    expect(segments).toContain(" \u0301");
+    expect(short).not.toContain("… \u0301abc");
   });
 });
