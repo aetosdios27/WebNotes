@@ -810,22 +810,36 @@ body {
   min-width: 240px;
   max-width: 300px;
 }
-/* Sign out turns red on approach and must be held: a fill runs across the
-   row, and only a completed fill signs out. Letting go drains it. */
+/* Destructive hold-to-action: a red overlay is revealed with clip-path while
+   held (slow, linear) and drains fast (ease-out) on release. The control
+   scales down while held for tactile feedback. Mirrors Emil Kowalski's
+   "hold to delete" pattern. */
 .hold-action {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  transition: transform 160ms var(--ease-out);
 }
-.hold-action::before {
-  content: "";
+.hold-action:active,
+.hold-action[data-holding] {
+  transform: scale(0.97);
+}
+.hold-overlay {
   position: absolute;
   inset: 0;
-  z-index: -1;
-  background: color-mix(in srgb, var(--danger) 22%, transparent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--duration-normal) var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path var(--duration-normal) var(--ease-out);
+  pointer-events: none;
+}
+.hold-action[data-holding] .hold-overlay {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path var(--hold-duration) linear;
 }
 .note-actions-menu .hold-action:is([data-highlighted], [data-holding]),
 .note-actions-menu .hold-action:is([data-highlighted], [data-holding]) > svg.lucide {
@@ -833,10 +847,6 @@ body {
 }
 .note-actions-menu .hold-action[data-highlighted] {
   background: color-mix(in srgb, var(--danger) 9%, transparent);
-}
-.hold-action[data-holding]::before {
-  transform: scaleX(1);
-  transition: transform var(--hold-duration) linear;
 }
 .hold-action .hold-hint {
   margin-left: auto;
@@ -846,6 +856,21 @@ body {
 }
 .hold-action:is([data-highlighted], [data-holding]) .hold-hint {
   opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hold-action {
+    transition: none;
+  }
+  .hold-action:active,
+  .hold-action[data-holding] {
+    transform: none;
+  }
+  .hold-overlay {
+    transition: none;
+  }
+  .hold-action[data-holding] .hold-overlay {
+    transition: none;
+  }
 }
 .account-card {
   display: flex;

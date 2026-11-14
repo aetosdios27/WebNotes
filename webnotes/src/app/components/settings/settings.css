@@ -341,7 +341,8 @@ body:has(.settings-sheet[data-presentation="modal"]) .app-shell {
   background: var(--float);
   box-shadow: var(--elevation-paper);
 }
-.settings-account-actions .hold-action > svg {
+.settings-account-actions .hold-action > svg,
+.settings-account-actions .hold-overlay > svg {
   display: none;
 }
 .settings-account-actions .hold-action:hover {
@@ -353,6 +354,11 @@ body:has(.settings-sheet[data-presentation="modal"]) .app-shell {
 }
 .settings-account-actions .hold-action:is(:hover, :focus-visible) .hold-hint {
   opacity: 0.8;
+}
+.settings-account-actions .hold-overlay {
+  padding: 5px 10px;
+  gap: 8px;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 .settings-note {
   display: flex;
