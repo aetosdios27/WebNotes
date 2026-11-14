@@ -1,8 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Note, Folder } from "@/lib/storage/types";
-import { Plus } from "lucide-react";
+import { motionTiming } from "./ui/motion-tokens";
+import { SlidingIndicator } from "./ui/sliding-indicator";
+import {
+  Plus,
+  Files,
+  Pin,
+  Folder as FolderIcon,
+  FilePlus2,
+} from "lucide-react";
 import { NoteMeta, NoteMiniature } from "./NoteSummary";
+
+let entrancePlayed = false;
 
 export default function NoteWall({
   notes,
@@ -20,6 +30,28 @@ export default function NoteWall({
   createNote: (folderId?: string) => void;
 }) {
   const [limit, setLimit] = useState(48);
+  const wall = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (entrancePlayed || !notes.length) return;
+    entrancePlayed = true;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timing = motionTiming(document.documentElement, "slow");
+    wall.current
+      ?.querySelectorAll<HTMLElement>(".note-card")
+      .forEach((card, i) => {
+        card.animate(
+          [
+            { opacity: 0, transform: "translateY(6px)" },
+            { opacity: 1, transform: "none" },
+          ],
+          {
+            ...timing,
+            delay: Math.min(i, 8) * 24,
+            fill: "backwards",
+          },
+        );
+      });
+  }, [notes]);
   const sentinel = useRef<HTMLDivElement>(null);
   const filtered = notes.filter(
     (note) =>
@@ -51,9 +83,10 @@ export default function NoteWall({
     })),
   ];
   return (
-    <section className="note-wall" aria-label="Home">
+    <section ref={wall} className="note-wall" aria-label="Home">
       <div className="wall-tabs">
         <div role="tablist" aria-label="Filter notes">
+          <SlidingIndicator value={filter} />
           {tabs.map((tab) => (
             <button
               role="tab"
@@ -64,12 +97,15 @@ export default function NoteWall({
                 setLimit(48);
               }}
             >
-              {tab.name}
-              {tab.count > 0 && (
-                <span className="tab-count">
-                  {tab.count}
-                </span>
+              {tab.id === "all" ? (
+                <Files aria-hidden="true" />
+              ) : tab.id === "pinned" ? (
+                <Pin aria-hidden="true" />
+              ) : (
+                <FolderIcon aria-hidden="true" />
               )}
+              {tab.name}
+              {tab.count > 0 && <span className="tab-count">{tab.count}</span>}
             </button>
           ))}
         </div>
@@ -92,7 +128,7 @@ export default function NoteWall({
             key={note.id}
             onClick={() => openNote(note.id)}
           >
-            {note.isPinned && <span className="pin-mark" aria-label="Pinned" />}
+            {note.isPinned && <Pin className="pin-mark" aria-label="Pinned" />}
             <strong>{note.title || "Untitled"}</strong>
             <NoteMiniature content={note.content} />
             <footer>
@@ -103,6 +139,7 @@ export default function NoteWall({
       </div>
       {!filtered.length && (
         <div className="wall-empty">
+          <FilePlus2 className="empty-icon" aria-hidden="true" />
           No notes here yet.{" "}
           <button
             onClick={() =>

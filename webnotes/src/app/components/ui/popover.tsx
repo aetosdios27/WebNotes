@@ -48,6 +48,7 @@ export const PopoverContent = React.forwardRef<
         className="z-50"
       >
         <Primitive.Popup
+      data-depth="popover"
           ref={ref}
           className={cn(
             "rounded-lg border border-line bg-popover text-ink shadow-lg outline-none w-72 p-4",

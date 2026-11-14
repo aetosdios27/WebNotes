@@ -1,5 +1,6 @@
 "use client";
 
+import { motionTiming } from "./ui/motion-tokens";
 import { ReactRenderer } from "@tiptap/react";
 import tippy from "tippy.js";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
@@ -61,6 +62,16 @@ export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
     const item = props.items[index];
     if (item) {
       props.command(item);
+      requestAnimationFrame(() => {
+        const { view, state } = props.editor;
+        const block = view.domAtPos(state.selection.from).node;
+        const element = block instanceof Element ? block : block.parentElement;
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          element?.animate([{ opacity: 0 }, { opacity: 1 }], {
+            ...motionTiming(view.dom, "normal"),
+          });
+        }
+      });
     }
   };
 
@@ -102,16 +113,16 @@ export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
   }));
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden p-2 min-w-[280px] max-h-[400px] overflow-y-auto">
+    <div data-depth="popover" className="slash-menu bg-popover text-ink border border-line rounded-lg overflow-hidden p-2 min-w-[280px] max-h-[400px] overflow-y-auto">
       {props.items.length > 0 ? (
         props.items.map((item, index) => (
           <button
             key={index}
             onClick={() => selectItem(index)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left transition-colors ${
               index === selectedIndex
-                ? "bg-zinc-800 text-white"
-                : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
+                ? "bg-selected text-ink"
+                : "text-muted hover:bg-selected hover:text-ink"
             }`}
           >
             <div className="flex-shrink-0 text-zinc-500">{item.icon}</div>

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
+import { Folder as FolderIcon } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import MarkdownIt from "markdown-it";
 import taskLists from "markdown-it-task-lists";
@@ -227,10 +228,10 @@ export function NoteMeta({
   const folder = folders.find((folder) => folder.id === note.folderId);
   const time = formatNoteTime(note.updatedAt, { preview });
   return (
-    <>
-      {preview
-        ? `${time}${folder ? ` · ${folder.name}` : ""}`
-        : `${folder ? `${folder.name} · ` : ""}${time}`}
-    </>
+    <span className="note-meta">
+      {preview && time}
+      {folder && <span className="meta-folder">{preview && " · "}<FolderIcon aria-hidden="true" />{folder.name}</span>}
+      {!preview && <>{folder && " · "}{time}</>}
+    </span>
   );
 }

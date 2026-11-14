@@ -8,15 +8,18 @@ export const TabsList = React.forwardRef<
   Omit<React.ComponentPropsWithoutRef<typeof Primitive.List>, "className"> & {
     className?: string;
   }
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <Primitive.List
     ref={ref}
     className={cn(
-      "inline-flex items-center gap-1 rounded-lg bg-panel p-1 text-muted",
+      "depth-tabs inline-flex items-center gap-1 rounded-lg bg-panel p-1 text-muted",
       className,
     )}
     {...props}
-  />
+  >
+    <Primitive.Indicator className="depth-tab-indicator" />
+    {children}
+  </Primitive.List>
 ));
 export const TabsTrigger = React.forwardRef<
   React.ComponentRef<typeof Primitive.Tab>,
@@ -27,7 +30,7 @@ export const TabsTrigger = React.forwardRef<
   <Primitive.Tab
     ref={ref}
     className={cn(
-      "rounded-md px-3 py-1 text-sm data-[active]:bg-background data-[active]:text-ink",
+      "rounded-md px-3 py-1 text-sm  data-[active]:text-ink",
       className,
     )}
     {...props}

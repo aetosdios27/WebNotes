@@ -16,7 +16,7 @@ import {
   ClipboardPaste,
   Plus,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 interface TableCellMenuProps {
   editor: Editor | null;
@@ -41,6 +41,7 @@ const CELL_COLORS = [
 ];
 
 export function TableCellMenu({ editor }: TableCellMenuProps) {
+  const reducedMotion = useReducedMotion();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<MenuPosition>({ x: 0, y: 0 });
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -263,11 +264,12 @@ export function TableCellMenu({ editor }: TableCellMenuProps) {
       {isOpen && (
         <motion.div
           ref={menuRef}
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: reducedMotion ? 1 : 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1 }}
-          className="fixed z-[300] bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl py-2 min-w-[200px] overflow-hidden"
+          exit={{ opacity: 0, scale: reducedMotion ? 1 : 0.97 }}
+          transition={{ duration: reducedMotion ? 0 : 0.2 }}
+          data-depth="popover"
+          className="fixed z-[300] bg-popover text-ink border border-line rounded-xl shadow-2xl py-2 min-w-[200px] overflow-hidden"
           style={{
             left: Math.min(position.x, window.innerWidth - 220),
             top: Math.min(position.y, window.innerHeight - 400),
@@ -338,9 +340,10 @@ export function TableCellMenu({ editor }: TableCellMenuProps) {
             <AnimatePresence>
               {showColorPicker && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reducedMotion ? 0 : 0.12 }}
                   className="overflow-hidden"
                 >
                   <div className="grid grid-cols-5 gap-1 px-3 py-2 bg-zinc-800/50">

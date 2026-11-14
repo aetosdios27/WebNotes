@@ -5,12 +5,28 @@ import dynamic from "next/dynamic";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import {
+  Copy,
+  Download,
+  BookOpen,
+  Type,
+  History,
+  FolderInput,
+  Sun,
+  Moon,
+  CircleHelp,
+  LogOut,
+  LogIn,
+  FileText,
+  Check,
+  CloudUpload,
+  CloudOff,
   ChevronLeft,
   ChevronRight,
   Search,
   Share,
   MoreHorizontal,
 } from "lucide-react";
+import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
@@ -339,7 +355,7 @@ export default function Home() {
           aria-label="Switch notes"
           onClick={() => setSwitching(true)}
         >
-          <Search size={16} />
+          {activeNote ? <FileText /> : <Search />}
           <span>
             {activeNote
               ? activeNote.title || "Untitled"
@@ -350,7 +366,20 @@ export default function Home() {
         <div className="window-right">
           {activeNote && (
             <>
-              <span className="save-state" role="status">
+              <span
+                key={`${isOnline}:${isSaving}:${syncStatus}:${pendingOperations > 0}`}
+                className="save-state"
+                role="status"
+              >
+                {!isOnline || syncStatus === "unsynced" ? (
+                  <CloudOff aria-hidden="true" />
+                ) : isSaving ||
+                  pendingOperations > 0 ||
+                  syncStatus === "syncing" ? (
+                  <CloudUpload aria-hidden="true" />
+                ) : (
+                  <Check aria-hidden="true" />
+                )}
                 {!isOnline
                   ? "Offline"
                   : isSaving ||
@@ -374,15 +403,19 @@ export default function Home() {
                       void copyNote();
                     }}
                   >
+                    <Copy aria-hidden="true" />
                     Copy note
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => void downloadNote()}>
+                    <Download aria-hidden="true" />
                     Download text
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => void copyNote(true)}>
+                    <Copy aria-hidden="true" />
                     Copy as Markdown
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => void downloadNote(true)}>
+                    <Download aria-hidden="true" />
                     Download Markdown
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -396,6 +429,7 @@ export default function Home() {
             <DropdownMenuContent align="end">
               {actions.slice(0, -1).map((action) => (
                 <DropdownMenuItem key={action.label} onClick={action.run}>
+                  <ActionIcon label={action.label} />
                   {action.label}
                 </DropdownMenuItem>
               ))}
@@ -405,6 +439,7 @@ export default function Home() {
                     checked={isReadingMode}
                     onCheckedChange={setIsReadingMode}
                   >
+                    <BookOpen aria-hidden="true" />
                     Reading mode
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuRadioGroup
@@ -417,16 +452,20 @@ export default function Home() {
                     aria-label="Note font"
                   >
                     <DropdownMenuRadioItem value="sans">
+                      <Type aria-hidden="true" />
                       Sans
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="serif">
+                      <Type aria-hidden="true" />
                       Serif
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="mono">
+                      <Type aria-hidden="true" />
                       Mono
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                   <DropdownMenuItem onClick={() => setInfo((value) => !value)}>
+                    <History aria-hidden="true" />
                     Note information & history
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -436,6 +475,7 @@ export default function Home() {
                       );
                     }}
                   >
+                    <FolderInput aria-hidden="true" />
                     Move to All notes
                   </DropdownMenuItem>
                   {folders.map((folder) => (
@@ -447,6 +487,7 @@ export default function Home() {
                         );
                       }}
                     >
+                      <FolderInput aria-hidden="true" />
                       Move to {folder.name}
                     </DropdownMenuItem>
                   ))}
@@ -457,13 +498,22 @@ export default function Home() {
                   setTheme(resolvedTheme === "dark" ? "light" : "dark")
                 }
               >
+                {resolvedTheme === "dark" ? (
+                  <Sun aria-hidden="true" />
+                ) : (
+                  <Moon aria-hidden="true" />
+                )}
                 Use {resolvedTheme === "dark" ? "light" : "dark"} theme
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setHelp(true)}>
+                <CircleHelp aria-hidden="true" />
                 Help & shortcuts
               </DropdownMenuItem>
               {account && (
-                <DropdownMenuItem onClick={leave}>Sign out</DropdownMenuItem>
+                <DropdownMenuItem onClick={leave}>
+                  <LogOut aria-hidden="true" />
+                  Sign out
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -474,9 +524,14 @@ export default function Home() {
             }
             onClick={account ? leave : authenticate}
           >
-            {account
-              ? (account.name || account.email || "A").slice(0, 1).toUpperCase()
-              : "Sign in"}
+            {account ? (
+              (account.name || account.email || "A").slice(0, 1).toUpperCase()
+            ) : (
+              <>
+                <LogIn aria-hidden="true" />
+                <span>Sign in</span>
+              </>
+            )}
           </button>
         </div>
       </header>
