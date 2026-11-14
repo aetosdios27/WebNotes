@@ -1910,3 +1910,52 @@ textarea,
 [contenteditable="true"] {
   caret-color: var(--caret);
 }
+
+/* Side-panel pane switcher: a recessed track with a raised paper chip that
+   slides to the active pane, the same language as the wall tabs. */
+.pane-tabs {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: calc(var(--radius-control) + 3px);
+  background: var(--selected);
+  box-shadow: inset 0 1px 2px rgb(var(--depth-ink) / 0.08);
+}
+.pane-tabs [role="tab"] {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--duration-normal) var(--ease-out);
+}
+.pane-tabs [role="tab"]:hover,
+.pane-tabs [role="tab"][aria-selected="true"] {
+  color: var(--ink);
+}
+.pane-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.pane-tabs svg.lucide {
+  width: 15px;
+  height: 15px;
+}
+.pane-tabs .sliding-indicator {
+  background: var(--card);
+  box-shadow:
+    inset 0 1px 0 var(--top-light),
+    var(--elevation-paper);
+}
+/* In dark, "raised" means lighter than the track, not the darker card colour. */
+.dark .pane-tabs .sliding-indicator {
+  background: color-mix(in srgb, var(--ink) 11%, var(--selected));
+  box-shadow:
+    inset 0 1px 0 var(--top-light),
+    0 0 0 1px var(--edge),
+    0 1px 2px rgb(0 0 0 / 0.4);
+}
