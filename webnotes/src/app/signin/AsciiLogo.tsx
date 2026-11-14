@@ -8,12 +8,12 @@ const MARK = ["M0 1H35V34L97 0V34L33 69H0Z", "M98 34L160 0V34L98 69Z"];
 /** Glyphs a disturbed cell flickers through while it is in motion. */
 const MOTION = "/\\|-_~=+<>";
 
-const REACH = 82; // σ of the cursor's influence, in CSS px
-const PUSH = 6400; // radial push away from the cursor
-const DRAG = 10; // how strongly cells follow the cursor's own motion
-const SPRING = 30; // pull back to the cell's home
-const FRICTION = 7;
-const MAX_OFFSET = 72;
+const REACH = 50; // σ of the cursor's influence, in CSS px
+const PUSH = 7000; // radial push away from the cursor
+const DRAG = 8; // how strongly cells follow the cursor's own motion
+const SPRING = 120; // pull back to the cell's home: high, so it snaps
+const FRICTION = 15; // just under critical damping: a hint of bounce, no wobble
+const MAX_OFFSET = 44;
 
 /**
  * The logo drawn in monospace glyphs over a quiet drifting field. The cursor
