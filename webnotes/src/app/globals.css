@@ -1865,3 +1865,4 @@ input:checked + span > .task-check path,
   height: 32px;
   color: var(--faint);
 }
+.editor-hydration > .loading-content { display: flex; flex-direction: column; }
