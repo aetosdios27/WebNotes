@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { logoBox, logoGlyph, fieldGlyph } from "./ascii-logo";
+import { fieldGlyph, fieldPresence, logoBox, logoGlyph, markDistance } from "./ascii-logo";
 
 /** The WebNotes mark, in the same 160 × 70 space as Brand.tsx. */
 const MARK = ["M0 1H35V34L97 0V34L33 69H0Z", "M98 34L160 0V34L98 69Z"];
@@ -52,7 +52,7 @@ export default function AsciiLogo({
     let velocity = new Float32Array(0);
     let coverage = new Float32Array(0); // share of the cell inside the mark
     let light = new Float32Array(0); // top-left lighting, 0.72–1
-    let calm = new Float32Array(0); // 0 near the logo, 1 far away
+    let presence = new Float32Array(0); // field opacity: 0 against the mark, 1 away from it
     let colours = { ink: "#262822", paper: "#efeee8", accent: "#d9a400" };
 
     const pointer = { x: -1e4, y: -1e4, vx: 0, vy: 0, at: 0 };
@@ -105,7 +105,6 @@ export default function AsciiLogo({
       velocity = new Float32Array(count * 2);
       coverage = new Float32Array(count);
       light = new Float32Array(count);
-      calm = new Float32Array(count);
       for (let row = 0; row < rows; row++) {
         for (let column = 0; column < columns; column++) {
           const i = row * columns + column;
@@ -127,11 +126,17 @@ export default function AsciiLogo({
           const u = (x + cellWidth / 2 - box.x) / box.width;
           const v = (y + cellHeight / 2 - box.y) / box.height;
           light[i] = 1 - 0.28 * Math.min(1, Math.max(0, u * 0.6 + v * 0.4));
-          const dx = Math.max(0, Math.abs(x + cellWidth / 2 - (box.x + box.width / 2)) - box.width / 2);
-          const dy = Math.max(0, Math.abs(y + cellHeight / 2 - (box.y + box.height / 2)) - box.height / 2);
-          calm[i] = Math.min(1, Math.hypot(dx, dy) / (cellWidth * 7));
         }
       }
+      // Clear the field along the mark's own silhouette, then fade it back in.
+      const distance = markDistance(
+        Array.from(coverage, (c) => c >= 0.08),
+        columns,
+        rows,
+        cellWidth,
+        cellHeight,
+      );
+      presence = Float32Array.from(distance, (d) => fieldPresence(d, cellHeight));
       draw(0);
     }
 
@@ -178,14 +183,15 @@ export default function AsciiLogo({
       context.textBaseline = "top";
 
       // The field: faint, slow, and quiet near the mark.
-      context.globalAlpha = 0.3;
       context.fillStyle = colours.ink;
       for (let i = 0; i < coverage.length; i++) {
         if (coverage[i] >= 0.08) continue;
         const column = i % columns;
         const row = (i / columns) | 0;
-        const glyph = fieldGlyph(column, row, seconds, calm[i]);
-        if (glyph !== " ") context.fillText(glyph, home[i * 2] + offset[i * 2], home[i * 2 + 1] + offset[i * 2 + 1]);
+        const glyph = fieldGlyph(column, row, seconds, presence[i]);
+        if (glyph === " ") continue;
+        context.globalAlpha = 0.3 * presence[i];
+        context.fillText(glyph, home[i * 2] + offset[i * 2], home[i * 2 + 1] + offset[i * 2 + 1]);
       }
 
       // The mark, with moving cells flickering through motion glyphs.
