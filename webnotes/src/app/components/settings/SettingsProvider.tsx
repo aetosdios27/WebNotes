@@ -58,7 +58,54 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     else router.replace("/");
   }, [router]);
   useEffect(() => {
+    if (!isSettings) return;
+    const shell = document.querySelector(".app-shell");
+    if (!(shell instanceof HTMLElement)) return;
+    const previous = shell.inert;
+    shell.inert = true;
+    return () => {
+      shell.inert = previous;
+      requestAnimationFrame(() => {
+        if (returnFocus.current?.isConnected) returnFocus.current.focus();
+      });
+    };
+  }, [isSettings]);
+  useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (isSettings && event.key === "Tab") {
+        // Menu teardown can release its own focus guards after this dialog opens.
+        // Keep this sheet's keyboard boundary independent of the menu lifecycle.
+        const sheet = document.querySelector(".settings-sheet");
+        const controls = Array.from(
+          sheet?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]',
+          ) ?? [],
+        ).filter(
+          (element) =>
+            element.getClientRects().length &&
+            !(
+              element instanceof HTMLInputElement &&
+              element.type === "radio" &&
+              !element.checked
+            ),
+        );
+        if (controls.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          const current = controls.findIndex(
+            (element) => element === document.activeElement,
+          );
+          const next =
+            current < 0
+              ? event.shiftKey
+                ? controls.length - 1
+                : 0
+              : (current + (event.shiftKey ? -1 : 1) + controls.length) %
+                controls.length;
+          controls[next]?.focus();
+        }
+        return;
+      }
       if (isSettings && event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

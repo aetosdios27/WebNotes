@@ -154,6 +154,8 @@ export function SettingsSheet({
     loadData,
     logout,
   } = useNotesStore();
+  const noteCount = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  const folderCount = `${folders.length} ${folders.length === 1 ? "folder" : "folders"}`;
   const account = isTauri ? user : session?.user;
   const { theme, setTheme } = useTheme();
   const [saved, setSaved] = useState(false);
@@ -335,7 +337,7 @@ export function SettingsSheet({
                 <div className="settings-grow">
                   <strong>{account?.name || "On this device"}</strong>
                   <span>
-                    {account?.email || `${notes.length} notes · Not signed in`}
+                    {account?.email || `${noteCount} · Not signed in`}
                   </span>
                 </div>
               </div>
@@ -432,9 +434,9 @@ export function SettingsSheet({
                       <Monitor aria-hidden="true" />
                       <h2>A home for your notes. Right here.</h2>
                       <p>
-                        Your {notes.length} notes live on this device. You can
-                        keep writing without an account. Sign in when you want
-                        them on your other devices.
+                        Your {noteCount} {notes.length === 1 ? "lives" : "live"}{" "}
+                        on this device. You can keep writing without an account.
+                        Sign in when you want them on your other devices.
                       </p>
                       <button
                         className="settings-button settings-primary"
@@ -446,8 +448,8 @@ export function SettingsSheet({
                     <div className="settings-account-summary">
                       <Database aria-hidden="true" />
                       <div>
-                        <h2>{notes.length} notes on this device</h2>
-                        <p>{folders.length} folders · Not signed in</p>
+                        <h2>{noteCount} on this device</h2>
+                        <p>{folderCount} · Not signed in</p>
                       </div>
                     </div>
                     <NoteLine>
@@ -478,7 +480,7 @@ export function SettingsSheet({
                     />
                     <Row
                       title="On this device"
-                      description={`${notes.length} notes · ${folders.length} folders`}
+                      description={`${noteCount} · ${folderCount}`}
                     />
                     <Row
                       title="Account"
@@ -587,7 +589,7 @@ export function SettingsSheet({
                   <div className="settings-group">
                     <Row
                       title="Export all notes"
-                      description={`${notes.length} notes currently available on this device, organised by folder.`}
+                      description={`${noteCount} currently available on this device, organised by folder.`}
                     >
                       <button
                         className="settings-button"
