@@ -16,7 +16,6 @@
 .form > :nth-child(2) { animation-delay: .14s; }
 .form > :nth-child(3) { animation-delay: .18s; }
 .form > :nth-child(n+4) { animation-delay: .22s; }
-.mark { display: block; margin-bottom: 27px; }
 .form h1 { font-size: 28px; font-weight: 550; line-height: 1.2; letter-spacing: -.045em; margin: 0 0 10px; }
 .intro { font-size: 14px; color: var(--reading); margin: 0 0 30px; }
 .actions { display: grid; gap: 14px; }
@@ -45,7 +44,6 @@
   .right { padding: 26px 18px; }
   .form { max-width: 330px; margin: 0 auto; padding: 42px 0 40px; }
   .form h1 { font-size: 27px; }
-  .mark { margin-bottom: 24px; }
   .explanation { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { .card, .form > *, .spinner { animation: none; } .primary, .local, .canvas { transition: none; } .primary:active, .local:active { transform: none; } }

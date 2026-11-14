@@ -31,8 +31,6 @@ export default function SignInForm({ providers, callbackUrl, error }: {
     <section className={styles.right} aria-labelledby="signin-heading">
       <Link href="/" className={styles.back}><ArrowLeft size={16} /> Back to your notes</Link>
       <div className={styles.form}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-traced.svg" alt="" width="39" height="18" className={styles.mark} />
         <h1 id="signin-heading">Sign in to WebNotes</h1>
         <p className={styles.intro}>Your notes, on every device.</p>
         <div className={styles.actions}>

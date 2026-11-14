@@ -12,6 +12,8 @@ export type AsciiFlowProps = {
 };
 const defaultPalette = { background: "#edece5", foreground: "#30332d" };
 const padding = 16;
+const dotSize = 3;
+const cellGap = 0.3;
 
 /** Pre-render smooth ordered tones and a crisp logo, then advect cached
  * ground scanlines. No texture sampling or allocation happens in the loop. */
@@ -29,6 +31,8 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
     let alive = true, ready = false, visible = false, presented = false, frame = 0;
     let width = 0, height = 0, dpr = 1, rows = 0, rowHeight = 6;
     let flow = new Float32Array(0);
+    let cellX = new Float32Array(0), cellY = new Float32Array(0);
+    let markColor = palette.background;
     let px = -1000, py = -1000, energy = 0, last = 0, time = 0;
     function draw(ms: number) {
       if (!ctx || !canvas || !ready) return;
@@ -54,16 +58,26 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
             span * dpr, stripHeight * dpr, left, y, span, stripHeight);
         }
       }
-      ctx.drawImage(mark, 0, 0, width, height);
-      // A few warm flecks appear only while a pointer disturbance is settling.
-      if (energy > 0.05 && !reduced.matches) {
-        ctx.globalAlpha = Math.min(0.8, energy * 0.65);
-        ctx.fillStyle = "#fbca04";
-        for (let i = 0; i < 6; i++) {
-          const angle = i * 2.4 + time * 0.4;
-          ctx.fillText("·", px + Math.cos(angle) * (8 + i * 3), py + Math.sin(angle) * (8 + i * 3));
+      if (energy < 0.025 || reduced.matches) {
+        ctx.drawImage(mark, 0, 0, width, height);
+      } else {
+        // Only nearby cells scatter; decay returns them to the exact grid.
+        for (let i = 0; i < cellX.length; i++) {
+          const dx = cellX[i] + dotSize / 2 - px, dy = cellY[i] + dotSize / 2 - py;
+          const distanceSquared = dx * dx + dy * dy;
+          const influence = energy * Math.exp(-distanceSquared / 1200);
+          const ripple = Math.sin(time * 10 - Math.sqrt(distanceSquared) * 0.12) * influence * 2.4;
+          const x = cellX[i] + cellGap / 2 + Math.cos(i * 2.4) * ripple;
+          const y = cellY[i] + cellGap / 2 + Math.sin(i * 2.4) * ripple;
+          ctx.fillStyle = markColor;
+          ctx.fillRect(x, y, dotSize - cellGap, dotSize - cellGap);
+          if (distanceSquared < 784) {
+            ctx.fillStyle = "#fbca04";
+            ctx.globalAlpha = Math.min(1, influence * (1 - distanceSquared / 784));
+            ctx.fillRect(x, y, dotSize - cellGap, dotSize - cellGap);
+            ctx.globalAlpha = 1;
+          }
         }
-        ctx.globalAlpha = 1;
       }
       if (!presented) { canvas.dataset.ready = "true"; presented = true; }
     }
@@ -81,7 +95,6 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
       dpr = Math.min(devicePixelRatio || 1, 2);
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.font = "9px monospace"; ctx.textBaseline = "top";
       rowHeight = Math.max(6, height / 128, width / 180 / 0.6);
       rows = Math.ceil(height / rowHeight);
       flow = new Float32Array(rows);
@@ -92,7 +105,6 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
       paint.setTransform(dpr, 0, 0, dpr, 0, 0);
       const print = document.createElement("canvas");
       // Each Bayer dot occupies a deliberate 3 CSS px square in either theme.
-      const dotSize = 3;
       print.width = Math.ceil((width + padding * 2) / dotSize);
       print.height = Math.ceil((height + padding * 2) / dotSize);
       const printer = print.getContext("2d");
@@ -122,16 +134,31 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
       paint.imageSmoothingEnabled = false;
       paint.drawImage(print, 0, 0, print.width * dotSize, print.height * dotSize);
 
-      // Keep the SVG on a separate full-resolution plane. The ground can flow
-      // without dragging its edges or blending the mark into a river or ridge.
+      // Sample the SVG on the same 3px grid as the ground, then cache the
+      // lightest cell level with hairline gaps. The vector is never displayed.
+      const mask = document.createElement("canvas");
+      mask.width = print.width; mask.height = print.height;
+      const sample = mask.getContext("2d");
+      if (!sample) return;
+      sample.drawImage(image, (box.x + padding) / dotSize, (logoY + padding) / dotSize,
+        box.width / dotSize, box.height / dotSize);
+      const coverage = sample.getImageData(0, 0, mask.width, mask.height).data;
+      const xs: number[] = [], ys: number[] = [];
+      for (let y = 0; y < mask.height; y++) for (let x = 0; x < mask.width; x++) {
+        if (coverage[(y * mask.width + x) * 4 + 3] >= 128) {
+          xs.push(x * dotSize - padding); ys.push(y * dotSize - padding);
+        }
+      }
+      cellX = new Float32Array(xs); cellY = new Float32Array(ys);
+      markColor = dark ? palette.foreground : palette.background;
       mark.width = canvas.width; mark.height = canvas.height;
       const relief = mark.getContext("2d");
       if (!relief) return;
       relief.setTransform(dpr, 0, 0, dpr, 0, 0);
-      relief.drawImage(image, box.x, logoY, box.width, box.height);
-      relief.globalCompositeOperation = "source-in";
-      relief.fillStyle = dark ? palette.foreground : palette.background;
-      relief.fillRect(0, 0, width, height);
+      relief.fillStyle = markColor;
+      for (let i = 0; i < cellX.length; i++) {
+        relief.fillRect(cellX[i] + cellGap / 2, cellY[i] + cellGap / 2, dotSize - cellGap, dotSize - cellGap);
+      }
       last = 0; draw(0); schedule();
     }
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; schedule(); });
