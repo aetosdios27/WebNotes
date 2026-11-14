@@ -42,6 +42,8 @@ interface NotesState {
 
   // UI State
   isLoading: boolean;
+  /** The last loadData failed, so missing notes may simply not be loaded. */
+  loadFailed: boolean;
   syncStatus: SyncStatus;
   isOnline: boolean;
   pendingOperations: number;
@@ -158,6 +160,7 @@ export const useNotesStore = create<NotesState>()(
     activeNoteId: null,
     newNoteFocus: new Map(),
     isLoading: true,
+    loadFailed: false,
     syncStatus: "synced",
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
     pendingOperations: 0,
@@ -275,6 +278,7 @@ export const useNotesStore = create<NotesState>()(
                 createdAt: new Date(f.createdAt),
               })),
               isLoading: false,
+              loadFailed: false,
               syncStatus: SYNC_STATUS.SYNCED,
             });
           } else {
@@ -291,6 +295,7 @@ export const useNotesStore = create<NotesState>()(
               folders,
               settings: settings ?? get().settings,
               isLoading: false,
+              loadFailed: false,
               syncStatus: SYNC_STATUS.SYNCED,
             });
           }
@@ -298,6 +303,7 @@ export const useNotesStore = create<NotesState>()(
           console.error("Failed to load data:", error);
           set({
             isLoading: false,
+            loadFailed: true,
             syncStatus: SYNC_STATUS.UNSYNCED,
           });
         }

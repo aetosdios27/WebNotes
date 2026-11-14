@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { motionTiming } from "./ui/motion-tokens";
 import { SlidingIndicator } from "./ui/sliding-indicator";
@@ -70,6 +70,11 @@ function FolderTabInput({ name, folders, id, save, cancel }: {
 
 let entrancePlayed = false;
 
+// The wall unmounts while a note is open, so keep its scroll position and how
+// many notes were loaded at module scope. Coming back Home restores both.
+let wallScrollTop = 0;
+let wallLimit = 48;
+
 export default function NoteWall({
   folderEditing,
   onFolderEditingChange,
@@ -97,10 +102,30 @@ export default function NoteWall({
   openNote: (id: string) => void;
   createNote: (folderId?: string) => void;
 }) {
-  const [limit, setLimit] = useState(48);
+  const [limit, setLimit] = useState(wallLimit);
   const wall = useRef<HTMLElement>(null);
   const tablist = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: false, end: false });
+  // Restore the saved scroll position once the wall and its cards are laid out.
+  useLayoutEffect(() => {
+    const el = wall.current;
+    if (el) el.scrollTop = wallScrollTop;
+  }, []);
+  // Track the live scroll position. Reading it on unmount would see a detached
+  // node, whose scrollTop is always 0.
+  useEffect(() => {
+    const el = wall.current;
+    if (!el) return;
+    const onScroll = () => {
+      wallScrollTop = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+  // Remember how many notes were loaded so returning Home keeps them.
+  useEffect(() => {
+    wallLimit = limit;
+  }, [limit]);
   useEffect(() => {
     const row = tablist.current;
     if (!row) return;

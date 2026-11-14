@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Copy,
@@ -27,6 +28,7 @@ import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
 import { DELETE_UNDO_MS } from "@/lib/pending-deletes";
+import { browserHistoryLabels, type HistoryLabel } from "@/lib/history-labels";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
@@ -37,6 +39,13 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import NoteWall from "./components/NoteWall";
 import NoteSwitcher from "./components/NoteSwitcher";
 import { noteMarkdown } from "@/lib/note-markdown";
+import {
+  notePath,
+  noteIdFromPath,
+  wallPath,
+  wallFilterFromSearch,
+  noteDocumentTitle,
+} from "@/lib/note-url";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -99,29 +108,113 @@ export default function Home() {
     : undefined;
   const [info, setInfo] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
-  const [history, setHistory] = useState<(string | null)[]>([null]);
-  const [cursor, setCursor] = useState(0);
+  // Our place in the browser's own history (see src/lib/history-labels.ts),
+  // so the ← → arrows mirror it instead of keeping a second, drifting copy.
+  const labels = useRef<ReturnType<typeof browserHistoryLabels> | null>(null);
+  const [historyLabel, setHistoryLabel] = useState<HistoryLabel>({ index: 0, base: 0 });
+  const adoptHistory = useCallback(() => {
+    labels.current ??= browserHistoryLabels();
+    setHistoryLabel(labels.current.adopt());
+  }, []);
+  useEffect(adoptHistory, [adoptHistory]);
+  // Bumped whenever the URL changes (push/replace/back/forward) so the effect
+  // below re-reads `window.location`. Reading the location directly keeps this
+  // page statically prerenderable, which `useSearchParams` would not.
+  const [urlVersion, setUrlVersion] = useState(0);
   const activeNote = notes.find((n) => n.id === activeNoteId);
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  // Settings opens and closes with its own pushState; re-sync when it does.
+  const pathname = usePathname();
+  const syncUrl = useCallback(() => setUrlVersion((n) => n + 1), []);
+
+  // --- Browser history is the single source of truth for navigation. --------
+  const pushUrl = useCallback(
+    (url: string) => {
+      labels.current ??= browserHistoryLabels();
+      setHistoryLabel(labels.current.push(url));
+      syncUrl();
+    },
+    [syncUrl],
+  );
+  const replaceUrl = useCallback(
+    (url: string) => {
+      labels.current ??= browserHistoryLabels();
+      setHistoryLabel(labels.current.replace(url));
+      syncUrl();
+    },
+    [syncUrl],
+  );
+
   const navigate = useCallback(
     (id: string | null) => {
-      setActiveNote(id);
       setPreviewVersionId(null);
-      setHistory((previous) => [...previous.slice(0, cursor + 1), id]);
-      setCursor(cursor + 1);
+      const target = id === null ? wallPath(wallFilter) : notePath(id);
+      if (window.location.pathname + window.location.search === target) return;
+      pushUrl(target);
     },
-    [cursor, setActiveNote],
+    [wallFilter, pushUrl],
   );
-  function travel(step: number) {
-    const next = cursor + step;
-    setCursor(next);
-    const id = history[next];
-    setActiveNote(id && notes.some((n) => n.id === id) ? id : null);
-    setPreviewVersionId(null);
-  }
+
+  // Back/Forward derive from browser history, so there is one history.
+  useEffect(() => {
+    const onPopState = () => {
+      adoptHistory();
+      syncUrl();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [syncUrl, adoptHistory]);
+  // Any entry pushed outside navigate (Settings, the router) joins the same
+  // numbering as soon as the URL changes.
+  useEffect(adoptHistory, [pathname, adoptHistory]);
+  const canGoBack = historyLabel.index > historyLabel.base;
+  const canGoForward =
+    labels.current !== null && labels.current.canGoForward(historyLabel);
+
+  // Keep the store in step with the URL (home, note, or wall filter). Notes
+  // load asynchronously, so this waits for them before opening a note.
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+  useEffect(() => {
+    if (isLoading) return;
+    const currentPathname = window.location.pathname;
+    if (currentPathname === "/settings" || currentPathname.startsWith("/settings/"))
+      return;
+    const id = noteIdFromPath(currentPathname);
+    if (id !== null) {
+      if (notesRef.current.some((n) => n.id === id)) {
+        setActiveNote(id);
+      } else if (useNotesStore.getState().loadFailed) {
+        // The notes never loaded, so the note may well exist: keep its URL,
+        // but don't claim to show it.
+        setActiveNote(null);
+      } else {
+        replaceUrl("/");
+        toast("That note isn't here");
+      }
+      return;
+    }
+    setActiveNote(null);
+    const filter = wallFilterFromSearch(window.location.search);
+    const known =
+      filter === "all" ||
+      filter === "pinned" ||
+      useNotesStore.getState().folders.some((f) => f.id === filter);
+    // A bookmarked folder that has since been deleted falls back to All notes.
+    if (!known) replaceUrl("/");
+    setWallFilter(known ? filter : "all");
+  }, [urlVersion, pathname, isLoading, setActiveNote, replaceUrl]);
+
+  // Browser tab title: the open note's title (or "Untitled"), live as it is
+  // edited; plain "WebNotes" on Home.
+  useEffect(() => {
+    document.title = activeNote ? noteDocumentTitle(activeNote.title) : "WebNotes";
+  }, [activeNote?.id, activeNote?.title]);
   const newNote = useCallback(
     async (title = "", folderId?: string | null, id?: string) => {
       try {
@@ -142,17 +235,31 @@ export default function Home() {
   const removeNote = useCallback(
     async (id: string) => {
       try {
+        const wasOpen = activeNoteId === id;
         const undo = deleteNote(id);
         setPreviewVersionId(null);
+        // Delete an open note by replacing its URL with Home, so Back never
+        // lands on a note that no longer exists.
+        if (wasOpen) replaceUrl(wallPath(wallFilter));
         toast.success("Note deleted", {
           duration: DELETE_UNDO_MS,
-          action: { label: "Undo", onClick: () => { if (!undo()) toast.error("Undo window has ended"); } },
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (!undo()) {
+                toast.error("Undo window has ended");
+                return;
+              }
+              // Restore the note's URL if it was open when deleted.
+              if (wasOpen) replaceUrl(notePath(id));
+            },
+          },
         });
       } catch {
         toast.error("Failed to delete note");
       }
     },
-    [deleteNote],
+    [deleteNote, activeNoteId, replaceUrl, wallFilter],
   );
   const pinNote = useCallback(
     async (id: string) => {
@@ -168,6 +275,15 @@ export default function Home() {
     navigate(null);
     setFolderEditing("new");
   }, [navigate]);
+  // Changing the wall tab reflects in the URL via replaceState, so a refresh
+  // keeps the selected tab without pushing a history entry.
+  const changeWallFilter = useCallback(
+    (filter: string) => {
+      setWallFilter(filter);
+      replaceUrl(wallPath(filter));
+    },
+    [replaceUrl],
+  );
   const update = useCallback(
     async (id: string, changes: Partial<Note>) => {
       try {
@@ -384,16 +500,16 @@ export default function Home() {
           <button
             className="history-button"
             aria-label="Back"
-            disabled={cursor === 0}
-            onClick={() => travel(-1)}
+            disabled={!canGoBack}
+            onClick={() => window.history.back()}
           >
             <ChevronLeft size={19} />
           </button>
           <button
             className="history-button"
             aria-label="Forward"
-            disabled={cursor === history.length - 1}
-            onClick={() => travel(1)}
+            disabled={!canGoForward}
+            onClick={() => window.history.forward()}
           >
             <ChevronRight size={19} />
           </button>
@@ -567,7 +683,7 @@ export default function Home() {
             activeNoteId={activeNoteId}
             isReadingMode={isReadingMode}
             filter={wallFilter}
-            onFilterChange={setWallFilter}
+            onFilterChange={changeWallFilter}
             notes={notes}
             folders={folders}
             openNote={navigate}
@@ -606,7 +722,7 @@ export default function Home() {
               onClick={() => {
                 if (folderToDelete)
                   void deleteFolder(folderToDelete)
-                    .then(() => setWallFilter("all"))
+                    .then(() => changeWallFilter("all"))
                     .catch(() => toast.error("Failed to delete folder"));
               }}
             >
