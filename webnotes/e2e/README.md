@@ -15,15 +15,28 @@ only the NextAuth session response (without a cloud user ID) to exercise the
 actual avatar menu while keeping notes local.
 
 - A: real hover, Tab focus-visible, More and card menu highlight compare computed
-  icon colour with the associated label (bugs 1 and 2).
+  icon colour with the associated label (bugs 1 and 2). Also exercised inside the
+  side panel and the Settings sheet.
 - B: disabled foreground, descendant foreground and background are unchanged by
   hover (bug 3).
 - C: title-bar controls must be 32×32; other icon-only controls 24×24 (bug 7).
+  Also exercised inside the side panel and the Settings sheet; radio inputs
+  hidden behind a styled label are not hit targets.
 - D: page width, visible-overflow text and card content intersections with other
-  cards, including switcher search and folder submenu (bug 6).
+  cards, including switcher search and folder submenu (bug 6). Also exercised
+  inside the side panel and the Settings sheet.
 - E: concepts reachable from both title bar and More fail (bug 4).
 - F: guest/account icon clicks must preserve notes and URL and send no signout
   request; controls must react. Home and Share are exercised from an open note (bug 5).
+- G: selection is visible. For every tablist, toggle group, nav section and radio
+  fieldset (wall tabs, ⌘K filter chips, side panel pane switcher, Settings rail
+  and Appearance theme choices), the one selected element must beat each
+  unselected sibling by a computed contrast margin on its surface (background,
+  including any `.sliding-indicator` painted under it, ≥ 1.05×) or its edge
+  (border or box-shadow, ≥ 1.25×). Text and icon colour are reported but never
+  suffice: the pane switcher shipped with ink-vs-muted icons on a flat chip and
+  still read as unselected. Each named group must actually be compared, so a
+  group that loses its selected state fails rather than being skipped.
 
 `registry.ts` is the single place to extend duplicate concepts and add narrowly
 justified small-target exceptions. Title-bar controls cannot be exempted.
@@ -38,9 +51,11 @@ JSON attachments include the control, theme, viewport, expected and actual.
 Mutation probes are browser-only, opt-in and never affect production code:
 `UI_MUTATION=icon bun run test:ui --project=dark-1280 --grep 'A icon'`.
 Other values/checks are `disabled`/B, `targets`/C, `overflow`/D,
-`duplicates`/E, `consequences`/F.
-`node e2e/mutations.mjs` runs all probes and also temporarily fixes Home to
-32×32 (`resolved`), requiring the known-issue mechanism to reject the stale entry. Each must exit nonzero with a **new violation**,
+`duplicates`/E, `consequences`/F, `selection`/G (the pane switcher's chip
+matches its track) and `rail`/G (the current Settings rail item loses its raised
+surface).
+`node e2e/mutations.mjs` runs all probes and also temporarily gives the phone
+Settings list a visible current row (`resolved`, on `dark-390`), requiring the known-issue mechanism to reject the stale entry. Each must exit nonzero with a **new violation**,
 not merely an expected baseline failure. In particular `icon` restores the
 original global `--ink` hover rule, including the yellow New note button.
 

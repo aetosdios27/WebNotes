@@ -31,8 +31,12 @@ export const test = base.extend({
     const mutations: Record<string, string> = {
       disabled: 'button:disabled:hover { color: red !important; background: red !important; }',
       targets: '.window-bar .history-button { min-width: 8px !important; width: 8px !important; height: 8px !important; padding: 0 !important; }',
-      resolved: '.window-bar .home-mark { width: 32px !important; height: 32px !important; }',
+      resolved: '.settings-rail nav a[aria-current="page"] { background: var(--ink) !important; }',
       overflow: 'html { min-width: 2000px !important; }',
+      // G: the active pane chip matches its track; its ink icon alone must not pass.
+      selection: '.pane-tabs .sliding-indicator { background: var(--selected) !important; box-shadow: none !important; }',
+      // G: the current Settings rail item loses its raised surface; ink and weight alone must not pass.
+      rail: '.settings-rail nav a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }',
     };
     const css = mutations[process.env.UI_MUTATION || ''];
     if (css) await page.addStyleTag({ content: css });
