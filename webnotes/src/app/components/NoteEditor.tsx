@@ -2,6 +2,8 @@
 
 "use client";
 
+import { Selection, type SelectionBookmark } from "@tiptap/pm/state";
+import { isNoteEmpty } from "@/lib/note-empty";
 import type { Editor } from "@tiptap/react";
 import type { Note } from "@/lib/storage/types";
 import {
@@ -83,6 +85,8 @@ interface SubnoteTooltip {
 // CONSTANTS
 // =============================================================================
 
+const selections = new Map<string, SelectionBookmark>();
+
 const FONT_CLASSES: Record<string, string> = {
   serif: "font-serif text-lg leading-relaxed",
   mono: "font-mono text-[0.95rem] leading-7",
@@ -91,7 +95,6 @@ const FONT_CLASSES: Record<string, string> = {
 
 const EDITOR_CONFIG = {
   AUTOSAVE_DELAY_MS: 2000,
-  TITLE_FOCUS_DELAY_MS: 50,
   PASTE_CLEANUP_DELAY_MS: 100,
 };
 
@@ -300,6 +303,7 @@ interface InnerEditorProps {
   titleInputRef: React.RefObject<HTMLTextAreaElement | null>;
   onTitleChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onEditorClick: (e: React.MouseEvent) => void;
+  flushTitle: () => void;
 }
 
 function InnerEditor(props: InnerEditorProps) {
@@ -351,6 +355,7 @@ function HydratedEditor({
   titleInputRef,
   onTitleChange,
   onEditorClick,
+  flushTitle,
 }: InnerEditorProps & { ydoc: Y.Doc }) {
   // The title textarea grows to fit its wrapped lines instead of clipping them.
   useLayoutEffect(() => {
@@ -367,7 +372,7 @@ function HydratedEditor({
   }, [title, fontClass, titleInputRef]);
   const { status, data: session } = useSession();
   const isAuthenticated = status === "authenticated";
-  const { error: syncError, pulled, hasServerState, dismissError } = useNoteSync({
+  const { error: syncError, pulled, hasServerState, dismissError, saving, stopSync } = useNoteSync({
     id: noteId,
     doc: ydoc,
     userId: isAuthenticated ? session?.user?.id : undefined,
@@ -471,6 +476,19 @@ function HydratedEditor({
           class:
             "prose prose-invert prose-lg focus:outline-none max-w-none break-words",
         },
+        handleKeyDown: (view, event) => {
+          const { selection, doc } = view.state;
+          if (event.key !== "Backspace" || event.isComposing || event.metaKey ||
+              event.ctrlKey || event.altKey || event.shiftKey || !selection.empty ||
+              selection.from !== Selection.atStart(doc).from ||
+              selection.$from.parent.type.name !== "paragraph" ||
+              selection.$from.parent.content.size !== 0) return false;
+          const field = titleInputRef.current;
+          if (!field) return false;
+          field.focus();
+          field.setSelectionRange(field.value.length, field.value.length);
+          return true;
+        },
         handlePaste: (view, event) => {
           const text = event.clipboardData?.getData("text/plain");
           const html = event.clipboardData?.getData("text/html");
@@ -515,6 +533,9 @@ function HydratedEditor({
       },
       onUpdate: ({ transaction }) => {
         if (!isChangeOrigin(transaction)) hasEditedBody.current = true;
+      },
+      onSelectionUpdate: ({ editor: e }) => {
+        if (e.isFocused) selections.set(noteId, e.state.selection.getBookmark());
       },
       onCreate: ({ editor: e }) => {
         editorRef.current = e;
@@ -626,6 +647,93 @@ function HydratedEditor({
     if (editor && !editor.isDestroyed) editor.setEditable(!isReadingMode);
   }, [editor, isReadingMode]);
 
+  const didFocus = useRef(false);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isReadingMode) return;
+    const applyFocus = (created = editor.isInitialized) => {
+      if (didFocus.current) return;
+      const intent = useNotesStore.getState().newNoteFocus.get(noteId);
+      if (intent !== "title" && (!created || !hasSeededLegacy.current)) return;
+      didFocus.current = true;
+      useNotesStore.getState().newNoteFocus.delete(noteId);
+      if (intent === "title") titleInputRef.current?.focus();
+      else if (intent === "body") {
+        editor.commands.setTextSelection(Selection.atStart(editor.state.doc).from);
+        editor.view.focus();
+      } else {
+        const bookmark = selections.get(noteId);
+        if (bookmark) {
+          try {
+            editor.view.dispatch(editor.state.tr.setSelection(bookmark.resolve(editor.state.doc)));
+            editor.view.focus();
+          } catch {
+            selections.delete(noteId);
+          }
+        }
+      }
+    };
+    const onCreate = () => applyFocus(true);
+    editor.on("create", onCreate);
+    applyFocus();
+    return () => { editor.off("create", onCreate); };
+  }, [editor, noteId, isReadingMode, status, pulled, hasServerState, titleInputRef]);
+
+  // Observe departure before React destroys the editor. Read the live document,
+  // not the debounced HTML snapshot, and finish sync teardown before deleting.
+  const leaveRef = useRef(() => {});
+  const leaving = useRef(false);
+  leaveRef.current = () => {
+    if (useNotesStore.getState().activeNoteId === noteId || leaving.current) return;
+    leaving.current = true;
+    if (!editor || editor.isDestroyed) return;
+    flushTitle();
+    const field = titleInputRef.current;
+    const currentTitle = field?.value ?? title;
+    const doc = editor.getJSON();
+    selections.set(noteId, editor.state.selection.getBookmark());
+    if (!hasSeededLegacy.current || status === "loading" ||
+        (isAuthenticated && (!pulled || saving || syncError)) ||
+        !isNoteEmpty(currentTitle, doc)) return;
+    const stateAtLeave = Y.encodeStateAsUpdate(ydoc);
+    void stopSync().then(async () => {
+      if (useNotesStore.getState().pendingOperations) {
+        await new Promise<void>(resolve => {
+          const unsubscribe = useNotesStore.subscribe(state => state.pendingOperations, count => {
+            if (count === 0) { unsubscribe(); resolve(); }
+          });
+        });
+      }
+      const store = useNotesStore.getState();
+      const latest = store.notes.find(note => note.id === noteId);
+      const finalState = Y.encodeStateAsUpdate(ydoc);
+      const unchanged = finalState.length === stateAtLeave.length &&
+        finalState.every((byte, i) => byte === stateAtLeave[i]);
+      if (!latest || store.activeNoteId === noteId || store.pendingOperations ||
+          store.syncStatus === "unsynced" || latest.title || !unchanged) return;
+      selections.delete(noteId);
+      return store.deleteNote(noteId);
+    }).catch(error => console.error("Failed to discard empty note:", error));
+  };
+  useEffect(() => {
+    const unsubscribe = useNotesStore.subscribe(
+      state => state.activeNoteId,
+      (next, previous) => {
+        if (previous === noteId && next !== noteId) leaveRef.current();
+      },
+    );
+    return () => {
+      unsubscribe();
+      leaveRef.current();
+    };
+  }, [noteId]);
+
+  const focusTitleEnd = () => {
+    const field = titleInputRef.current;
+    if (!field) return;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  };
+
   // ---------------------------------------------------------------------------
   // Render — exact same DOM structure as working deployed version
   // ---------------------------------------------------------------------------
@@ -666,9 +774,34 @@ function HydratedEditor({
                 disabled={isReadingMode}
                 onChange={onTitleChange}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.nativeEvent.isComposing) return;
+                  const field = e.currentTarget;
+                  let lastLine = false;
+                  if (e.key === "ArrowDown" && field.selectionStart === field.selectionEnd) {
+                    // A mirror measures the actual wrapped caret line with the same font/width.
+                    const mirror = document.createElement("div");
+                    mirror.style.cssText = window.getComputedStyle(field).cssText;
+                    for (const property of ["font", "line-height", "letter-spacing", "padding", "box-sizing", "word-break", "overflow-wrap"]) {
+                      mirror.style.setProperty(property, getComputedStyle(field).getPropertyValue(property));
+                    }
+                    Object.assign(mirror.style, { position: "absolute", visibility: "hidden", whiteSpace: "pre-wrap", width: `${field.clientWidth}px` });
+                    const caret = document.createElement("span");
+                    caret.textContent = "\u200b";
+                    mirror.append(document.createTextNode(field.value.slice(0, field.selectionStart)), caret,
+                      document.createTextNode(field.value.slice(field.selectionStart)));
+                    const end = document.createElement("span");
+                    end.textContent = "\u200b";
+                    mirror.append(end);
+                    document.body.append(mirror);
+                    lastLine = Math.abs(caret.offsetTop - end.offsetTop) < 1;
+                    mirror.remove();
+                  }
+                  if (e.key === "Enter" || lastLine) {
                     e.preventDefault();
-                    editor?.commands.focus();
+                    if (editor) {
+                      editor.commands.setTextSelection(Selection.atStart(editor.state.doc).from);
+                      editor.view.focus();
+                    }
                   }
                 }}
                 placeholder="Untitled"
@@ -693,7 +826,18 @@ function HydratedEditor({
                 }}
               >
                 {editor ? (
-                  <EditorContent editor={editor} />
+                  <div onKeyDown={(event) => {
+                    if (event.defaultPrevented || event.nativeEvent.isComposing ||
+                        event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                    const { selection, doc } = editor.state;
+                    if (!selection.empty || selection.$from.parent.type.name !== "paragraph") return;
+                    const first = Selection.atStart(doc).from;
+                    const atTop = selection.$from.start() === first && editor.view.endOfTextblock("up");
+                    if (event.key === "ArrowUp" && atTop) {
+                      event.preventDefault();
+                      focusTitleEnd();
+                    }
+                  }}><EditorContent editor={editor} /></div>
                 ) : (
                   <div
                     className="h-40 rounded-md bg-zinc-800 animate-pulse"
@@ -777,17 +921,6 @@ export default function NoteEditor({
     setTitle(activeNote?.title || "");
   }, [activeNote?.id, activeNote?.title]);
 
-  useEffect(() => {
-    if (activeNote) {
-      if (!activeNote.title && !activeNote.content && titleInputRef.current) {
-        setTimeout(
-          () => titleInputRef.current?.focus(),
-          EDITOR_CONFIG.TITLE_FOCUS_DELAY_MS
-        );
-      }
-    }
-  }, [activeNote?.id, activeNote?.title, activeNote?.content]);
-
   const fontClass = useMemo(
     () => getFontClass(activeNote?.font),
     [activeNote?.font]
@@ -837,6 +970,15 @@ export default function NoteEditor({
       data-font={activeNote.font || "sans"}
       className="flex flex-col flex-1 h-full bg-black relative"
       onClick={() => setActiveSubnote(null)}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        if (event.target instanceof HTMLElement &&
+            event.target.matches('textarea, .ProseMirror')) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.target.blur();
+        }
+      }}
     >
       <InnerEditor
         key={activeNote.id}
@@ -857,6 +999,7 @@ export default function NoteEditor({
         titleInputRef={titleInputRef}
         onTitleChange={handleTitleChange}
         onEditorClick={handleEditorClick}
+        flushTitle={flushTitle}
       />
 
       <AnimatePresence>

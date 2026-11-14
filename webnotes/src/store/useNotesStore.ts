@@ -34,6 +34,7 @@ interface NotesState {
   folders: Folder[];
   settings: UserSettings;
   activeNoteId: string | null;
+  newNoteFocus: Map<string, "title" | "body">;
 
   // UI State
   isLoading: boolean;
@@ -141,6 +142,7 @@ export const useNotesStore = create<NotesState>()(
       syncStatus: "synced",
     },
     activeNoteId: null,
+    newNoteFocus: new Map(),
     isLoading: true,
     syncStatus: "synced",
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -319,6 +321,7 @@ export const useNotesStore = create<NotesState>()(
 
         // NOW set activeNoteId — after the note exists in the DB
         set((state) => ({
+          newNoteFocus: new Map(state.newNoteFocus).set(newNote.id, newNote.title ? "body" : "title"),
           activeNoteId: newNote.id,
           pendingOperations: state.pendingOperations - 1,
           syncStatus:
