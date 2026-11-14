@@ -735,8 +735,8 @@ body {
   height: 32px;
   border-radius: var(--radius-control);
 }
-.history-button:hover,
-.bar-icon:hover {
+.history-button:not(:disabled):hover,
+.bar-icon:not(:disabled):hover {
   background: var(--selected);
   color: var(--ink);
 }
@@ -1579,7 +1579,10 @@ body {
     translate: none;
   }
 }
-/* Lucide is the only wayfinding family; note body SVGs retain document styling. */
+/* Lucide is the only wayfinding family; note body SVGs retain document styling.
+   Icons rest quieter than their label; once a control is hovered, selected or
+   highlighted, the icon takes the control's own text colour, so it can never
+   disagree with the label (a yellow button keeps a dark icon). */
 :is(.notes-window, .note-switcher, [data-depth], .tippy-content) svg.lucide {
   width: 16px;
   height: 16px;
@@ -1589,13 +1592,17 @@ body {
 }
 :is(.notes-window, .note-switcher, [data-depth])
   :is(
-    button:hover,
+    button:not(:disabled):hover,
     [aria-selected="true"],
     [aria-pressed="true"],
     [data-highlighted],
     [data-active]
   )
   > svg.lucide {
+  color: currentColor;
+}
+/* Labelled controls that rest muted brighten as a whole, label and icon together. */
+:is(.wall-tabs [role="tab"], .title-pill, .sign-in):not(:disabled):hover {
   color: var(--ink);
 }
 .window-bar svg.lucide {
