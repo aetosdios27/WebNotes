@@ -1,5 +1,6 @@
 // src/lib/storage/cloud-storage.ts
 
+import { TRPCClientError } from "@trpc/client";
 import { trpcVanilla } from "@/lib/trpc/client";
 import type { Note, Folder, UserSettings } from "./types";
 
@@ -93,7 +94,12 @@ export class CloudStorageAdapter {
   }
 
   async deleteNote(id: string): Promise<void> {
-    await trpcVanilla.notes.delete.mutate({ id });
+    try {
+      await trpcVanilla.notes.delete.mutate({ id });
+    } catch (error) {
+      // A response can be lost after the server committed the deletion.
+      if (!(error instanceof TRPCClientError) || error.data?.code !== "NOT_FOUND") throw error;
+    }
   }
 
   async togglePin(id: string): Promise<Note> {

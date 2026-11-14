@@ -13,9 +13,58 @@ import {
 import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
 import { NoteMeta, NoteMiniature } from "./NoteSummary";
 
+function FolderTabInput({ name, folders, id, save, cancel }: {
+  name: string; folders: Folder[]; id: string;
+  save: (name: string) => Promise<void>; cancel: () => void;
+}) {
+  const [value, setValue] = useState(name);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const finished = useRef(false);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+    input.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, []);
+  async function commit(blur = false) {
+    if (finished.current) return;
+    const trimmed = value.trim();
+    if (!trimmed && blur) { finished.current = true; cancel(); return; }
+    if (!trimmed || trimmed.length > 60) { setError("Use 1–60 characters"); return; }
+    if (folders.some(f => f.id !== id && f.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) {
+      setError("A folder with this name already exists"); return;
+    }
+    finished.current = true;
+    setSaving(true);
+    try { await save(trimmed); cancel(); }
+    catch { finished.current = false; setSaving(false); setError("Could not save folder. Try again."); }
+  }
+  return <div className="folder-tab-edit">
+    <div className="folder-tab-field" data-invalid={Boolean(error)}>
+      <FolderIcon size={15} aria-hidden="true" />
+      <input ref={input} aria-label={id === "new" ? "New folder name" : "Rename folder"}
+        aria-invalid={Boolean(error)} aria-describedby={error ? "folder-name-error" : undefined}
+        value={value} disabled={saving} placeholder="Folder name"
+        style={{ width: `${Math.min(60, Math.max(14, value.length + 1))}ch` }}
+        onChange={e => { setValue(e.target.value); setError(""); }}
+        onBlur={() => void commit(true)}
+        onKeyDown={e => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === "Enter") { e.preventDefault(); void commit(); }
+          if (e.key === "Escape") { e.preventDefault(); finished.current = true; cancel(); }
+        }} />
+    </div>
+    {error && <span id="folder-name-error" role="alert" className="folder-name-error">{error}</span>}
+  </div>;
+}
+
 let entrancePlayed = false;
 
 export default function NoteWall({
+  folderEditing,
+  onFolderEditingChange,
+  saveFolder,
   menuActions,
   activeNoteId,
   isReadingMode,
@@ -26,6 +75,9 @@ export default function NoteWall({
   filter,
   onFilterChange,
 }: {
+  folderEditing: string | null;
+  onFolderEditingChange: (id: string | null) => void;
+  saveFolder: (id: string, name: string) => Promise<void>;
   menuActions: NoteMenuActions;
   activeNoteId: string | null;
   isReadingMode: boolean;
@@ -83,6 +135,7 @@ export default function NoteWall({
       name: "Pinned",
       count: notes.filter((n) => n.isPinned).length,
     },
+    ...(folderEditing === "new" ? [{ id: "new", name: "", count: 0 }] : []),
     ...folders.map((f) => ({
       id: f.id,
       name: f.name,
@@ -94,8 +147,13 @@ export default function NoteWall({
       <div className="wall-tabs">
         <div role="tablist" aria-label="Filter notes">
           <SlidingIndicator value={filter} />
-          {tabs.map((tab) => (
+          {tabs.map((tab) => folderEditing === tab.id ? (
+            <FolderTabInput key={tab.id} id={tab.id} name={tab.name} folders={folders}
+              save={name => saveFolder(tab.id, name)} cancel={() => onFolderEditingChange(null)} />
+          ) : (
             <button
+              title={tab.name}
+              onDoubleClick={() => { if (folders.some(f => f.id === tab.id)) onFolderEditingChange(tab.id); }}
               role="tab"
               aria-selected={filter === tab.id}
               key={tab.id}
@@ -111,7 +169,7 @@ export default function NoteWall({
               ) : (
                 <FolderIcon aria-hidden="true" />
               )}
-              {tab.name}
+              <span className="folder-tab-name">{tab.name}</span>
               {tab.count > 0 && <span className="tab-count">{tab.count}</span>}
             </button>
           ))}

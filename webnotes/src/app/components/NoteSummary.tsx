@@ -231,7 +231,7 @@ export function NoteMeta({
   return (
     <span className="note-meta">
       {preview && time}
-      {folder && <span className="meta-folder">{preview && " · "}<FolderIcon aria-hidden="true" />{folder.name}</span>}
+      {folder && <span className="meta-folder">{preview && " · "}<FolderIcon aria-hidden="true" /><span className="folder-meta-name">{folder.name}</span></span>}
       {!preview && <>{folder && " · "}{time}</>}
     </span>
   );

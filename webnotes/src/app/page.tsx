@@ -87,6 +87,7 @@ export default function Home() {
   const [switching, setSwitching] = useState(false);
   const [help, setHelp] = useState(false);
   const [wallFilter, setWallFilter] = useState("all");
+  const [folderEditing, setFolderEditing] = useState<string | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [isReadingMode, setIsReadingMode] = useState(false);
   const selectedFolder = !activeNoteId
@@ -137,9 +138,12 @@ export default function Home() {
   const removeNote = useCallback(
     async (id: string) => {
       try {
-        await deleteNote(id);
+        const undo = deleteNote(id);
         setPreviewVersionId(null);
-        toast.success("Note deleted");
+        toast.success("Note deleted", {
+          duration: 8_000,
+          action: { label: "Undo", onClick: () => { if (!undo()) toast.error("Undo window has ended"); } },
+        });
       } catch {
         toast.error("Failed to delete note");
       }
@@ -156,15 +160,10 @@ export default function Home() {
     },
     [togglePin],
   );
-  const newFolder = useCallback(async () => {
-    const name = prompt("Folder name");
-    if (!name?.trim()) return;
-    try {
-      await createFolder({ name: name.trim() });
-    } catch {
-      toast.error("Failed to create folder");
-    }
-  }, [createFolder]);
+  const newFolder = useCallback(() => {
+    navigate(null);
+    setFolderEditing("new");
+  }, [navigate]);
   const update = useCallback(
     async (id: string, changes: Partial<Note>) => {
       try {
@@ -204,6 +203,15 @@ export default function Home() {
         navigate(null);
       }
       if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "f"
+      ) {
+        event.preventDefault();
+        newFolder();
+        return;
+      }
+      if (
         switching ||
         !(event.target instanceof HTMLElement) ||
         event.target.closest(
@@ -224,14 +232,6 @@ export default function Home() {
       if (event.key === "?" && !event.metaKey && !event.ctrlKey) {
         event.preventDefault();
         setHelp((value) => !value);
-      }
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.key === "F"
-      ) {
-        event.preventDefault();
-        void newFolder();
       }
     };
     window.addEventListener("keydown", keydown);
@@ -256,11 +256,7 @@ export default function Home() {
           {
             label: "Rename folder",
             run: () => {
-              const name = prompt("Folder name", selectedFolder.name);
-              if (name?.trim())
-                void updateFolder(selectedFolder.id, {
-                  name: name.trim(),
-                }).catch(() => toast.error("Failed to rename folder"));
+              setFolderEditing(selectedFolder.id);
             },
           },
           {
@@ -535,6 +531,12 @@ export default function Home() {
           )
         ) : (
           <NoteWall
+            folderEditing={folderEditing}
+            onFolderEditingChange={setFolderEditing}
+            saveFolder={async (id, name) => {
+              if (id === "new") await createFolder({ name });
+              else await updateFolder(id, { name });
+            }}
             menuActions={menuActions}
             activeNoteId={activeNoteId}
             isReadingMode={isReadingMode}
@@ -569,8 +571,8 @@ export default function Home() {
         <AlertDialogContent>
           <AlertDialogTitle>Delete folder?</AlertDialogTitle>
           <AlertDialogDescription>
-            Delete “{folders.find((f) => f.id === folderToDelete)?.name}”? Its
-            notes will remain in All notes.
+            Delete “{folders.find((f) => f.id === folderToDelete)?.name}”? {notes.filter(n => n.folderId === folderToDelete).length}{" "}
+            {notes.filter(n => n.folderId === folderToDelete).length === 1 ? "note will" : "notes will"} move to All notes with no folder. No notes will be deleted.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

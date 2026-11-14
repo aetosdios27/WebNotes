@@ -1900,3 +1900,21 @@ input:checked + span > .task-check path,
 .theme-toggle:is(:hover, :focus-visible) svg.lucide {
   color: var(--ink);
 }
+
+/* Folder names edit on the same paper surface as the wall tabs. */
+.wall-tabs [role="tablist"] { min-width: 0; align-items: flex-start; }
+.wall-tabs [role="tab"] { min-height: 32px; max-width: 36ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-tab-edit { flex: none; padding: 0 2px; }
+.folder-tab-field { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border-radius: var(--radius-control); background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge), var(--elevation-paper); }
+.folder-tab-field:focus-within { outline: 2px solid var(--ink); outline-offset: -2px; }
+.folder-tab-field[data-invalid="true"] { outline: 2px dashed var(--ink); outline-offset: -2px; }
+.folder-tab-field input { min-width: 0; max-width: 65vw; height: 32px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+.folder-tab-field input:disabled { opacity: .5; cursor: wait; }
+.folder-name-error { display: block; max-width: 32ch; padding: 6px 0; font-size: 12px; color: var(--ink); white-space: normal; }
+@media (max-width: 600px) { .wall-tabs { flex-wrap: wrap; gap: 8px; } .wall-tabs [role="tablist"] { flex-basis: 100%; } }
+.folder-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wall-tabs [role="tab"] > svg, .wall-tabs .tab-count { flex: none; }
+.note-card .meta-folder { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-card .meta-folder { min-width: 0; flex-wrap: nowrap; }
+.folder-meta-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta-folder > svg { flex: none; }
