@@ -174,7 +174,6 @@ export default function NoteWall({
             </button>
           ))}
         </div>
-        <button className="new-folder" onClick={menuActions.createFolder}><FolderIcon size={15} />New folder</button>
         <button
           className="new-note"
           onClick={() =>
