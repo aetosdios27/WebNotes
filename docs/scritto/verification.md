@@ -63,6 +63,8 @@ can legitimately require wider count slots.
 
 - `bunx tsc --noEmit -p .`: passed.
 - `bun test src/lib`: 66 passed, 0 failed.
+- `bunx vitest run src/app/components/NoteSummary.test.tsx`: 19 passed. Vitest
+  processes the Scritto packages so their bundled CSS loads through Vite.
 - `DIRECT_DATABASE_URL=postgresql://u DATABASE_URL=postgresql://u AUTH_SECRET=x bun run build`: passed.
 - Same build with `NEXT_PUBLIC_IS_DESKTOP=true`, temporarily hiding `src/app/api`
   as the desktop script does and restoring it in finally: passed; exported `/`,
@@ -73,3 +75,7 @@ can legitimately require wider count slots.
 - No `e2e` directory or `test:ui` script exists on this origin/main.
 - ESLint could not initialize: existing configuration reports a circular JSON
   structure in the React plugin; not changed here.
+
+The exported HTML also loaded in a plain static browser without React hydration
+warnings. Without the Tauri runtime and auth API, this environment logged
+session-fetch errors. This is not a full Tauri binary runtime test.
