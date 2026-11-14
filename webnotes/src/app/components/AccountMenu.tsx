@@ -1,104 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { Avatar } from "@base-ui/react/avatar";
-import { LogOut } from "lucide-react";
-
-type Account = {
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-};
-
-function AccountAvatar({ account, size }: { account: Account; size: number }) {
-  const initial = (account.name || account.email || "A")
-    .slice(0, 1)
-    .toUpperCase();
-  return (
-    <Avatar.Root className="account-photo" style={{ width: size, height: size }}>
-      {account.image && (
-        // Google photo URLs refuse requests that carry a referrer.
-        <Avatar.Image
-          src={account.image}
-          alt=""
-          referrerPolicy="no-referrer"
-          width={size}
-          height={size}
-        />
-      )}
-      <Avatar.Fallback>{initial}</Avatar.Fallback>
-    </Avatar.Root>
-  );
-}
-
-/** How long Sign out must be held, in ms. */
-const HOLD_MS = 900;
-
-/**
- * Signing out is held, not clicked: pointer or Enter/Space starts a fill
- * across the row, and only a completed hold signs out. A timer decides
- * completion; the fill only shows progress.
- */
-function HoldToSignOut({ onSignOut }: { onSignOut: () => void }) {
-  const [holding, setHolding] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  const start = () => {
-    window.clearTimeout(timer.current);
-    setHolding(true);
-    timer.current = window.setTimeout(() => {
-      setHolding(false);
-      onSignOut();
-    }, HOLD_MS);
-  };
-  const stop = () => {
-    window.clearTimeout(timer.current);
-    setHolding(false);
-  };
-  return (
-    <Menu.Item
-      className="note-menu-item hold-action"
-      closeOnClick={false}
-      data-holding={holding || undefined}
-      style={{ ["--hold-duration" as string]: `${HOLD_MS}ms` }}
-      aria-description="Press and hold to sign out"
-      onClick={(event) => event.preventDefault()}
-      onPointerDown={(event) => {
-        if (event.button === 0) start();
-      }}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        if (!event.repeat) start();
-      }}
-      onKeyUp={(event) => {
-        if (event.key === "Enter" || event.key === " ") stop();
-      }}
-      onBlur={stop}
-    >
-      <LogOut aria-hidden="true" />
-      Sign out
-      <span className="hold-hint" aria-hidden="true">
-        Hold
-      </span>
-    </Menu.Item>
-  );
-}
+import { AccountAvatar } from "./AccountAvatar";
+import { Settings } from "lucide-react";
+import { HoldToSignOut } from "./HoldToSignOut";
+import { useSettings } from "./settings/SettingsProvider";
 
 export default function AccountMenu({
   account,
   onSignOut,
 }: {
-  account: Account;
+  account: React.ComponentProps<typeof AccountAvatar>["account"];
   onSignOut: () => void;
 }) {
+  const { openSettings } = useSettings();
+  const trigger = useRef<HTMLButtonElement>(null);
   return (
     <Menu.Root>
       <Menu.Trigger
+        ref={trigger}
         className="account-trigger"
         aria-label={`Account: ${account.name || account.email || "signed in"}`}
       >
@@ -110,15 +31,26 @@ export default function AccountMenu({
             data-depth="popover"
             className="note-actions-menu account-menu"
           >
-            <div className="account-card">
+            <Menu.Item
+              className="account-card account-manage"
+              onClick={() => openSettings("account", trigger.current)}
+            >
               <AccountAvatar account={account} size={36} />
               <div>
                 {account.name && <strong>{account.name}</strong>}
                 {account.email && <span>{account.email}</span>}
+                <small>Manage account</small>
               </div>
-            </div>
+            </Menu.Item>
             <Menu.Separator className="note-menu-separator" />
-            <HoldToSignOut onSignOut={onSignOut} />
+            <Menu.Item
+              className="note-menu-item"
+              onClick={() => openSettings(undefined, trigger.current)}
+            >
+              <Settings aria-hidden="true" />
+              Settings<kbd>⌘,</kbd>
+            </Menu.Item>
+            <HoldToSignOut menu onSignOut={onSignOut} />
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

@@ -229,15 +229,7 @@ export class HybridStorageAdapter {
   // --- SETTINGS ---
 
   async getSettings(): Promise<UserSettings> {
-    if (isTauri) return await this.tauri.getSettings();
-
-    if (this.shouldUseCloud()) {
-      try {
-        return await this.cloud.getSettings();
-      } catch {
-        return this.local.getSettings();
-      }
-    }
+    if (isTauri) return this.tauri.getSettings();
     return this.local.getSettings();
   }
 

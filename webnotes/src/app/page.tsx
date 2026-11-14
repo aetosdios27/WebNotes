@@ -21,6 +21,7 @@ import NoteActionsMenu, {
   type NoteMenuActions,
 } from "./components/NoteActionsMenu";
 import ThemeToggle from "./components/ThemeToggle";
+import { useSettings } from "./components/settings/SettingsProvider";
 import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
@@ -59,6 +60,7 @@ const VersionPreview = dynamic(() => import("./components/VersionPreview"), {
 });
 
 export default function Home() {
+  const { openSettings, isSettingsOpen } = useSettings();
   const {
     notes,
     folders,
@@ -185,6 +187,7 @@ export default function Home() {
   }
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (isSettingsOpen) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSwitching((value) => !value);
@@ -236,7 +239,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [newNote, newFolder, switching, navigate]);
+  }, [newNote, newFolder, switching, navigate, isSettingsOpen]);
   const actions = [
     {
       label: "New note",
@@ -469,6 +472,11 @@ export default function Home() {
             folders={folders}
             reading={isReadingMode}
             actions={menuActions}
+            onSettings={
+              !account
+                ? () => openSettings(undefined, document.querySelector<HTMLButtonElement>('button[aria-label="More"]'))
+                : undefined
+            }
             folderActions={
               selectedFolder &&
               actions

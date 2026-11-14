@@ -47,6 +47,7 @@ export class LocalStorageAdapter {
       updatedAt: note.updatedAt || new Date(),
       isPinned: note.isPinned || false,
       pinnedAt: note.pinnedAt || null,
+      font: note.font ?? null,
     };
 
     const notes = await this.getNotes();

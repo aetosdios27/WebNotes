@@ -51,6 +51,7 @@ export class CloudStorageAdapter {
       title: data.title ?? "",
       content: data.content ?? "",
       folderId: data.folderId,
+      font: data.font,
     });
 
     return {

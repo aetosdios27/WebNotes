@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { isTauri } from "@/lib/tauri";
+import { open } from "@tauri-apps/plugin-shell";
 import { signIn } from "next-auth/react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -23,10 +25,12 @@ function GoogleMark() {
 export default function SignInForm({
   providers,
   callbackUrl,
+  desktop = false,
   error,
 }: {
   providers: { id: string; name: string }[];
   callbackUrl: string;
+  desktop?: boolean;
   error: string | null;
 }) {
   const { resolvedTheme } = useTheme();
@@ -37,7 +41,13 @@ export default function SignInForm({
     setPending(id);
     setFailure(null);
     try {
-      await signIn(id, { callbackUrl });
+      if (desktop) {
+        const url = "https://web-notes-lyart.vercel.app/auth/desktop";
+        if (isTauri) await open(url);
+        else window.location.assign(url);
+      } else {
+        await signIn(id, { callbackUrl });
+      }
     } catch {
       setFailure("We couldn't connect. Please try again. Your notes on this device are safe.");
       setPending(null);
