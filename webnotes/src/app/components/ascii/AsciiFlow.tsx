@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { logoBounds } from "./geometry";
+import { terrainDensity } from "./scene";
 
 export type AsciiFlowProps = {
   maskImage: string;
@@ -8,64 +10,65 @@ export type AsciiFlowProps = {
   intensity?: number;
   className?: string;
 };
-const defaultPalette = { background: "#0a0a0a", foreground: "#fbca04" };
-const ramp = "  .,:;-=+*x%#@";
+const defaultPalette = { background: "#edece5", foreground: "#30332d" };
+const ramp = "  .`'\",:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+const padding = 16;
 
-/** A bounded, advected scalar field selects prebuilt density rows. The hot loop
- * reuses all buffers and strings, with exactly one fillText call per row. */
+/** Pre-render the detailed tonal base, then advect cached scanlines. All texture
+ * sampling and text layout happen at setup, not in the animation loop. */
 export default function AsciiFlow({ maskImage, palette = defaultPalette, intensity = 1, className }: AsciiFlowProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d", { alpha: false });
     if (!canvas || !ctx) return;
+    canvas.dataset.ready = "false";
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const image = new Image();
-    let alive = true, ready = false, visible = false, frame = 0;
-    let width = 0, height = 0, cols = 0, rows = 0, cw = 0, ch = 0;
-    let mask = new Float32Array(0), field = new Float32Array(0), next = new Float32Array(0);
-    let rowFrames: string[][] = [];
+    const texture = document.createElement("canvas");
+    let alive = true, ready = false, visible = false, presented = false, frame = 0;
+    let width = 0, height = 0, dpr = 1, rows = 0, rowHeight = 6;
+    let flow = new Float32Array(0);
     let px = -1000, py = -1000, energy = 0, last = 0, time = 0;
     function draw(ms: number) {
       if (!ctx || !canvas || !ready) return;
       const dt = last ? Math.min((ms - last) / 1000, 0.04) : 1 / 60;
       last = ms;
-      time += dt;
-      ctx.fillStyle = palette.background;
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = palette.foreground;
-      energy *= Math.exp(-dt * 3.5);
-      for (let y = 0; y < rows; y++) {
-        let phase = 0;
-        for (let x = 0; x < cols; x++) {
-          const i = y * cols + x;
-          // Divergence-free velocity: curl of sin(y/7+t) + cos(x/11-t).
-          const vx = Math.cos(y / 7 + time * 0.35);
-          const vy = Math.sin(x / 11 - time * 0.3);
-          const sx = Math.max(0, Math.min(cols - 1.001, x - vx * dt * 7));
-          const sy = Math.max(0, Math.min(rows - 1.001, y - vy * dt * 7));
-          const ix = Math.floor(sx), iy = Math.floor(sy), ax = sx - ix, ay = sy - iy;
-          const j = iy * cols + ix;
-          const advected = (field[j] * (1 - ax) + field[j + 1] * ax) * (1 - ay) +
-            (field[j + cols] * (1 - ax) + field[j + cols + 1] * ax) * ay;
-          const dx = x - px, dy = (y - py) * ch / cw;
-          const disturbance = energy * Math.exp(-(dx * dx + dy * dy) / 90);
-          const source = 0.5 + 0.5 * Math.sin(x * 0.17 + y * 0.23 - time * 1.8);
-          next[i] = advected * 0.97 + source * 0.03 + disturbance * dt * 4;
-          phase += next[i];
+      if (!reduced.matches) time += dt;
+      energy *= Math.exp(-dt * 3);
+      for (let row = 0; row < rows; row++) {
+        const y = row * rowHeight;
+        const distance = (y - py) / 36;
+        const impulse = energy * Math.exp(-distance * distance) * Math.sin(y * 0.08 + time * 3);
+        flow[row] = reduced.matches ? 0 : flow[row] * Math.exp(-dt * 3) + impulse * dt * 12;
+        // Curl-like horizontal transport, bounded so the full logo keeps its margin.
+        const displacement = reduced.matches ? 0 :
+          (Math.sin(y * 0.009 + time * 0.23) + Math.cos(y * 0.017 - time * 0.16)) * 1.4 * intensity;
+        const stripHeight = Math.min(rowHeight, height - y);
+        ctx.drawImage(texture, (padding + displacement) * dpr, (padding + y) * dpr,
+          width * dpr, stripHeight * dpr, 0, y, width, stripHeight);
+        if (Math.abs(flow[row]) > 0.05) {
+          const left = Math.max(0, px - 64), span = Math.min(128, width - left);
+          if (span > 0) ctx.drawImage(texture,
+            (padding + left + displacement + flow[row]) * dpr, (padding + y) * dpr,
+            span * dpr, stripHeight * dpr, left, y, span, stripHeight);
         }
-        const index = Math.floor((time * 12 + phase / cols * 32) % 128);
-        ctx.fillText(rowFrames[y][index], 0, y * ch);
       }
-      const swap = field; field = next; next = swap;
+      // A few warm flecks appear only while a pointer disturbance is settling.
+      if (energy > 0.05 && !reduced.matches) {
+        ctx.globalAlpha = Math.min(0.8, energy * 0.65);
+        ctx.fillStyle = "#fbca04";
+        for (let i = 0; i < 6; i++) {
+          const angle = i * 2.4 + time * 0.4;
+          ctx.fillText("·", px + Math.cos(angle) * (8 + i * 3), py + Math.sin(angle) * (8 + i * 3));
+        }
+        ctx.globalAlpha = 1;
+      }
+      if (!presented) { canvas.dataset.ready = "true"; presented = true; }
     }
-    function loop(ms: number) {
-      draw(ms);
-      frame = requestAnimationFrame(loop);
-    }
+    function loop(ms: number) { draw(ms); frame = requestAnimationFrame(loop); }
     function schedule() {
-      cancelAnimationFrame(frame);
-      last = 0;
+      cancelAnimationFrame(frame); last = 0;
       if (ready && visible && !document.hidden && !reduced.matches) frame = requestAnimationFrame(loop);
       else if (ready && reduced.matches) draw(0);
     }
@@ -74,57 +77,96 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
       const rect = canvas.getBoundingClientRect();
       width = rect.width; height = rect.height;
       if (!width || !height) return;
-      const dpr = Math.min(devicePixelRatio || 1, 2);
+      dpr = Math.min(devicePixelRatio || 1, 2);
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.max(2, Math.min(112, Math.ceil(width / 6.3)));
-      rows = Math.max(2, Math.min(90, Math.ceil(height / 10.5)));
-      cw = width / cols; ch = cw / 0.6;
-      rows = Math.max(2, Math.min(90, Math.ceil(height / ch)));
-      ctx.font = `${ch}px monospace`;
-      ctx.textBaseline = "top";
-      // Sample the SVG once per geometry, never in the animation loop.
-      const offscreen = document.createElement("canvas");
-      offscreen.width = cols; offscreen.height = rows;
-      const context = offscreen.getContext("2d");
-      if (!context) return;
-      const logoWidth = width * (width < height ? 1.52 : 1.12);
-      const logoHeight = logoWidth * 70 / 160;
-      context.drawImage(image, -width * 0.19 / cw, (height * 0.5 - logoHeight * 0.5) / ch, logoWidth / cw, logoHeight / ch);
-      const pixels = context.getImageData(0, 0, cols, rows).data;
-      mask = new Float32Array(cols * rows); field = new Float32Array(cols * rows); next = new Float32Array(cols * rows);
-
-      for (let i = 0; i < mask.length; i++) { mask[i] = pixels[i * 4 + 3] / 255; field[i] = 0.5 + 0.5 * Math.sin(i * 0.71); }
-      // Prebuild 128 density phases per row; no strings or arrays in draw().
-      rowFrames = Array.from({ length: rows }, (_, y) =>
-        Array.from({ length: 128 }, (_, phase) => {
-          let text = "";
-          for (let x = 0; x < cols; x++) {
-            const k = mask[y * cols + x];
-            const wave = 0.5 + 0.5 * Math.sin(x * 0.17 + y * 0.23 - phase * Math.PI / 64);
-            const density = Math.min(1, k * (0.68 + wave * 0.3) +
-              (1 - k) * Math.max(0, wave - 0.48) * 0.65 * Math.max(0, intensity));
-            text += ramp[Math.floor(density * (ramp.length - 1))];
-          }
-          return text;
-        }));
-      last = 0;
-      draw(0); schedule();
+      ctx.font = "9px monospace"; ctx.textBaseline = "top";
+      rowHeight = Math.max(6, height / 128, width / 180 / 0.6);
+      rows = Math.ceil(height / rowHeight);
+      flow = new Float32Array(rows);
+      const cellWidth = rowHeight * 0.6;
+      const cols = Math.ceil((width + padding * 2) / cellWidth);
+      const textureRows = Math.ceil((height + padding * 2) / rowHeight);
+      const sample = document.createElement("canvas");
+      sample.width = cols; sample.height = textureRows;
+      const sampleContext = sample.getContext("2d");
+      if (!sampleContext) return;
+      const box = logoBounds(width, height, 0.36);
+      sampleContext.drawImage(image, (box.x + padding) / cellWidth, (box.y + padding) / rowHeight,
+        box.width / cellWidth, box.height / rowHeight);
+      const mask = sampleContext.getImageData(0, 0, cols, textureRows).data;
+      texture.width = Math.ceil((width + padding * 2) * dpr);
+      texture.height = Math.ceil((height + padding * 2) * dpr);
+      const paint = texture.getContext("2d", { alpha: false });
+      if (!paint) return;
+      paint.setTransform(dpr, 0, 0, dpr, 0, 0);
+      paint.fillStyle = palette.background; paint.fillRect(0, 0, texture.width, texture.height);
+      paint.font = `${rowHeight}px monospace`; paint.textBaseline = "top";
+      // A one-bit underprint supplies the continuous tonal range between glyphs.
+      // Sample the expensive terrain once per character cell, then dither pixels.
+      const densities = new Float32Array(cols * textureRows);
+      for (let y = 0; y < textureRows; y++) for (let x = 0; x < cols; x++) {
+        const k = mask[(y * cols + x) * 4 + 3] / 255;
+        const value = terrainDensity((x * cellWidth - padding) / width, (y * rowHeight - padding) / height);
+        densities[y * cols + x] = value * (1 - k * 0.7) + k * 0.025;
+      }
+      const print = document.createElement("canvas");
+      print.width = Math.ceil(width + padding * 2); print.height = Math.ceil(height + padding * 2);
+      const printer = print.getContext("2d");
+      if (!printer) return;
+      printer.fillStyle = palette.background; printer.fillRect(0, 0, 1, 1);
+      const paper = printer.getImageData(0, 0, 1, 1).data;
+      printer.fillStyle = palette.foreground; printer.fillRect(0, 0, 1, 1);
+      const ink = printer.getImageData(0, 0, 1, 1).data;
+      const pixels = printer.createImageData(print.width, print.height);
+      for (let y = 0; y < print.height; y++) for (let x = 0; x < print.width; x++) {
+        const gx = x / cellWidth, gy = y / rowHeight;
+        const ix = Math.min(cols - 2, Math.floor(gx)), iy = Math.min(textureRows - 2, Math.floor(gy));
+        const ax = Math.min(1, gx - ix), ay = Math.min(1, gy - iy), j = iy * cols + ix;
+        const density = (densities[j] * (1 - ax) + densities[j + 1] * ax) * (1 - ay) +
+          (densities[j + cols] * (1 - ax) + densities[j + cols + 1] * ax) * ay;
+        const seed = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+        const color = seed - Math.floor(seed) < density ? ink : paper;
+        const i = (y * print.width + x) * 4;
+        pixels.data[i] = color[0]; pixels.data[i + 1] = color[1]; pixels.data[i + 2] = color[2]; pixels.data[i + 3] = 255;
+      }
+      printer.putImageData(pixels, 0, 0);
+      paint.imageSmoothingEnabled = false;
+      paint.drawImage(print, 0, 0);
+      paint.globalAlpha = 0.18;
+      paint.fillStyle = palette.foreground;
+      for (let y = 0; y < textureRows; y++) {
+        let text = "", inverse = "";
+        for (let x = 0; x < cols; x++) {
+          const relief = densities[y * cols + x];
+          // Inverse glyphs extend the range from paper white to almost solid ink.
+          // These fills and strings are setup-only; frames just move the bitmap.
+          const inverted = relief > 0.5;
+          const level = Math.min(1, (inverted ? 1 - relief : relief) * 2);
+          const glyph = ramp[Math.floor(level * (ramp.length - 1))];
+          text += inverted ? " " : glyph;
+          inverse += inverted ? glyph : " ";
+          if (inverted) paint.fillRect(x * cellWidth, y * rowHeight, cellWidth + 0.1, rowHeight + 0.1);
+        }
+        paint.fillText(text, 0, y * rowHeight);
+        paint.fillStyle = palette.background;
+        paint.fillText(inverse, 0, y * rowHeight);
+        paint.fillStyle = palette.foreground;
+      }
+      last = 0; draw(0); schedule();
     }
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; schedule(); });
     observer.observe(canvas);
     const resizer = new ResizeObserver(resize); resizer.observe(canvas);
     const pointer = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      px = (event.clientX - rect.left) / cw; py = (event.clientY - rect.top) / ch;
+      px = event.clientX - rect.left; py = event.clientY - rect.top;
       energy = reduced.matches ? 0 : Math.min(2, Math.max(0, intensity));
     };
     canvas.addEventListener("pointermove", pointer, { passive: true });
     canvas.addEventListener("pointerdown", pointer, { passive: true });
-    document.addEventListener("visibilitychange", schedule);
-    reduced.addEventListener("change", schedule);
-    image.onload = () => { if (alive) { ready = true; resize(); } };
-    image.src = maskImage;
+    document.addEventListener("visibilitychange", schedule); reduced.addEventListener("change", schedule);
+    image.onload = () => { if (alive) { ready = true; resize(); } }; image.src = maskImage;
     return () => {
       alive = false; cancelAnimationFrame(frame); observer.disconnect(); resizer.disconnect();
       canvas.removeEventListener("pointermove", pointer); canvas.removeEventListener("pointerdown", pointer);
