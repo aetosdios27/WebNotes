@@ -27,6 +27,19 @@ describe("deferred note deletion", () => {
     expect(removed).toEqual([]);
     expect(undo()).toBe(false);
   });
+  test("Undo is refused once the deadline has passed, even if no commit has started here", () => {
+    const { queue } = fixture();
+    const realNow = Date.now;
+    try {
+      const undo = queue.stage({ id: "a", scope: "device" });
+      const staged = realNow();
+      Date.now = () => staged + DELETE_UNDO_MS + 1;
+      expect(undo()).toBe(false);
+      expect(queue.has("a")).toBe(true);
+    } finally {
+      Date.now = realNow;
+    }
+  });
   test("next load commits interrupted deletes, only for the original account", async () => {
     const removed: string[] = [];
     const { journal } = fixture(async id => { removed.push(id); });

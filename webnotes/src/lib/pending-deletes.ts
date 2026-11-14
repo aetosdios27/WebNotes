@@ -47,6 +47,9 @@ export class PendingDeletes {
     this.journal.setItem(journalKey(entry.id), JSON.stringify(full));
     this.timers.set(entry.id, setTimeout(() => { void this.commit(full); }, DELETE_UNDO_MS));
     return () => {
+      // Past the deadline another tab may already be committing; an Undo now
+      // could show a note that the server is deleting.
+      if (Date.now() >= full.deadline) return false;
       if (this.committing.has(entry.id) || !this.has(entry.id)) return false;
       this.journal.removeItem(journalKey(entry.id));
       clearTimeout(this.timers.get(entry.id));
