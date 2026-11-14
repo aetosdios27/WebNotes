@@ -1,6 +1,8 @@
 // src/app/components/NoteEditor.tsx
 
 "use client";
+import { EditorSkeleton } from "./ContentSkeletons";
+import { LoadingRegion } from "./ui/skeleton";
 
 import type { Editor } from "@tiptap/react";
 import type { Note } from "@/lib/storage/types";
@@ -64,6 +66,7 @@ interface NoteEditorProps {
   allNotes: Note[];
   onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
+  onSyncErrorChange: (failed: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
   onNavigateNote: (noteId: string) => void;
   isReadingMode: boolean;
@@ -292,6 +295,7 @@ interface InnerEditorProps {
   isRightSidebarOpen: boolean;
   onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
+  onSyncErrorChange: (failed: boolean) => void;
   onNavigateNote: (noteId: string) => void;
   onDeleteNote?: (noteId: string) => void;
   onToggleRightSidebar: () => void;
@@ -322,14 +326,9 @@ function InnerEditor(props: InnerEditorProps) {
     };
   }, [props.noteId, ydoc]);
 
-  if (!isHydrated) {
-    return (
-      <div className="flex items-center justify-center h-full bg-black">
-        <div className="animate-pulse text-zinc-500">Loading note...</div>
-      </div>
-    );
-  }
-  return <HydratedEditor {...props} ydoc={ydoc} />;
+  return <LoadingRegion pending={!isHydrated} skeleton={<EditorSkeleton />} label="Opening note" className="editor-hydration">
+    {isHydrated && <HydratedEditor {...props} ydoc={ydoc} />}
+  </LoadingRegion>;
 }
 
 function HydratedEditor({
@@ -343,6 +342,7 @@ function HydratedEditor({
   isRightSidebarOpen,
   onNoteUpdate,
   onSavingStatusChange,
+  onSyncErrorChange,
   onNavigateNote,
   onDeleteNote,
   onToggleRightSidebar,
@@ -360,6 +360,10 @@ function HydratedEditor({
     userId: isAuthenticated ? session?.user?.id : undefined,
     onSavingStatusChange,
   });
+  useEffect(() => {
+    onSyncErrorChange(Boolean(syncError));
+    return () => onSyncErrorChange(false);
+  }, [syncError, onSyncErrorChange]);
 
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
@@ -619,9 +623,9 @@ function HydratedEditor({
   return (
     <>
       {syncError && (
-        <div className="absolute top-0 left-0 right-0 z-[100] bg-red-900/90 text-white px-4 py-2 flex items-center justify-between">
-          <span className="text-sm">⚠️ {syncError}</span>
-          <button onClick={dismissError} className="text-xs hover:text-red-200">
+        <div className="sync-notice" role="status">
+          <span>Sync is paused. Your device copy is still here; we’ll keep trying.</span>
+          <button onClick={dismissError} className="text-xs">
             Dismiss
           </button>
         </div>
@@ -679,15 +683,9 @@ function HydratedEditor({
                   onEditorClick(e);
                 }}
               >
-                {editor ? (
-                  <EditorContent editor={editor} />
-                ) : (
-                  <div
-                    className="h-40 rounded-md bg-zinc-800 animate-pulse"
-                    aria-label="Loading editor"
-                    aria-busy="true"
-                  />
-                )}
+                <LoadingRegion pending={!editor} skeleton={<EditorSkeleton bodyOnly />} label="Preparing editor">
+                  {editor && <EditorContent editor={editor} />}
+                </LoadingRegion>
               </div>
             </div>
           </div>
@@ -729,6 +727,7 @@ export default function NoteEditor({
   allNotes,
   onNoteUpdate,
   onSavingStatusChange,
+  onSyncErrorChange,
   onDeleteNote,
   onNavigateNote,
   onCreateNote,
@@ -815,7 +814,8 @@ export default function NoteEditor({
     }
   }, []);
 
-  if (!mounted || !activeNote) return null;
+  if (!mounted) return <LoadingRegion pending skeleton={<EditorSkeleton />} className="editor-loading" label="Preparing note" />;
+  if (!activeNote) return null;
 
   return (
     <div
@@ -835,6 +835,7 @@ export default function NoteEditor({
         isRightSidebarOpen={isRightSidebarOpen}
         onNoteUpdate={onNoteUpdate}
         onSavingStatusChange={onSavingStatusChange}
+        onSyncErrorChange={onSyncErrorChange}
         onNavigateNote={onNavigateNote}
         onDeleteNote={onDeleteNote}
         onToggleRightSidebar={onToggleRightSidebar}
