@@ -23,7 +23,7 @@ actual avatar menu while keeping notes local.
   cards, including switcher search and folder submenu (bug 6).
 - E: concepts reachable from both title bar and More fail (bug 4).
 - F: guest/account icon clicks must preserve notes and URL and send no signout
-  request; controls must react. Home on the home wall is idempotent (bug 5).
+  request; controls must react. Home and Share are exercised from an open note (bug 5).
 
 `registry.ts` is the single place to extend duplicate concepts and add narrowly
 justified small-target exceptions. Title-bar controls cannot be exempted.

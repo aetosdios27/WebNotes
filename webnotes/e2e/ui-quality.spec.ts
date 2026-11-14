@@ -197,17 +197,23 @@ for (const signedIn of [false, true]) test(`F title bar clicks have no immediate
   const controls = page.locator('.window-bar').locator(interactive);
   const candidates: { index: number; label: string }[] = [];
   for (const [index, control] of (await controls.all()).entries()) if (await control.isVisible() && (!(await control.innerText()).trim() || await control.evaluate(el => el.matches('.account-trigger'))) && await control.isEnabled()) candidates.push({ index, label: await name(control) });
+  candidates.push({ index: -1, label: 'Share note' });
+  const noteCount = () => page.evaluate(() => { const notes: unknown = JSON.parse(localStorage.getItem('webnotes_notes_v1') || '[]'); return Array.isArray(notes) ? notes.length : -1; });
   for (const { index, label } of candidates) {
     await page.keyboard.press('Escape');
-    const before = await page.evaluate(() => localStorage.getItem('webnotes_notes_v1'));
+    if (label === 'Home' || label === 'Share note') {
+      await page.locator('.note-card').first().click();
+      await expect(page.locator('main')).toHaveClass(/writing/);
+    }
+    const before = await noteCount();
     const url = page.url();
     const domBefore = await page.locator('main').innerHTML();
     const theme = await page.locator('html').getAttribute('class');
-    await controls.nth(index).click();
+    await (index === -1 ? page.getByRole('button', { name: 'Share note', exact: true }) : controls.nth(index)).click();
     if (page.url() !== url) { failures.push({ id: label, expected: 'no navigation', actual: page.url() }); await page.goto(url); continue; }
-    // Home on the wall is intentionally idempotent; all other controls must react.
-    if (label !== 'Home') await expect.poll(async () => page.url() !== url || (await page.locator('main').innerHTML({ timeout: 1000 })) !== domBefore || (await page.locator('html').getAttribute('class')) !== theme || await page.locator('[role="menu"], [role="dialog"]').count() > 0).toBe(true);
-    if (signouts.length || page.url() !== url || await page.evaluate(() => localStorage.getItem('webnotes_notes_v1')) !== before) failures.push({ id: label, expected: 'no signout, navigation, or note mutation', actual: `signouts=${signouts.length}; url=${page.url()}; notes changed=${await page.evaluate(() => localStorage.getItem('webnotes_notes_v1')) !== before}` });
+    await expect.poll(async () => page.url() !== url || (await page.locator('main').innerHTML({ timeout: 1000 })) !== domBefore || (await page.locator('html').getAttribute('class')) !== theme || await page.locator('[role="menu"], [role="dialog"]').count() > 0).toBe(true);
+    if (signouts.length || page.url() !== url || await noteCount() !== before) failures.push({ id: label, expected: 'no signout, navigation, or note mutation', actual: `signouts=${signouts.length}; url=${page.url()}; notes changed=${await noteCount() !== before}` });
+    if (label === 'Share note') { await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Home', exact: true }).click(); }
   }
   report(signedIn ? 'F account' : 'F guest', failures);
 });
