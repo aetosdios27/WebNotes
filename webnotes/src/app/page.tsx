@@ -21,6 +21,7 @@ import NoteActionsMenu, {
   type NoteMenuActions,
 } from "./components/NoteActionsMenu";
 import ThemeToggle from "./components/ThemeToggle";
+import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
 import { useNotesStore } from "@/store/useNotesStore";
@@ -489,22 +490,14 @@ export default function Home() {
                 ))
             }
           />
-          <button
-            className={account ? "account-avatar" : "sign-in"}
-            aria-label={
-              account ? `Sign out ${account.name || "account"}` : "Sign in"
-            }
-            onClick={account ? leave : authenticate}
-          >
-            {account ? (
-              (account.name || account.email || "A").slice(0, 1).toUpperCase()
-            ) : (
-              <>
-                <LogIn aria-hidden="true" />
-                <span>Sign in</span>
-              </>
-            )}
-          </button>
+          {account ? (
+            <AccountMenu account={account} onSignOut={leave} />
+          ) : (
+            <button className="sign-in" onClick={authenticate}>
+              <LogIn aria-hidden="true" />
+              <span>Sign in</span>
+            </button>
+          )}
         </div>
       </header>
       <div className="window-content">
