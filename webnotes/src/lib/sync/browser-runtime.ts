@@ -34,5 +34,5 @@ export function startNoteSync(options: {
     return yield* Effect.never;
   })).pipe(Effect.provide(Layer.merge(browserTransport, browserAckStore(userId))));
   const fiber = Effect.runFork(program);
-  return () => { Effect.runFork(Fiber.interrupt(fiber)); };
+  return () => Effect.runPromise(Fiber.interrupt(fiber)).then(() => undefined);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type * as Y from "yjs";
 import type { SyncStatus } from "@/lib/sync/engine";
 
@@ -14,13 +14,18 @@ export function useNoteSync(options: {
   const onSaving = useRef(options.onSavingStatusChange);
   onSaving.current = options.onSavingStatusChange;
   const { id, doc, userId } = options;
+  const stopRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const stopSync = useCallback(() => {
+    const stop = stopRef.current;
+    stopRef.current = undefined;
+    return stop?.() ?? Promise.resolve();
+  }, []);
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    let stop: (() => void) | undefined;
     void import("@/lib/sync/browser-runtime").then(({ startNoteSync }) => {
       if (!active) return;
-      stop = startNoteSync({
+      const stop = startNoteSync({
         id, doc, userId,
         onStatus: next => {
           if (!active) return;
@@ -28,14 +33,15 @@ export function useNoteSync(options: {
           onSaving.current(next.saving);
         },
       });
+      stopRef.current = stop;
     }).catch(() => {
       if (active) setStatus(previous => ({ ...previous, error: "Could not start note sync" }));
     });
     return () => {
       active = false;
       onSaving.current(false);
-      stop?.();
+      void stopSync();
     };
-  }, [id, doc, userId]);
-  return { ...status, dismissError: () => setStatus(previous => ({ ...previous, error: null })) };
+  }, [id, doc, userId, stopSync]);
+  return { ...status, stopSync, dismissError: () => setStatus(previous => ({ ...previous, error: null })) };
 }

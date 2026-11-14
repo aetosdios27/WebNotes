@@ -185,6 +185,14 @@ export default function Home() {
   }
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === "Escape" && !switching &&
+          document.activeElement === document.body &&
+          !document.querySelector('[role="dialog"]:not([data-closed]), [role="menu"]:not([data-closed]), [data-state="open"][role="listbox"]')) {
+        event.preventDefault();
+        navigate(null);
+        return;
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSwitching((value) => !value);
