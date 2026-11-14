@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import {
   ChevronLeft,
@@ -169,7 +169,7 @@ export default function Home() {
   );
   function authenticate() {
     if (isTauri) void open("https://web-notes-lyart.vercel.app/auth/desktop");
-    else void signIn("google");
+    else window.location.assign("/signin");
   }
   function leave() {
     if (isTauri) logout();

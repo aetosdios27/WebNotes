@@ -30,6 +30,7 @@ if (hasDatabase) {
 export const authOptions: NextAuthOptions = {
   ...(adapter ? { adapter } : {}),
   providers,
+  pages: { signIn: "/signin" },
   session: { strategy: adapter ? "database" : "jwt" },
   secret: process.env.AUTH_SECRET ?? "dev-insecure-auth-secret",
   callbacks: {

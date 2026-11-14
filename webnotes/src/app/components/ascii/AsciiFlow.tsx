@@ -108,6 +108,7 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
           }
           return text;
         }));
+      last = 0;
       draw(0); schedule();
     }
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; schedule(); });
