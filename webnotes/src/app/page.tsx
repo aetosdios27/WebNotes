@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Copy,
@@ -38,6 +39,13 @@ import NoteWall from "./components/NoteWall";
 import NoteSwitcher from "./components/NoteSwitcher";
 import { noteMarkdown } from "@/lib/note-markdown";
 import {
+  notePath,
+  noteIdFromPath,
+  wallPath,
+  wallFilterFromSearch,
+  noteDocumentTitle,
+} from "@/lib/note-url";
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogTitle,
@@ -60,6 +68,32 @@ const NoteEditor = dynamic(() => import("./components/NoteEditor"), {
 const VersionPreview = dynamic(() => import("./components/VersionPreview"), {
   ssr: false,
 });
+
+/** The app's history-entry index, or 0 for entries we did not push. */
+function historyKey(state: unknown): number {
+  if (
+    state &&
+    typeof state === "object" &&
+    typeof (state as { __webnotes?: unknown }).__webnotes === "number"
+  ) {
+    return (state as { __webnotes: number }).__webnotes;
+  }
+  return 0;
+}
+
+const HISTORY_TOP = "webnotes:history-top";
+function readHistoryTop(): number {
+  try {
+    return Number(sessionStorage.getItem(HISTORY_TOP)) || 0;
+  } catch {
+    return 0;
+  }
+}
+function writeHistoryTop(index: number) {
+  try {
+    sessionStorage.setItem(HISTORY_TOP, String(index));
+  } catch {}
+}
 
 export default function Home() {
   const { openSettings, isSettingsOpen } = useSettings();
@@ -99,29 +133,107 @@ export default function Home() {
     : undefined;
   const [info, setInfo] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
-  const [history, setHistory] = useState<(string | null)[]>([null]);
-  const [cursor, setCursor] = useState(0);
+  // Our position in the browser's own history, so the ← → arrows can stay
+  // disabled at the edges without maintaining a second, drifting history.
+  // Each entry we push is labelled with an increasing index in its state, and
+  // the newest label is the top of the stack (a push drops forward entries).
+  // sessionStorage keeps that top across refreshes.
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const maxHistoryIndex = useRef(0);
+  useEffect(() => {
+    const index = historyKey(window.history.state);
+    maxHistoryIndex.current = Math.max(index, readHistoryTop());
+    setHistoryIndex(index);
+  }, []);
+  // Bumped whenever the URL changes (push/replace/back/forward) so the effect
+  // below re-reads `window.location`. Reading the location directly keeps this
+  // page statically prerenderable, which `useSearchParams` would not.
+  const [urlVersion, setUrlVersion] = useState(0);
   const activeNote = notes.find((n) => n.id === activeNoteId);
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  // Settings opens and closes with its own pushState; re-sync when it does.
+  const pathname = usePathname();
+  const syncUrl = useCallback(() => setUrlVersion((n) => n + 1), []);
+
+  // --- Browser history is the single source of truth for navigation. --------
+  const pushUrl = useCallback(
+    (url: string) => {
+      const next = maxHistoryIndex.current + 1;
+      maxHistoryIndex.current = next;
+      writeHistoryTop(next);
+      window.history.pushState({ __webnotes: next }, "", url);
+      setHistoryIndex(next);
+      syncUrl();
+    },
+    [syncUrl],
+  );
+  const replaceUrl = useCallback(
+    (url: string) => {
+      window.history.replaceState(
+        { __webnotes: historyKey(window.history.state) },
+        "",
+        url,
+      );
+      syncUrl();
+    },
+    [syncUrl],
+  );
+
   const navigate = useCallback(
     (id: string | null) => {
-      setActiveNote(id);
       setPreviewVersionId(null);
-      setHistory((previous) => [...previous.slice(0, cursor + 1), id]);
-      setCursor(cursor + 1);
+      const target = id === null ? wallPath(wallFilter) : notePath(id);
+      if (window.location.pathname + window.location.search === target) return;
+      pushUrl(target);
     },
-    [cursor, setActiveNote],
+    [wallFilter, pushUrl],
   );
-  function travel(step: number) {
-    const next = cursor + step;
-    setCursor(next);
-    const id = history[next];
-    setActiveNote(id && notes.some((n) => n.id === id) ? id : null);
-    setPreviewVersionId(null);
-  }
+
+  // Back/Forward derive from browser history, so there is one history.
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      setHistoryIndex(historyKey(event.state));
+      syncUrl();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [syncUrl]);
+  const canGoBack = historyIndex > 0;
+  const canGoForward = historyIndex < maxHistoryIndex.current;
+
+  // Keep the store in step with the URL (home, note, or wall filter). Notes
+  // load asynchronously, so this waits for them before opening a note.
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+  useEffect(() => {
+    if (isLoading) return;
+    const currentPathname = window.location.pathname;
+    if (currentPathname === "/settings" || currentPathname.startsWith("/settings/"))
+      return;
+    const id = noteIdFromPath(currentPathname);
+    if (id !== null) {
+      if (notesRef.current.some((n) => n.id === id)) {
+        setActiveNote(id);
+      } else {
+        replaceUrl("/");
+        toast("That note isn't here");
+      }
+      return;
+    }
+    setActiveNote(null);
+    setWallFilter(wallFilterFromSearch(window.location.search));
+  }, [urlVersion, pathname, isLoading, setActiveNote, replaceUrl]);
+
+  // Browser tab title: the open note's title (or "Untitled"), live as it is
+  // edited; plain "WebNotes" on Home.
+  useEffect(() => {
+    document.title = activeNote ? noteDocumentTitle(activeNote.title) : "WebNotes";
+  }, [activeNote?.id, activeNote?.title]);
   const newNote = useCallback(
     async (title = "", folderId?: string | null, id?: string) => {
       try {
@@ -142,17 +254,31 @@ export default function Home() {
   const removeNote = useCallback(
     async (id: string) => {
       try {
+        const wasOpen = activeNoteId === id;
         const undo = deleteNote(id);
         setPreviewVersionId(null);
+        // Delete an open note by replacing its URL with Home, so Back never
+        // lands on a note that no longer exists.
+        if (wasOpen) replaceUrl(wallPath(wallFilter));
         toast.success("Note deleted", {
           duration: DELETE_UNDO_MS,
-          action: { label: "Undo", onClick: () => { if (!undo()) toast.error("Undo window has ended"); } },
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (!undo()) {
+                toast.error("Undo window has ended");
+                return;
+              }
+              // Restore the note's URL if it was open when deleted.
+              if (wasOpen) replaceUrl(notePath(id));
+            },
+          },
         });
       } catch {
         toast.error("Failed to delete note");
       }
     },
-    [deleteNote],
+    [deleteNote, activeNoteId, replaceUrl, wallFilter],
   );
   const pinNote = useCallback(
     async (id: string) => {
@@ -168,6 +294,15 @@ export default function Home() {
     navigate(null);
     setFolderEditing("new");
   }, [navigate]);
+  // Changing the wall tab reflects in the URL via replaceState, so a refresh
+  // keeps the selected tab without pushing a history entry.
+  const changeWallFilter = useCallback(
+    (filter: string) => {
+      setWallFilter(filter);
+      replaceUrl(wallPath(filter));
+    },
+    [replaceUrl],
+  );
   const update = useCallback(
     async (id: string, changes: Partial<Note>) => {
       try {
@@ -384,16 +519,16 @@ export default function Home() {
           <button
             className="history-button"
             aria-label="Back"
-            disabled={cursor === 0}
-            onClick={() => travel(-1)}
+            disabled={!canGoBack}
+            onClick={() => window.history.back()}
           >
             <ChevronLeft size={19} />
           </button>
           <button
             className="history-button"
             aria-label="Forward"
-            disabled={cursor === history.length - 1}
-            onClick={() => travel(1)}
+            disabled={!canGoForward}
+            onClick={() => window.history.forward()}
           >
             <ChevronRight size={19} />
           </button>
@@ -567,7 +702,7 @@ export default function Home() {
             activeNoteId={activeNoteId}
             isReadingMode={isReadingMode}
             filter={wallFilter}
-            onFilterChange={setWallFilter}
+            onFilterChange={changeWallFilter}
             notes={notes}
             folders={folders}
             openNote={navigate}
@@ -606,7 +741,7 @@ export default function Home() {
               onClick={() => {
                 if (folderToDelete)
                   void deleteFolder(folderToDelete)
-                    .then(() => setWallFilter("all"))
+                    .then(() => changeWallFilter("all"))
                     .catch(() => toast.error("Failed to delete folder"));
               }}
             >

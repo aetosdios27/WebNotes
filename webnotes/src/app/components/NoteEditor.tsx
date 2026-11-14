@@ -2,6 +2,7 @@
 
 "use client";
 
+import { noteDocumentTitle } from "@/lib/note-url";
 import { FONT_CLASSES } from "@/lib/note-fonts";
 import { Selection, type SelectionBookmark } from "@tiptap/pm/state";
 import { isNoteEmpty } from "@/lib/note-empty";
@@ -928,6 +929,8 @@ export default function NoteEditor({
       // A title is one line that wraps; pasted line breaks become spaces.
       const newTitle = e.target.value.replace(/[\r\n]+/g, " ").slice(0, 200);
       setTitle(newTitle);
+      // The store sees the title only after autosave; keep the tab title live.
+      document.title = noteDocumentTitle(newTitle);
       if (activeNote?.id) {
         if (titleSaveTimeoutRef.current)
           clearTimeout(titleSaveTimeoutRef.current);
