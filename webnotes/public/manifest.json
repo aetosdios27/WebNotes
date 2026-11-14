@@ -1,12 +1,12 @@
 {
   "name": "WebNotes",
   "short_name": "WebNotes",
-  "description": "A simple, beautiful note-taking app.",
+  "description": "A little space for your thoughts. Local-first notes, synced everywhere.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#16140f",
+  "orientation": "any",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -19,6 +19,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

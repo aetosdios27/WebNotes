@@ -1,0 +1,83 @@
+<!doctype html>
+<!-- The 1200×630 card shown when a WebNotes link is shared. Rendered by generate.mjs. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Geist; src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2"); font-weight: 600; }
+  @font-face { font-family: Geist; src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2"); font-weight: 400; }
+  @font-face { font-family: "Geist Mono"; src: url("../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Bold.woff2"); font-weight: 700; }
+  html, body { margin: 0; }
+  .card {
+    width: 1200px; height: 630px; position: relative; overflow: hidden;
+    display: grid; grid-template-columns: 640px 1fr; align-items: center;
+    background: #efeee8; color: #1c1b17; font-family: Geist, sans-serif;
+  }
+  canvas { width: 640px; height: 630px; display: block; border-right: 1px solid rgba(38, 32, 20, 0.09); }
+  .copy { padding: 0 64px 0 56px; }
+  .name { font-size: 60px; font-weight: 600; letter-spacing: -0.045em; line-height: 1; }
+  .line { margin-top: 18px; font-size: 26px; font-weight: 400; color: #5c5a52; letter-spacing: -0.01em; line-height: 1.35; }
+  .rule { margin-top: 34px; width: 48px; height: 6px; border-radius: 2px; background: #fbca04; transform: skewX(-28deg); }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <canvas id="art" width="1280" height="1260"></canvas>
+  <div class="copy">
+    <div class="name">WebNotes</div>
+    <div class="line">A little space for your thoughts. Local-first, synced everywhere.</div>
+    <div class="rule"></div>
+  </div>
+</div>
+<script>
+  // Same glyph rules as src/app/signin/ascii-logo.ts: soft edges, one dense face,
+  // a quiet dot-grid field that keeps clear of the mark.
+  const MARK = ["M0 1H35V34L97 0V34L33 69H0Z", "M98 34L160 0V34L98 69Z"];
+  const glyph = (c) => c < 0.08 ? " " : c < 0.3 ? "." : c < 0.5 ? ":" : c < 0.7 ? "=" : c < 0.88 ? "#" : "@";
+  window.render = async () => {
+    await document.fonts.load('700 13px "Geist Mono"');
+    const canvas = document.getElementById("art"), ctx = canvas.getContext("2d");
+    const W = 640, H = 630, scale = 2;
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#efeee8"; ctx.fillRect(0, 0, W, H);
+    const size = 15; ctx.font = `700 ${size}px "Geist Mono"`; ctx.textBaseline = "top";
+    const cw = ctx.measureText("M").width, ch = Math.round(size * 1.18);
+    const lw = W * 0.72, lh = lw * 70 / 160, bx = (W - lw) / 2, by = (H - lh) / 2;
+    const mask = document.createElement("canvas"); mask.width = W; mask.height = H;
+    const m = mask.getContext("2d"); m.translate(bx, by); m.scale(lw / 160, lh / 70);
+    MARK.forEach((d) => m.fill(new Path2D(d)));
+    const alpha = m.getImageData(0, 0, W, H).data;
+    // Same rules as src/app/signin/ascii-logo.ts: coverage per cell, then a
+    // grid distance transform so the dot field clears along the mark's shape.
+    const cols = Math.ceil(W / cw), rows = Math.ceil(H / ch), cover = new Float32Array(cols * rows);
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+      const x = col * cw, y = row * ch;
+      let sum = 0, n = 0;
+      for (let py = Math.floor(y); py < Math.min(H, y + ch); py += 2)
+        for (let px = Math.floor(x); px < Math.min(W, x + cw); px += 2) { sum += alpha[(py * W + px) * 4 + 3]; n++; }
+      cover[row * cols + col] = n ? sum / n / 255 : 0;
+    }
+    const dist = Float32Array.from(cover, (c) => c >= 0.08 ? 0 : 1e9), diag = Math.hypot(cw, ch);
+    const relax = (i, j, cost) => { if (dist[j] + cost < dist[i]) dist[i] = dist[j] + cost; };
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const i = r * cols + c;
+      if (c > 0) relax(i, i - 1, cw); if (r > 0) { relax(i, i - cols, ch); if (c > 0) relax(i, i - cols - 1, diag); if (c < cols - 1) relax(i, i - cols + 1, diag); } }
+    for (let r = rows - 1; r >= 0; r--) for (let c = cols - 1; c >= 0; c--) { const i = r * cols + c;
+      if (c < cols - 1) relax(i, i + 1, cw); if (r < rows - 1) { relax(i, i + cols, ch); if (c < cols - 1) relax(i, i + cols + 1, diag); if (c > 0) relax(i, i + cols - 1, diag); } }
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+      const i = row * cols + col, x = col * cw, y = row * ch, c = cover[i];
+      if (c >= 0.08) {
+        const u = (x - bx) / lw, v = (y - by) / lh;
+        ctx.globalAlpha = 1 - 0.28 * Math.min(1, Math.max(0, u * 0.6 + v * 0.4));
+        ctx.fillStyle = "#262822"; ctx.fillText(glyph(c), x, y);
+      } else if (col % 3 === 0 && row % 2 === 0) {
+        const t = Math.min(1, Math.max(0, (dist[i] - ch) / (ch * 3))), presence = t * t * (3 - 2 * t);
+        if (presence <= 0) continue;
+        const wave = Math.sin((col * 0.5 + row) * 0.12 - 1.7);
+        ctx.globalAlpha = 0.3 * presence; ctx.fillStyle = "#262822"; ctx.fillText(wave > 0.92 ? ":" : ".", x, y);
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+</script>
+</body>
+</html>
