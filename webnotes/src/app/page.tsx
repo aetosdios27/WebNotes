@@ -3,18 +3,9 @@
 import { useEffect, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSession, signOut } from "next-auth/react";
-import { useTheme } from "next-themes";
 import {
   Copy,
   Download,
-  BookOpen,
-  Type,
-  History,
-  FolderInput,
-  Sun,
-  Moon,
-  CircleHelp,
-  LogOut,
   LogIn,
   FileText,
   Check,
@@ -26,6 +17,10 @@ import {
   Share,
   MoreHorizontal,
 } from "lucide-react";
+import NoteActionsMenu, {
+  type NoteMenuActions,
+} from "./components/NoteActionsMenu";
+import ThemeToggle from "./components/ThemeToggle";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
 import { useNotesStore } from "@/store/useNotesStore";
@@ -53,9 +48,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from "./components/ui/dropdown-menu";
 
 const NoteEditor = dynamic(() => import("./components/NoteEditor"), {
@@ -90,7 +82,6 @@ export default function Home() {
   } = useNotesStore();
   const { data: session } = useSession();
   const account = isTauri ? user : session?.user;
-  const { resolvedTheme, setTheme } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [help, setHelp] = useState(false);
@@ -204,6 +195,14 @@ export default function Home() {
         return;
       }
       if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "h"
+      ) {
+        event.preventDefault();
+        navigate(null);
+      }
+      if (
         switching ||
         !(event.target instanceof HTMLElement) ||
         event.target.closest(
@@ -212,8 +211,7 @@ export default function Home() {
       )
         return;
       if (
-        (!activeNoteId &&
-          event.key.toLowerCase() === "n" &&
+        (event.key.toLowerCase() === "n" &&
           !event.metaKey &&
           !event.ctrlKey &&
           !event.altKey) ||
@@ -221,6 +219,10 @@ export default function Home() {
       ) {
         event.preventDefault();
         void newNote();
+      }
+      if (event.key === "?" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setHelp((value) => !value);
       }
       if (
         (event.metaKey || event.ctrlKey) &&
@@ -233,7 +235,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [activeNoteId, newNote, newFolder, switching]);
+  }, [newNote, newFolder, switching, navigate]);
   const actions = [
     {
       label: "New note",
@@ -287,6 +289,40 @@ export default function Home() {
       run: account ? leave : authenticate,
     },
   ];
+  const menuActions: NoteMenuActions = {
+    createNote: () => {
+      void newNote();
+    },
+    createFolder: () => {
+      void newFolder();
+    },
+    home: () => navigate(null),
+    help: () => setHelp(true),
+    pin: (id) => {
+      void pinNote(id);
+    },
+    remove: (id) => {
+      void removeNote(id);
+    },
+    move: (id, folderId) => {
+      void moveNote(id, folderId).catch(() =>
+        toast.error("Failed to move note"),
+      );
+    },
+    font: (id, font) => {
+      void updateNote(id, { font }).catch(() =>
+        toast.error("Failed to change font"),
+      );
+    },
+    reading: (id, checked) => {
+      if (id !== activeNoteId) navigate(id);
+      setIsReadingMode(checked);
+    },
+    information: (id) => {
+      if (id !== activeNoteId) navigate(id);
+      setInfo(true);
+    },
+  };
   async function copyNote(markdown = false) {
     if (!activeNote) return;
     try {
@@ -422,101 +458,37 @@ export default function Home() {
               </DropdownMenu>
             </>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger aria-label="More" className="bar-icon">
-              <MoreHorizontal size={19} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {actions.slice(0, -1).map((action) => (
-                <DropdownMenuItem key={action.label} onClick={action.run}>
-                  <ActionIcon label={action.label} />
-                  {action.label}
-                </DropdownMenuItem>
-              ))}
-              {activeNote && (
-                <>
-                  <DropdownMenuCheckboxItem
-                    checked={isReadingMode}
-                    onCheckedChange={setIsReadingMode}
-                  >
-                    <BookOpen aria-hidden="true" />
-                    Reading mode
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuRadioGroup
-                    value={activeNote.font || "sans"}
-                    onValueChange={(font) => {
-                      void updateNote(activeNote.id, { font }).catch(() =>
-                        toast.error("Failed to change font"),
-                      );
-                    }}
-                    aria-label="Note font"
-                  >
-                    <DropdownMenuRadioItem value="sans">
-                      <Type aria-hidden="true" />
-                      Sans
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="serif">
-                      <Type aria-hidden="true" />
-                      Serif
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="mono">
-                      <Type aria-hidden="true" />
-                      Mono
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                  <DropdownMenuItem onClick={() => setInfo((value) => !value)}>
-                    <History aria-hidden="true" />
-                    Note information & history
-                  </DropdownMenuItem>
+          <ThemeToggle />
+          <NoteActionsMenu
+            trigger={
+              <button aria-label="More" className="bar-icon">
+                <MoreHorizontal />
+              </button>
+            }
+            note={activeNote}
+            folders={folders}
+            reading={isReadingMode}
+            actions={menuActions}
+            folderActions={
+              selectedFolder &&
+              actions
+                .filter(
+                  (action) =>
+                    action.label.endsWith("folder") &&
+                    !action.label.startsWith("New"),
+                )
+                .map((action) => (
                   <DropdownMenuItem
-                    onClick={() => {
-                      void moveNote(activeNote.id, null).catch(() =>
-                        toast.error("Failed to move note"),
-                      );
-                    }}
+                    className="note-menu-item"
+                    key={action.label}
+                    onClick={action.run}
                   >
-                    <FolderInput aria-hidden="true" />
-                    Move to All notes
+                    <ActionIcon label={action.label} />
+                    {action.label}
                   </DropdownMenuItem>
-                  {folders.map((folder) => (
-                    <DropdownMenuItem
-                      key={folder.id}
-                      onClick={() => {
-                        void moveNote(activeNote.id, folder.id).catch(() =>
-                          toast.error("Failed to move note"),
-                        );
-                      }}
-                    >
-                      <FolderInput aria-hidden="true" />
-                      Move to {folder.name}
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-              <DropdownMenuItem
-                onClick={() =>
-                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                }
-              >
-                {resolvedTheme === "dark" ? (
-                  <Sun aria-hidden="true" />
-                ) : (
-                  <Moon aria-hidden="true" />
-                )}
-                Use {resolvedTheme === "dark" ? "light" : "dark"} theme
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setHelp(true)}>
-                <CircleHelp aria-hidden="true" />
-                Help & shortcuts
-              </DropdownMenuItem>
-              {account && (
-                <DropdownMenuItem onClick={leave}>
-                  <LogOut aria-hidden="true" />
-                  Sign out
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                ))
+            }
+          />
           <button
             className={account ? "account-avatar" : "sign-in"}
             aria-label={
@@ -571,6 +543,9 @@ export default function Home() {
           )
         ) : (
           <NoteWall
+            menuActions={menuActions}
+            activeNoteId={activeNoteId}
+            isReadingMode={isReadingMode}
             filter={wallFilter}
             onFilterChange={setWallFilter}
             notes={notes}

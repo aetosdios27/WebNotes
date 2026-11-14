@@ -10,11 +10,15 @@ import {
   Folder as FolderIcon,
   FilePlus2,
 } from "lucide-react";
+import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
 import { NoteMeta, NoteMiniature } from "./NoteSummary";
 
 let entrancePlayed = false;
 
 export default function NoteWall({
+  menuActions,
+  activeNoteId,
+  isReadingMode,
   notes,
   folders,
   openNote,
@@ -22,6 +26,9 @@ export default function NoteWall({
   filter,
   onFilterChange,
 }: {
+  menuActions: NoteMenuActions;
+  activeNoteId: string | null;
+  isReadingMode: boolean;
   filter: string;
   onFilterChange: (filter: string) => void;
   notes: Note[];
@@ -123,18 +130,26 @@ export default function NoteWall({
       </div>
       <div className="note-grid">
         {filtered.slice(0, limit).map((note) => (
-          <button
-            className="note-card"
+          <NoteActionsMenu
             key={note.id}
-            onClick={() => openNote(note.id)}
-          >
-            {note.isPinned && <Pin className="pin-mark" aria-label="Pinned" />}
-            <strong>{note.title || "Untitled"}</strong>
-            <NoteMiniature content={note.content} />
-            <footer>
-              <NoteMeta note={note} folders={folders} />
-            </footer>
-          </button>
+            context
+            note={note}
+            folders={folders}
+            reading={activeNoteId === note.id && isReadingMode}
+            actions={menuActions}
+            trigger={
+              <button className="note-card" onClick={() => openNote(note.id)}>
+                {note.isPinned && (
+                  <Pin className="pin-mark" aria-label="Pinned" />
+                )}
+                <strong>{note.title || "Untitled"}</strong>
+                <NoteMiniature content={note.content} />
+                <footer>
+                  <NoteMeta note={note} folders={folders} />
+                </footer>
+              </button>
+            }
+          />
         ))}
       </div>
       {!filtered.length && (
