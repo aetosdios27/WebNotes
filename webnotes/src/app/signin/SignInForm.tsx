@@ -5,13 +5,9 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { signIn } from "next-auth/react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
-import Brand from "../components/Brand";
 import { Button } from "../components/ui/button";
-import DitheredPhoto from "./DitheredPhoto";
+import AsciiLogo from "./AsciiLogo";
 import styles from "./signin.module.css";
-
-/** The maple and the stone lantern stay in frame however the panel crops. */
-const FOCUS: [number, number] = [0.62, 0.5];
 
 function GoogleMark() {
   return (
@@ -51,10 +47,6 @@ export default function SignInForm({
   return (
     <main className={styles.page}>
       <section className={styles.panel} aria-labelledby="signin-heading">
-        <Link href="/" className={styles.brand} aria-label="WebNotes home">
-          <Brand />
-        </Link>
-
         <div className={styles.form}>
           <h1 id="signin-heading">Sign in to WebNotes</h1>
           <p className={styles.intro}>Your notes, on every device.</p>
@@ -107,13 +99,7 @@ export default function SignInForm({
       </section>
 
       <section className={styles.art} aria-hidden="true">
-        <DitheredPhoto
-          src="/signin/garden.jpg"
-          focus={FOCUS}
-          theme={resolvedTheme}
-          className={styles.canvas}
-        />
-        <p className={styles.plate}>Strolling Pond Garden, Portland</p>
+        <AsciiLogo theme={resolvedTheme} className={styles.canvas} />
       </section>
     </main>
   );

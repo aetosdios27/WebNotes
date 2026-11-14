@@ -1,17 +1,19 @@
-/* Full-screen split: the form on paper, the photograph edge to edge. */
+/* Full-screen split: the ASCII mark edge to edge on the left, the form on the right. */
 .page {
   --art-ink: #262822;
   --art-paper: #efeee8;
+  --art-accent: #c99a00;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(400px, 1fr) 1fr;
+  grid-template-columns: 1fr minmax(400px, 1fr);
   background: var(--background);
   color: var(--ink);
   overflow: hidden;
 }
 :global(.dark) .page {
-  --art-ink: #121410;
-  --art-paper: #d9d8cc;
+  --art-ink: #dcdbd0;
+  --art-paper: #151713;
+  --art-accent: #fbca04;
 }
 
 .panel {
@@ -20,11 +22,6 @@
   min-height: 0;
   padding: 28px 40px;
   overflow-y: auto;
-}
-.brand {
-  align-self: flex-start;
-  border-radius: var(--radius-control);
-  color: var(--ink);
 }
 .form {
   width: 100%;
@@ -100,30 +97,25 @@
 }
 
 .art {
+  order: -1;
   position: relative;
   min-height: 0;
-  background: var(--art-ink);
+  background: var(--art-paper);
+  border-right: 1px solid var(--edge);
   overflow: hidden;
 }
 .canvas {
   display: block;
   width: 100%;
   height: 100%;
+  cursor: crosshair;
+  touch-action: pan-y;
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-out);
 }
-/* A caption plate, like a print's label: names the place, credits the photo. */
-.plate {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  margin: 0;
-  padding: 5px 9px;
-  border-radius: 6px;
-  background: var(--art-ink);
-  color: var(--art-paper);
-  font-size: 11px;
-  letter-spacing: 0.01em;
+.canvas[data-ready="true"] {
+  opacity: 1;
 }
-
 .spinner {
   animation: spin 1s linear infinite;
 }
@@ -147,10 +139,8 @@
     overflow-y: auto;
   }
   .art {
-    order: -1;
-  }
-  .plate {
-    display: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--edge);
   }
   .panel {
     padding: 22px 16px 28px;
