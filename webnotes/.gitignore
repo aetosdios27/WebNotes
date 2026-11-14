@@ -56,3 +56,6 @@ private/docs/
 .codex
 
 /.audit/
+/playwright-report/
+/test-results/
+/mutation-results/

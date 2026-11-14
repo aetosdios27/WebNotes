@@ -1,0 +1,45 @@
+name: UI quality
+on:
+  pull_request:
+    paths: ['webnotes/**']
+  push:
+    branches: [main]
+    paths: ['webnotes/**']
+concurrency:
+  group: ui-quality-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  ui-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: webnotes
+    env:
+      DIRECT_DATABASE_URL: postgresql://u
+      DATABASE_URL: postgresql://u
+      AUTH_SECRET: x
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('webnotes/bun.lock') }}
+      - run: bunx playwright install --with-deps chromium
+      # Playwright's webServer builds once, then runs next start for all projects.
+      # No other PR job builds Next; do not duplicate that work in a separate step.
+      - run: bun run test:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-quality-report
+          path: |
+            webnotes/playwright-report/
+            webnotes/test-results/
+          retention-days: 14
