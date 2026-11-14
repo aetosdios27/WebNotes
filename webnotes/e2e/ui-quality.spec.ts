@@ -144,6 +144,13 @@ test('C interactive hit targets', async ({ page }) => {
     }
   }
   await scan(page.locator('.notes-window'));
+  // The wall's own navigation (month scrubber, Pinned fold) uses 32×32 targets even with text.
+  const wallTargets = await page.locator('.month-scrubber button, .section-toggle').all();
+  if (!await page.locator('.month-scrubber').count() || !await page.locator('.section-toggle').count()) failures.push({ id: 'wall navigation', expected: 'month scrubber and Pinned fold for the seed', actual: 'missing' });
+  for (const control of wallTargets) {
+    const box = await control.boundingBox();
+    if (box && (box.width < 32 || box.height < 32)) failures.push({ id: `wall: ${await name(control)}`, expected: '>= 32×32', actual: `${box.width}×${box.height}` });
+  }
   await page.keyboard.press('Control+k');
   await expect(page.getByRole('combobox')).toBeVisible();
   await scan(page.locator('.note-switcher'));
@@ -179,14 +186,32 @@ test('D extreme text fits wall, switcher and menus', async ({ page }) => {
   const pageWidth = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, expected: innerWidth }));
   if (pageWidth.actual > pageWidth.expected) failures.push({ id: 'page horizontal scroll', actual: `${pageWidth.actual}`, expected: `${pageWidth.expected}` });
   failures.push(...await overflow(page, '.note-wall', 'wall'));
-  const overlap = await page.locator('.note-card').evaluateAll(cards => {
+  // Sections, cards and the scrubber never intersect; card content stays inside its card;
+  // within each section cards run row by row, left to right.
+  const overlap = await page.evaluate(() => {
     const failures: Violation[] = [];
-    for (const [i, card] of cards.entries()) for (const content of card.querySelectorAll('strong, p, footer')) {
+    const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const cards = Array.from(document.querySelectorAll('.note-card'));
+    const headings = Array.from(document.querySelectorAll('.section-heading'));
+    const scrubber = document.querySelector('.month-scrubber');
+    if (headings.length < 3 || !scrubber) failures.push({ id: 'wall sections', expected: 'at least 3 section headings and a month scrubber', actual: `${headings.length} headings, scrubber ${!!scrubber}` });
+    const blocks = [...cards.map((el, i) => [`card ${i}`, el] as const), ...headings.map(el => [`heading ${el.textContent}`, el] as const), ...(scrubber ? [['scrubber', scrubber] as const] : [])];
+    for (const [i, [a, first]] of blocks.entries()) for (const [b, second] of blocks.slice(i + 1)) {
+      if (hit(first.getBoundingClientRect(), second.getBoundingClientRect())) failures.push({ id: `${a} overlaps ${b}`, expected: 'no intersection', actual: `${first.textContent?.slice(0, 40)} / ${second.textContent?.slice(0, 40)}` });
+    }
+    for (const [i, card] of cards.entries()) for (const content of card.querySelectorAll('strong, p, .note-miniature, footer')) {
       const a = content.getBoundingClientRect();
       for (const [j, other] of cards.entries()) {
-        if (i === j) continue;
-        const b = other.getBoundingClientRect();
-        if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) failures.push({ id: `card ${i} content overlaps card ${j}`, expected: 'no intersection', actual: content.textContent || '' });
+        if (i !== j && hit(a, other.getBoundingClientRect())) failures.push({ id: `card ${i} content overlaps card ${j}`, expected: 'no intersection', actual: content.textContent || '' });
+      }
+    }
+    for (const grid of document.querySelectorAll('.note-grid')) {
+      const boxes = Array.from(grid.querySelectorAll('.note-card'), card => card.getBoundingClientRect());
+      for (const [i, b] of boxes.entries()) {
+        const a = boxes[i - 1];
+        if (!a) continue;
+        const ordered = Math.abs(a.top - b.top) < 1 ? b.left > a.left : b.top >= a.bottom - 1 && b.left <= a.left + 1;
+        if (!ordered) failures.push({ id: `${grid.getAttribute('aria-label')}: card ${i} out of reading order`, expected: 'right of the previous card, or first in a lower row', actual: `(${a.left},${a.top}) -> (${b.left},${b.top})` });
       }
     }
     return failures;

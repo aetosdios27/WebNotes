@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { motionTiming } from "./ui/motion-tokens";
 import { SlidingIndicator } from "./ui/sliding-indicator";
@@ -8,12 +8,11 @@ import {
   Files,
   Pin,
   Folder as FolderIcon,
-  FilePlus2,
 } from "lucide-react";
-import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
-import { NoteMeta, NoteMiniature } from "./NoteSummary";
+import type { NoteMenuActions } from "./NoteActionsMenu";
 import { RollingText } from "./ui/rolling-text";
 import { whenCurrent } from "@/lib/edit-guard";
+import WallSections from "./WallSections";
 
 function FolderTabInput({ name, folders, id, save, cancel }: {
   name: string; folders: Folder[]; id: string;
@@ -70,10 +69,8 @@ function FolderTabInput({ name, folders, id, save, cancel }: {
 
 let entrancePlayed = false;
 
-// The wall unmounts while a note is open, so keep its scroll position and how
-// many notes were loaded at module scope. Coming back Home restores both.
-let wallScrollTop = 0;
-let wallLimit = 48;
+// The wall unmounts while a note is open. Loaded counts live in WallSections.
+let savedWall = { filter: "all", top: 0 };
 
 export default function NoteWall({
   folderEditing,
@@ -102,30 +99,19 @@ export default function NoteWall({
   openNote: (id: string) => void;
   createNote: (folderId?: string) => void;
 }) {
-  const [limit, setLimit] = useState(wallLimit);
   const wall = useRef<HTMLElement>(null);
   const tablist = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: false, end: false });
-  // Restore the saved scroll position once the wall and its cards are laid out.
   useLayoutEffect(() => {
-    const el = wall.current;
-    if (el) el.scrollTop = wallScrollTop;
-  }, []);
-  // Track the live scroll position. Reading it on unmount would see a detached
-  // node, whose scrollTop is always 0.
+    if (wall.current) wall.current.scrollTop = savedWall.filter === filter ? savedWall.top : 0;
+  }, [filter]);
   useEffect(() => {
-    const el = wall.current;
-    if (!el) return;
-    const onScroll = () => {
-      wallScrollTop = el.scrollTop;
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-  // Remember how many notes were loaded so returning Home keeps them.
-  useEffect(() => {
-    wallLimit = limit;
-  }, [limit]);
+    const element = wall.current;
+    if (!element) return;
+    const remember = () => { savedWall = { filter, top: element.scrollTop }; };
+    element.addEventListener("scroll", remember, { passive: true });
+    return () => element.removeEventListener("scroll", remember);
+  }, [filter]);
   useEffect(() => {
     const row = tablist.current;
     if (!row) return;
@@ -164,23 +150,11 @@ export default function NoteWall({
         );
       });
   }, [notes]);
-  const sentinel = useRef<HTMLDivElement>(null);
-  const filtered = notes.filter(
+  const filtered = useMemo(() => notes.filter(
     (note) =>
       filter === "all" ||
       (filter === "pinned" ? note.isPinned : note.folderId === filter),
-  );
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting))
-          setLimit((limit) => limit + 48);
-      },
-      { rootMargin: "300px" },
-    );
-    if (sentinel.current) observer.observe(sentinel.current);
-    return () => observer.disconnect();
-  }, [limit, filter]);
+  ), [notes, filter]);
   const tabs = [
     { id: "all", name: "All notes", count: notes.length },
     {
@@ -215,10 +189,7 @@ export default function NoteWall({
                 key={tab.id}
                 title={tab.name}
                 onDoubleClick={() => { if (folders.some(f => f.id === tab.id)) onFolderEditingChange(tab.id); }}
-                onClick={() => {
-                  onFilterChange(tab.id);
-                  setLimit(48);
-                }}
+                onClick={() => onFilterChange(tab.id)}
               >
                 {tab.id === "all" ? (
                   <Files aria-hidden="true" />
@@ -251,50 +222,17 @@ export default function NoteWall({
           New note<kbd>N</kbd>
         </button>
       </div>
-      <div className="note-grid">
-        {filtered.slice(0, limit).map((note) => (
-          <NoteActionsMenu
-            key={note.id}
-            context
-            note={note}
-            folders={folders}
-            reading={activeNoteId === note.id && isReadingMode}
-            actions={menuActions}
-            trigger={
-              <button className="note-card" onClick={() => openNote(note.id)}>
-                {note.isPinned && (
-                  <Pin className="pin-mark" aria-label="Pinned" />
-                )}
-                <strong>{note.title || "Untitled"}</strong>
-                <NoteMiniature content={note.content} />
-                <footer>
-                  <NoteMeta note={note} folders={folders} />
-                </footer>
-              </button>
-            }
-          />
-        ))}
-      </div>
-      {!filtered.length && (
-        <div className="wall-empty">
-          <FilePlus2 className="empty-icon" aria-hidden="true" />
-          No notes here yet.{" "}
-          <button
-            onClick={() =>
-              createNote(
-                filter !== "all" && filter !== "pinned" ? filter : undefined,
-              )
-            }
-          >
-            Write your first note
-          </button>
-        </div>
-      )}
-      {filtered.length > limit && (
-        <div ref={sentinel} className="load-notes">
-          <button onClick={() => setLimit(limit + 48)}>Load more notes</button>
-        </div>
-      )}
+      <WallSections
+        key={filter}
+        notes={filtered}
+        filter={filter}
+        folders={folders}
+        menuActions={menuActions}
+        activeNoteId={activeNoteId}
+        isReadingMode={isReadingMode}
+        openNote={openNote}
+        createNote={() => createNote(filter !== "all" && filter !== "pinned" ? filter : undefined)}
+      />
     </section>
   );
 }

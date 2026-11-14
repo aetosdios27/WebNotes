@@ -953,22 +953,155 @@ body {
   margin-left: 4px;
   font-size: 11px;
 }
-.note-grid {
-  columns: 4;
-  column-gap: 14px;
+/* Time is the structure: sections run newest first, cards run row by row inside each. */
+.wall-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 18px;
   padding: 0 40px;
+}
+.wall-body[data-scrubber] {
+  grid-template-columns: minmax(0, 1fr) 46px;
+  padding-right: 14px;
+}
+.wall-section {
+  padding-bottom: 26px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.section-heading::after {
+  content: "";
+  order: 1;
+  flex: 1 1 24px;
+  height: 1px;
+  margin-left: 4px;
+  background: var(--line);
+}
+.section-heading > svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
+}
+.section-label {
+  flex: none;
+}
+.section-count {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.section-date {
+  order: 2;
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 450;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Fixed columns, fixed card steps: resizing changes the column count, never the order. */
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 14px;
+  align-items: start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.note-cell {
+  min-width: 0;
+}
+.section-toggle {
+  display: block;
+  height: 32px;
+  margin: 10px auto 0;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.month-scrubber {
+  position: sticky;
+  top: 8px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Room for the focus ring, which the scroll container would clip. */
+  margin-inline: -4px;
+  padding: 4px;
+}
+.month-scrubber button {
+  position: relative;
+  flex: none;
+  min-height: 32px;
+  border-radius: var(--radius-control);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.month-scrubber .scrub-year {
+  font-weight: 600;
+}
+.month-scrubber .scrub-year[aria-expanded="true"] {
+  color: var(--ink);
+}
+.month-scrubber .scrub-month[aria-current] {
+  color: var(--ink);
+  background: var(--selected);
+}
+@media (hover: hover) {
+  .month-scrubber button:hover,
+  .section-toggle:hover {
+    color: var(--ink);
+    background: var(--selected);
+  }
+}
+.month-scrubber .scrub-month[aria-current]::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 10px;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.scrub-separator {
+  flex: none;
+  height: 1px;
+  margin: 4px 9px;
+  background: var(--line);
 }
 .note-card {
   width: 100%;
-  display: block;
-  break-inside: avoid;
+  height: var(--card-height);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
   background: var(--card);
   border-radius: var(--radius-surface);
   box-shadow:
     0 1px 2px #0000000a,
     0 0 0 1px var(--float-line);
   padding: 16px 17px 14px;
-  margin-bottom: 14px;
   position: relative;
   text-align: left;
   cursor: pointer;
@@ -978,8 +1111,9 @@ body {
 }
 /* A long title wraps anywhere and stops at three lines; it never leaves the card. */
 .note-card > strong {
+  flex: none;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -990,18 +1124,49 @@ body {
   padding-right: 14px;
 }
 .note-card > .note-miniature {
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-wrap: anywhere;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--muted);
   white-space: pre-line;
   display: -webkit-box;
-  -webkit-line-clamp: 9;
+  -webkit-line-clamp: var(--preview-lines);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Three steps by content length. Each height fits a two-line title plus its preview lines,
+   so a preview never stops mid-line. Inside cards, blocks stack line by line. */
+.note-cell[data-size="short"] {
+  --card-height: 154px;
+  --preview-lines: 2;
+}
+.note-cell[data-size="medium"] {
+  --card-height: 192px;
+  --preview-lines: 4;
+}
+.note-cell[data-size="long"] {
+  --card-height: 230px;
+  --preview-lines: 6;
+}
+.note-cell .note-card .note-miniature :is(.mini-paragraph, .mini-heading, .mini-list) {
+  margin-top: 0;
+}
+.note-card .note-miniature .mini-task {
+  min-height: 0;
+}
+.note-card .note-miniature .mini-task > .mini-paragraph {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note-card .note-miniature .mini-box {
+  top: 4px;
+}
 .note-card footer {
-  margin-top: 11px;
+  flex: none;
+  margin-top: auto;
+  padding-top: 11px;
   font-size: 11.5px;
   color: var(--faint);
 }
@@ -1186,9 +1351,6 @@ body {
   outline-offset: 2px;
 }
 @media (max-width: 1000px) {
-  .note-grid {
-    columns: 3;
-  }
   .window-bar {
     grid-template-columns: 1fr minmax(180px, 320px) 1fr;
     padding: 0 18px;
@@ -1235,20 +1397,37 @@ body {
   .new-note kbd {
     display: none;
   }
-  .note-grid {
-    columns: 2;
+  .wall-body {
     padding: 0 16px;
-    column-gap: 10px;
+    column-gap: 8px;
+  }
+  .wall-body[data-scrubber] {
+    grid-template-columns: minmax(0, 1fr) 32px;
+    padding-right: 4px;
+  }
+  .note-grid {
+    gap: 10px;
   }
   .note-card {
-    padding: 13px 13px 11px;
-    margin-bottom: 10px;
+    padding: 14px 15px 12px;
   }
   .note-card > strong {
-    font-size: 14px;
+    font-size: 15px;
   }
-  .note-card > .note-miniature {
-    -webkit-line-clamp: 7;
+  .wall-section {
+    padding-bottom: 20px;
+  }
+  .section-date {
+    display: none;
+  }
+  .month-scrubber button {
+    font-size: 9.5px;
+  }
+  .month-scrubber .scrub-month[aria-current]::before {
+    right: -2px;
+  }
+  .scrub-separator {
+    margin: 4px 6px;
   }
   .note-switcher {
     inset: 0;
@@ -1683,6 +1862,10 @@ body {
   background: none;
   transform: none;
   color: var(--muted);
+}
+/* Hover already hands the mark the card's colour; keyboard focus does the same. */
+.note-card:focus-visible > .pin-mark {
+  color: currentColor;
 }
 .note-meta,
 .meta-folder {
