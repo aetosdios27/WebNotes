@@ -9,7 +9,7 @@ import AsciiFlow from "../components/ascii/AsciiFlow";
 import styles from "./signin.module.css";
 
 const lightArt = { background: "#edece5", foreground: "#30332d" };
-const darkArt = { background: "#262923", foreground: "#e7e7dc" };
+const darkArt = { background: "#171a16", foreground: "#e7e7dc" };
 
 export default function SignInForm({ providers, callbackUrl, error }: {
   providers: { id: string; name: string }[]; callbackUrl: string; error: string | null;

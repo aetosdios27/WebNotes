@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { logoBounds } from "./geometry";
-import { terrainDensity } from "./scene";
+import { orderedDot, terrainDensity } from "./scene";
 
 export type AsciiFlowProps = {
   maskImage: string;
@@ -11,11 +11,10 @@ export type AsciiFlowProps = {
   className?: string;
 };
 const defaultPalette = { background: "#edece5", foreground: "#30332d" };
-const ramp = "  .`'\",:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
 const padding = 16;
 
-/** Pre-render the detailed tonal base, then advect cached scanlines. All texture
- * sampling and text layout happen at setup, not in the animation loop. */
+/** Pre-render smooth ordered tones and a crisp logo, then advect cached
+ * ground scanlines. No texture sampling or allocation happens in the loop. */
 export default function AsciiFlow({ maskImage, palette = defaultPalette, intensity = 1, className }: AsciiFlowProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -26,6 +25,7 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const image = new Image();
     const texture = document.createElement("canvas");
+    const mark = document.createElement("canvas");
     let alive = true, ready = false, visible = false, presented = false, frame = 0;
     let width = 0, height = 0, dpr = 1, rows = 0, rowHeight = 6;
     let flow = new Float32Array(0);
@@ -54,6 +54,7 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
             span * dpr, stripHeight * dpr, left, y, span, stripHeight);
         }
       }
+      ctx.drawImage(mark, 0, 0, width, height);
       // A few warm flecks appear only while a pointer disturbance is settling.
       if (energy > 0.05 && !reduced.matches) {
         ctx.globalAlpha = Math.min(0.8, energy * 0.65);
@@ -84,75 +85,53 @@ export default function AsciiFlow({ maskImage, palette = defaultPalette, intensi
       rowHeight = Math.max(6, height / 128, width / 180 / 0.6);
       rows = Math.ceil(height / rowHeight);
       flow = new Float32Array(rows);
-      const cellWidth = rowHeight * 0.6;
-      const cols = Math.ceil((width + padding * 2) / cellWidth);
-      const textureRows = Math.ceil((height + padding * 2) / rowHeight);
-      const sample = document.createElement("canvas");
-      sample.width = cols; sample.height = textureRows;
-      const sampleContext = sample.getContext("2d");
-      if (!sampleContext) return;
-      const box = logoBounds(width, height, 0.36);
-      sampleContext.drawImage(image, (box.x + padding) / cellWidth, (box.y + padding) / rowHeight,
-        box.width / cellWidth, box.height / rowHeight);
-      const mask = sampleContext.getImageData(0, 0, cols, textureRows).data;
       texture.width = Math.ceil((width + padding * 2) * dpr);
       texture.height = Math.ceil((height + padding * 2) * dpr);
       const paint = texture.getContext("2d", { alpha: false });
       if (!paint) return;
       paint.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paint.fillStyle = palette.background; paint.fillRect(0, 0, texture.width, texture.height);
-      paint.font = `${rowHeight}px monospace`; paint.textBaseline = "top";
-      // A one-bit underprint supplies the continuous tonal range between glyphs.
-      // Sample the expensive terrain once per character cell, then dither pixels.
-      const densities = new Float32Array(cols * textureRows);
-      for (let y = 0; y < textureRows; y++) for (let x = 0; x < cols; x++) {
-        const k = mask[(y * cols + x) * 4 + 3] / 255;
-        const value = terrainDensity((x * cellWidth - padding) / width, (y * rowHeight - padding) / height);
-        densities[y * cols + x] = value * (1 - k * 0.7) + k * 0.025;
-      }
       const print = document.createElement("canvas");
-      print.width = Math.ceil(width + padding * 2); print.height = Math.ceil(height + padding * 2);
+      // Each Bayer dot occupies a deliberate 3 CSS px square in either theme.
+      const dotSize = 3;
+      print.width = Math.ceil((width + padding * 2) / dotSize);
+      print.height = Math.ceil((height + padding * 2) / dotSize);
       const printer = print.getContext("2d");
       if (!printer) return;
       printer.fillStyle = palette.background; printer.fillRect(0, 0, 1, 1);
       const paper = printer.getImageData(0, 0, 1, 1).data;
       printer.fillStyle = palette.foreground; printer.fillRect(0, 0, 1, 1);
       const ink = printer.getImageData(0, 0, 1, 1).data;
+      const dark = paper[0] + paper[1] + paper[2] < ink[0] + ink[1] + ink[2];
+      const box = logoBounds(width, height, 0.36);
+      const logoY = box.y - height * 0.055;
       const pixels = printer.createImageData(print.width, print.height);
       for (let y = 0; y < print.height; y++) for (let x = 0; x < print.width; x++) {
-        const gx = x / cellWidth, gy = y / rowHeight;
-        const ix = Math.min(cols - 2, Math.floor(gx)), iy = Math.min(textureRows - 2, Math.floor(gy));
-        const ax = Math.min(1, gx - ix), ay = Math.min(1, gy - iy), j = iy * cols + ix;
-        const density = (densities[j] * (1 - ax) + densities[j + 1] * ax) * (1 - ay) +
-          (densities[j + cols] * (1 - ax) + densities[j + cols + 1] * ax) * ay;
-        const seed = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-        const color = seed - Math.floor(seed) < density ? ink : paper;
+        const tone = terrainDensity((x * dotSize - padding) / width, (y * dotSize - padding) / height);
+        // In dark mode the ink ground dominates; paper dots describe the haze.
+        const field = dark ? 0.025 + (1 - tone) * 0.28 : tone;
+        const dx = (x * dotSize - padding - width / 2) / (box.width * 0.9);
+        const dy = (y * dotSize - padding - logoY - box.height / 2) / (box.height * 1.2);
+        // A broad calm ground keeps every edge legible even over the sky mass.
+        const calm = Math.exp(-(dx ** 4 + dy ** 4) * 2);
+        const density = field * (1 - calm) + (dark ? 0.04 : 0.9) * calm;
+        const color = orderedDot(x, y, density) ? ink : paper;
         const i = (y * print.width + x) * 4;
         pixels.data[i] = color[0]; pixels.data[i + 1] = color[1]; pixels.data[i + 2] = color[2]; pixels.data[i + 3] = 255;
       }
       printer.putImageData(pixels, 0, 0);
       paint.imageSmoothingEnabled = false;
-      paint.drawImage(print, 0, 0);
-      paint.globalAlpha = 0.18;
-      paint.fillStyle = palette.foreground;
-      for (let y = 0; y < textureRows; y++) {
-        let text = "", inverse = "";
-        for (let x = 0; x < cols; x++) {
-          const relief = densities[y * cols + x];
-          // Inverse glyphs extend the range from paper white to almost solid ink.
-          // These fills and strings are setup-only; frames just move the bitmap.
-          const inverted = relief > 0.5;
-          const level = Math.min(1, (inverted ? 1 - relief : relief) * 2);
-          const glyph = ramp[Math.floor(level * (ramp.length - 1))];
-          text += inverted ? " " : glyph;
-          inverse += inverted ? glyph : " ";
-          if (inverted) paint.fillRect(x * cellWidth, y * rowHeight, cellWidth + 0.1, rowHeight + 0.1);
-        }
-        paint.fillText(text, 0, y * rowHeight);
-        paint.fillStyle = palette.background;
-        paint.fillText(inverse, 0, y * rowHeight);
-        paint.fillStyle = palette.foreground;
-      }
+      paint.drawImage(print, 0, 0, print.width * dotSize, print.height * dotSize);
+
+      // Keep the SVG on a separate full-resolution plane. The ground can flow
+      // without dragging its edges or blending the mark into a river or ridge.
+      mark.width = canvas.width; mark.height = canvas.height;
+      const relief = mark.getContext("2d");
+      if (!relief) return;
+      relief.setTransform(dpr, 0, 0, dpr, 0, 0);
+      relief.drawImage(image, box.x, logoY, box.width, box.height);
+      relief.globalCompositeOperation = "source-in";
+      relief.fillStyle = dark ? palette.foreground : palette.background;
+      relief.fillRect(0, 0, width, height);
       last = 0; draw(0); schedule();
     }
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; schedule(); });

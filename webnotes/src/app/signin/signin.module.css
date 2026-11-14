@@ -1,5 +1,5 @@
 .page { --paper: #f0efea; --art-paper: #edece5; height: 100%; overflow: auto; display: grid; place-items: center; padding: 48px; background: var(--paper); color: var(--ink); position: relative; isolation: isolate; }
-:global(.dark) .page { --paper: #1b1c19; --art-paper: #262923; }
+:global(.dark) .page { --paper: #1b1c19; --art-paper: #171a16; }
 .page::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: url("/signin-grain.svg") repeat; opacity: .03; }
 .card { width: 100%; max-width: 1100px; min-height: 620px; height: min(680px, calc(100dvh - 96px)); display: grid; grid-template-columns: 1fr 1fr; padding: 12px; border-radius: 28px; border: 1px solid #70634b24; background: var(--background); box-shadow: 0 1px 2px #45351b12, 0 12px 28px -12px #45351b26, 0 40px 80px -32px #45351b38; animation: rise .32s both; }
 :global(.dark) .card { border-color: #ffffff14; box-shadow: 0 1px 2px #0006, 0 12px 28px -12px #0009, 0 40px 80px -32px #000b; }
@@ -27,8 +27,8 @@
 .primary:disabled { cursor: wait; opacity: .7; }
 .page a:focus-visible, .primary:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
 .notice { font-size: 13px; line-height: 1.6; color: var(--ink); padding: 14px; border-radius: 12px; background: var(--panel); }
-.explanation { font-size: 13px; color: var(--reading); line-height: 1.5; text-align: center; margin: 20px -5px 10px; }
-.local { display: flex; justify-content: center; align-items: center; gap: 9px; min-height: 44px; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 500; transition: background .15s, transform .15s; }
+.explanation { font-size: 13px; color: var(--reading); line-height: 1.5; text-align: left; margin: 20px 0 10px; }
+.local { display: flex; justify-content: flex-start; align-items: center; gap: 9px; min-height: 44px; padding: 10px 0; border-radius: 8px; font-size: 13px; font-weight: 500; transition: background .15s, transform .15s; }
 .local:hover { background: var(--panel); }
 .local:active { transform: scale(.97); }
 .back:hover { text-decoration: underline; text-underline-offset: 4px; }
@@ -41,11 +41,11 @@
   .card { min-height: 100%; height: auto; grid-template-columns: 1fr; grid-template-rows: 210px 1fr; padding: 10px; border: 0; border-radius: 0; box-shadow: none; }
   .art { border-radius: 18px; }
   .art::after { inset: 65% 0 0; }
-  .caption { bottom: 12px; font-size: 12px; }
+  .caption { display: none; }
   .right { padding: 26px 18px; }
   .form { max-width: 330px; margin: 0 auto; padding: 42px 0 40px; }
   .form h1 { font-size: 27px; }
   .mark { margin-bottom: 24px; }
-  .explanation { font-size: 12px; margin-left: -8px; margin-right: -8px; }
+  .explanation { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { .card, .form > *, .spinner { animation: none; } .primary, .local, .canvas { transition: none; } .primary:active, .local:active { transform: none; } }
