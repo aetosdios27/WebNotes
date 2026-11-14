@@ -7,11 +7,15 @@ export { longTitle };
 export const longFolder = 'F'.repeat(78);
 const createdAt = new Date('2026-01-01T00:00:00Z');
 const folders: Folder[] = Array.from({ length: 30 }, (_, i) => ({ id: `folder-${i}`, name: i === 0 ? longFolder : i === 1 ? 'G'.repeat(60) : `Folder ${i}`, createdAt }));
+// Edits spread over ~16 months from now, so the wall shows dated sections and the month
+// scrubber; 12 pins (note 0 first) overflow two rows at every width, so Pinned folds.
+const now = Date.now();
 const notes: Note[] = Array.from({ length: 55 }, (_, i) => ({
-  id: `note-${i}`, title: i === 0 ? longTitle : `Seed note ${i}`,
-  content: i === 0 ? `<p>https://example.com/${'unbroken'.repeat(30)}</p>` : `<p>Body ${i}</p>`,
+  id: `note-${i}`, title: i === 0 ? longTitle : i === 1 ? '' : `Seed note ${i}`,
+  content: i === 0 ? `<p>https://example.com/${'unbroken'.repeat(30)}</p>` : i === 1 ? '' : `<p>Body ${i} ${'words worth keeping '.repeat(i % 5 * 4)}</p>`,
   folderId: i === 0 ? 'folder-0' : i % 2 === 0 ? `folder-${i % 29 + 1}` : null, createdAt,
-  updatedAt: new Date(+createdAt - i * 1000), isPinned: false,
+  updatedAt: new Date(now - i * 9 * 864e5 - i * 1000), isPinned: i < 48 && i % 4 === 0,
+  pinnedAt: i < 48 && i % 4 === 0 ? new Date(now - i * 1000) : null,
 }));
 export const test = base.extend({
   page: async ({ page }, use, info) => {
@@ -37,6 +41,8 @@ export const test = base.extend({
       selection: '.pane-tabs .sliding-indicator { background: var(--selected) !important; box-shadow: none !important; }',
       // G: the current Settings rail item loses its raised surface; ink and weight alone must not pass.
       rail: '.settings-rail nav a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }',
+      order: '.note-cell:nth-child(2) { order: -1; }',
+      'wall-targets': '.month-scrubber .scrub-now { min-height: 20px !important; height: 20px !important; }',
     };
     const css = mutations[process.env.UI_MUTATION || ''];
     if (css) await page.addStyleTag({ content: css });
