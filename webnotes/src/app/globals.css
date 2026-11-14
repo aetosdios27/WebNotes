@@ -1860,3 +1860,8 @@ input:checked + span > .task-check path,
 .home-loading, .home-loading > .loading-content { height: 100%; min-height: 0; overflow: hidden; }
 .version-loading, .version-loading > .loading-content { height: 100%; min-height: 0; }
 .version-loading > .loading-placeholder { padding-inline: 16px; }
+:is(.notes-window, .note-switcher) .quiet-state > svg.lucide {
+  width: 32px;
+  height: 32px;
+  color: var(--faint);
+}
