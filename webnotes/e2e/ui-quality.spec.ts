@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, report, longTitle, type Violation } from './fixtures';
-import { concepts, smallTargetAllowlist } from './registry';
+import { concepts, navigationAllowlist, smallTargetAllowlist } from './registry';
 
 const interactive = 'button, a[href], [role="tab"], [role^="menuitem"], input, select, textarea, [tabindex="0"]';
 const labelled = 'button, [role="tab"], [role^="menuitem"]';
@@ -210,7 +210,7 @@ for (const signedIn of [false, true]) test(`F title bar clicks have no immediate
     const domBefore = await page.locator('main').innerHTML();
     const theme = await page.locator('html').getAttribute('class');
     await (index === -1 ? page.getByRole('button', { name: 'Share note', exact: true }) : controls.nth(index)).click();
-    if (page.url() !== url) { failures.push({ id: label, expected: 'no navigation', actual: page.url() }); await page.goto(url); continue; }
+    if (page.url() !== url) { if (!navigationAllowlist[label]) failures.push({ id: label, expected: 'no navigation', actual: page.url() }); await page.goto(url); continue; }
     await expect.poll(async () => page.url() !== url || (await page.locator('main').innerHTML({ timeout: 1000 })) !== domBefore || (await page.locator('html').getAttribute('class')) !== theme || await page.locator('[role="menu"], [role="dialog"]').count() > 0).toBe(true);
     if (signouts.length || page.url() !== url || await noteCount() !== before) failures.push({ id: label, expected: 'no signout, navigation, or note mutation', actual: `signouts=${signouts.length}; url=${page.url()}; notes changed=${await noteCount() !== before}` });
     if (label === 'Share note') { await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Home', exact: true }).click(); }

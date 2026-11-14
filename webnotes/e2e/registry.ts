@@ -6,3 +6,7 @@ export const concepts = {
 };
 // Selector -> reason. Keep exceptions narrow; title-bar targets cannot be exempted.
 export const smallTargetAllowlist: Record<string, string> = {};
+// Label -> reason. Title-bar controls whose whole purpose is to navigate.
+export const navigationAllowlist: Record<string, string> = {
+  'Sign in': 'Opens the sign-in page; leaving the wall is what it is for.',
+};

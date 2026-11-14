@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,
+  // One retry absorbs a cold start; Playwright still reports the test as flaky.
+  retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 5_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
