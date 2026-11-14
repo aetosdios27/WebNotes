@@ -21,6 +21,7 @@
   --check-ink: var(--background);
   --float: #fff;
   --float-line: rgba(0, 0, 0, 0.08);
+  --danger: #b42318;
   /* Four corners; an inset surface subtracts its padding from its parent. */
   --radius-detail: 4px;
   --radius-control: 8px;
@@ -53,6 +54,7 @@
 }
 .dark {
   color-scheme: dark;
+  --danger: #f97066;
   --background: #101010;
   --panel: #161615;
   --wall: #0a0a0a;
@@ -804,6 +806,43 @@ body {
 .account-menu {
   min-width: 240px;
   max-width: 300px;
+}
+/* Sign out turns red on approach and must be held: a fill runs across the
+   row, and only a completed fill signs out. Letting go drains it. */
+.hold-action {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hold-action::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+.note-actions-menu .hold-action:is([data-highlighted], [data-holding]),
+.note-actions-menu .hold-action:is([data-highlighted], [data-holding]) > svg.lucide {
+  color: var(--danger);
+}
+.note-actions-menu .hold-action[data-highlighted] {
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+.hold-action[data-holding]::before {
+  transform: scaleX(1);
+  transition: transform var(--hold-duration) linear;
+}
+.hold-action .hold-hint {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.hold-action:is([data-highlighted], [data-holding]) .hold-hint {
+  opacity: 0.8;
 }
 .account-card {
   display: flex;
