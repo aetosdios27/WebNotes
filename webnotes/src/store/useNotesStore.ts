@@ -315,7 +315,7 @@ export const useNotesStore = create<NotesState>()(
         folderId: data.folderId ?? null,
         isPinned: data.isPinned ?? false,
         pinnedAt: data.pinnedAt ?? null,
-        font: data.font ?? null,
+        font: data.font ?? defaultNoteFont(get().settings.defaultFont),
         createdAt: data.createdAt ?? now,
         updatedAt: data.updatedAt ?? now,
       };
@@ -668,9 +668,7 @@ export const useNotesStore = create<NotesState>()(
       }));
 
       try {
-        if (!isTauri) {
-          await storage.updateSettings(newSettings);
-        }
+        await storage.updateSettings(newSettings);
       } catch (error) {
         console.error("Failed to update settings:", error);
         set({ settings: previousSettings });
