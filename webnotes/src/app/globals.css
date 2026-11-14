@@ -810,6 +810,9 @@ body {
 }
 .wall-tabs [role="tab"] {
   flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 500;
@@ -819,11 +822,14 @@ body {
   color: var(--ink);
   font-weight: 600;
 }
-.wall-tabs sup {
+.wall-tabs .tab-count {
   color: var(--faint);
-  font-weight: 400;
-  font-size: 11px;
-  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.wall-tabs [aria-selected="true"] .tab-count {
+  color: var(--muted);
 }
 .new-note {
   display: flex;

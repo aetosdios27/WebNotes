@@ -65,7 +65,11 @@ export default function NoteWall({
               }}
             >
               {tab.name}
-              <sup>{tab.count}</sup>
+              {tab.count > 0 && (
+                <span className="tab-count">
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
