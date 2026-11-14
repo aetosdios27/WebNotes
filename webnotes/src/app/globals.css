@@ -925,8 +925,13 @@ body {
 .note-card:hover {
   box-shadow: 0 0 0 1px var(--faint);
 }
+/* A long title wraps anywhere and stops at three lines; it never leaves the card. */
 .note-card > strong {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.012em;
@@ -934,6 +939,7 @@ body {
   padding-right: 14px;
 }
 .note-card > .note-miniature {
+  overflow-wrap: anywhere;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--muted);
