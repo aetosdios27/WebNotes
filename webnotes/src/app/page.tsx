@@ -1,32 +1,52 @@
 "use client";
 
-import { useEffect, useMemo, useCallback, useState, useRef } from "react";
-import { useNotesStore } from "@/store/useNotesStore";
-import Brand from "./components/Brand";
-import Sidebar from "@/app/components/Sidebar";
+import { useEffect, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Share,
+  MoreHorizontal,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { Note, Folder } from "@/lib/storage/types";
-import { Button } from "@/app/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import CommandPalette from "@/app/components/CommandPalette";
-import LoadingScreen from "@/app/components/LoadingScreen";
-import { HelpModal } from "@/app/components/HelpModal";
-import { ErrorBoundary } from "@/app/components/ErrorBoundary";
+import { useNotesStore } from "@/store/useNotesStore";
+import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
-const VersionPreview = dynamic(
-  () => import("@/app/components/VersionPreview"),
-  { ssr: false, loading: () => null },
-);
+import { open } from "@tauri-apps/plugin-shell";
+import LoadingScreen from "./components/LoadingScreen";
+import { HelpModal } from "./components/HelpModal";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import NoteWall from "./components/NoteWall";
+import NoteSwitcher from "./components/NoteSwitcher";
+import { noteMarkdown } from "@/lib/note-markdown";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "./components/ui/alert-dialog";
+import { noteText } from "./components/NoteSummary";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "./components/ui/dropdown-menu";
 
-export type FolderWithNotes = Omit<Folder, "notes"> & {
-  notes: Note[];
-};
-
-const NoteEditor = dynamic(() => import("@/app/components/NoteEditor"), {
+const NoteEditor = dynamic(() => import("./components/NoteEditor"), {
   ssr: false,
-  loading: () => null,
+});
+const VersionPreview = dynamic(() => import("./components/VersionPreview"), {
+  ssr: false,
 });
 
 export default function Home() {
@@ -36,414 +56,516 @@ export default function Home() {
     activeNoteId,
     isLoading,
     syncStatus,
+    isOnline,
+    pendingOperations,
+    user,
+    logout,
     loadData,
     createNote,
     updateNote,
     updateNoteLocally,
     deleteNote,
     togglePin,
-    moveNote,
     setActiveNote,
     createFolder,
+    updateFolder,
     deleteFolder,
+    moveNote,
   } = useNotesStore();
-
+  const { data: session } = useSession();
+  const account = isTauri ? user : session?.user;
+  const { resolvedTheme, setTheme } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
-  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [showRightSidebar, setShowRightSidebar] = useState(false);
-
-  // New State: Version History Preview
+  const [switching, setSwitching] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [wallFilter, setWallFilter] = useState("all");
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const selectedFolder = !activeNoteId
+    ? folders.find((f) => f.id === wallFilter)
+    : undefined;
+  const [info, setInfo] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
-
-  const sidebarRef = useRef<HTMLDivElement>(null);
-
+  const [history, setHistory] = useState<(string | null)[]>([null]);
+  const [cursor, setCursor] = useState(0);
+  const activeNote = notes.find((n) => n.id === activeNoteId);
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
-  // Windows Drag Fix
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = "move";
-      }
-    };
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("dragover", handleDragOver);
-    window.addEventListener("drop", handleDrop);
-    return () => {
-      window.removeEventListener("dragover", handleDragOver);
-      window.removeEventListener("drop", handleDrop);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (window.innerWidth < 768 && showMobileSidebar) {
-        if (
-          sidebarRef.current &&
-          !sidebarRef.current.contains(event.target as Node)
-        ) {
-          setShowMobileSidebar(false);
-        }
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showMobileSidebar]);
-
-  // STABLE SORT: Created Date (Newest First)
-  const foldersWithNotes = useMemo<FolderWithNotes[]>(() => {
-    return folders.map((folder) => ({
-      ...folder,
-      notes: notes
-        .filter((note) => note.folderId === folder.id)
-        .sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          if (a.isPinned && b.isPinned) {
-            const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-            const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-            return bTime - aTime;
-          }
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        }),
-    }));
-  }, [folders, notes]);
-
-  const handleCreateNote = useCallback(
-    async (
-      folderId?: string | null,
-      title?: string,
-      specificId?: string,
-    ): Promise<string | null> => {
+  const navigate = useCallback(
+    (id: string | null) => {
+      setActiveNote(id);
+      setPreviewVersionId(null);
+      setHistory((previous) => [...previous.slice(0, cursor + 1), id]);
+      setCursor(cursor + 1);
+    },
+    [cursor, setActiveNote],
+  );
+  function travel(step: number) {
+    const next = cursor + step;
+    setCursor(next);
+    const id = history[next];
+    setActiveNote(id && notes.some((n) => n.id === id) ? id : null);
+    setPreviewVersionId(null);
+  }
+  const newNote = useCallback(
+    async (title = "", folderId?: string | null, id?: string) => {
       try {
         const note = await createNote({
-          id: specificId,
+          title,
           folderId,
-          title: title || "",
+          ...(id ? { id } : {}),
         });
-
-        setShowMobileSidebar(false);
-        setPreviewVersionId(null);
-        if (!specificId)
-          toast.success(title ? `Created "${title}"` : "Note created");
+        navigate(note.id);
         return note.id;
-      } catch (error) {
+      } catch {
         toast.error("Failed to create note");
         return null;
       }
     },
-    [createNote],
+    [createNote, navigate],
   );
-
-  const handleCreateNoteFromLink = useCallback(
-    async (title: string, id?: string): Promise<string | null> => {
-      const newId = id || crypto.randomUUID();
-      handleCreateNote(null, title, newId).catch((err) => console.error(err));
-      return newId;
-    },
-    [handleCreateNote],
-  );
-
-  const handleDeleteNote = useCallback(
+  const removeNote = useCallback(
     async (id: string) => {
       try {
         await deleteNote(id);
+        setPreviewVersionId(null);
         toast.success("Note deleted");
-        if (activeNoteId === id) {
-          setPreviewVersionId(null);
-        }
       } catch {
         toast.error("Failed to delete note");
       }
     },
-    [deleteNote, activeNoteId],
+    [deleteNote],
   );
-
-  const handleDeleteFolder = useCallback(
+  const pinNote = useCallback(
     async (id: string) => {
       try {
-        await deleteFolder(id);
-        toast.success("Folder deleted");
+        await togglePin(id);
       } catch {
-        toast.error("Failed to delete folder");
+        toast.error("Failed to pin note");
       }
     },
-    [deleteFolder],
+    [togglePin],
   );
-
-  const handleCreateFolder = useCallback(async () => {
-    const name = prompt("Enter folder name:");
-    if (name) {
-      try {
-        await createFolder({ name });
-        toast.success("Folder created");
-      } catch {
-        toast.error("Failed to create folder");
-      }
+  const newFolder = useCallback(async () => {
+    const name = prompt("Folder name");
+    if (!name?.trim()) return;
+    try {
+      await createFolder({ name: name.trim() });
+    } catch {
+      toast.error("Failed to create folder");
     }
   }, [createFolder]);
-
-  const handleNoteUpdate = useCallback(
-    async (updatedNote: Note) => {
+  const update = useCallback(
+    async (id: string, changes: Partial<Note>) => {
       try {
-        await updateNote(updatedNote.id, {
-          title: updatedNote.title,
-          content: updatedNote.content,
-          font: updatedNote.font,
-          isPinned: updatedNote.isPinned,
-          pinnedAt: updatedNote.pinnedAt,
-          folderId: updatedNote.folderId,
-        });
+        await updateNote(id, changes);
       } catch {
         toast.error("Failed to update note");
       }
     },
     [updateNote],
   );
-
-  const handleTogglePin = useCallback(
-    async (noteId: string) => {
-      try {
-        await togglePin(noteId);
-      } catch {
-        toast.error("Failed to toggle pin");
-      }
-    },
-    [togglePin],
-  );
-
-  const handleMoveNote = useCallback(
-    async (noteId: string, folderId: string | null) => {
-      try {
-        await moveNote(noteId, folderId);
-        toast.success("Note moved");
-      } catch {
-        toast.error("Failed to move note");
-      }
-    },
-    [moveNote],
-  );
-
-  // Keyboard Shortcuts
+  function authenticate() {
+    if (isTauri) void open("https://web-notes-lyart.vercel.app/auth/desktop");
+    else void signIn("google");
+  }
+  function leave() {
+    if (isTauri) logout();
+    else void signOut();
+  }
   useEffect(() => {
-    const handleGlobalKeyboard = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isEditing =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.contentEditable === "true" ||
-        target.closest(".ProseMirror");
-
-      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
-        e.preventDefault();
-        setIsHelpOpen((prev) => !prev);
+    const keydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSwitching((value) => !value);
         return;
       }
-
-      if (isEditing) return;
-
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const modKey = isMac ? e.metaKey : e.ctrlKey;
-
-      if (modKey && e.key === "e" && !e.shiftKey) {
-        e.preventDefault();
-        handleCreateNote();
+      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+        event.preventDefault();
+        setHelp((value) => !value);
         return;
       }
-
-      if (modKey && e.shiftKey && e.key === "F") {
-        e.preventDefault();
-        handleCreateFolder();
+      if (
+        switching ||
+        !(event.target instanceof HTMLElement) ||
+        event.target.closest(
+          'input, textarea, [contenteditable="true"], [role="dialog"], [role="menu"]',
+        )
+      )
         return;
+      if (
+        (!activeNoteId &&
+          event.key.toLowerCase() === "n" &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.altKey) ||
+        ((event.metaKey || event.ctrlKey) && event.key === "e")
+      ) {
+        event.preventDefault();
+        void newNote();
+      }
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key === "F"
+      ) {
+        event.preventDefault();
+        void newFolder();
       }
     };
-
-    window.addEventListener("keydown", handleGlobalKeyboard);
-    return () => window.removeEventListener("keydown", handleGlobalKeyboard);
-  }, [handleCreateNote, handleCreateFolder]);
-
-  const handleSetActiveNote = useCallback(
-    (noteId: string | null) => {
-      if (noteId !== activeNoteId) {
-        setPreviewVersionId(null);
-      }
-      setActiveNote(noteId);
-      if (window.innerWidth < 768) {
-        setShowMobileSidebar(false);
-      }
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [activeNoteId, newNote, newFolder, switching]);
+  const actions = [
+    {
+      label: "New note",
+      run: () => {
+        void newNote();
+      },
     },
-    [setActiveNote, activeNoteId],
-  );
-
-  const handlePreviewVersion = useCallback((versionId: string) => {
-    setPreviewVersionId(versionId);
-  }, []);
-
-  const handleClosePreview = useCallback(() => {
-    setPreviewVersionId(null);
-  }, []);
-
-  // UPDATED: Optimistic update instead of full reload
-  const handleRestoreComplete = useCallback(
-    (restoredNote: Note) => {
-      updateNoteLocally(restoredNote.id, {
-        content: restoredNote.content,
-        title: restoredNote.title,
-        updatedAt: new Date(restoredNote.updatedAt),
-      });
-      setPreviewVersionId(null);
+    {
+      label: "New folder",
+      run: () => {
+        void newFolder();
+      },
     },
-    [updateNoteLocally],
-  );
-
-  const activeNote = notes.find((n) => n.id === activeNoteId);
-  const combinedStatus = isSaving ? "syncing" : syncStatus;
-
-  if (isLoading) {
-    return <LoadingScreen />;
+    { label: "Home", run: () => navigate(null) },
+    ...(selectedFolder
+      ? [
+          {
+            label: "Rename folder",
+            run: () => {
+              const name = prompt("Folder name", selectedFolder.name);
+              if (name?.trim())
+                void updateFolder(selectedFolder.id, {
+                  name: name.trim(),
+                }).catch(() => toast.error("Failed to rename folder"));
+            },
+          },
+          {
+            label: "Delete folder",
+            run: () => setFolderToDelete(selectedFolder.id),
+          },
+        ]
+      : []),
+    ...(activeNote
+      ? [
+          {
+            label: activeNote.isPinned ? "Unpin note" : "Pin note",
+            run: () => {
+              void pinNote(activeNote.id);
+            },
+          },
+          {
+            label: "Delete note",
+            run: () => {
+              void removeNote(activeNote.id);
+            },
+          },
+        ]
+      : []),
+    {
+      label: account ? "Sign out" : "Sign in",
+      run: account ? leave : authenticate,
+    },
+  ];
+  async function copyNote(markdown = false) {
+    if (!activeNote) return;
+    try {
+      await navigator.clipboard.writeText(
+        markdown
+          ? await noteMarkdown(activeNote)
+          : `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
+      );
+      toast.success("Note copied");
+    } catch {
+      toast.error("Could not copy note");
+    }
   }
-
+  async function downloadNote(markdown = false) {
+    if (!activeNote) return;
+    const url = URL.createObjectURL(
+      new Blob(
+        [
+          markdown
+            ? await noteMarkdown(activeNote)
+            : `${activeNote.title || "Untitled"}\n\n${noteText(activeNote.content)}`,
+        ],
+        { type: markdown ? "text/markdown" : "text/plain" },
+      ),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${activeNote.title || "Untitled"}.${markdown ? "md" : "txt"}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  if (isLoading) return <LoadingScreen />;
   return (
-    <main className="flex w-screen h-screen overflow-hidden bg-background text-ink">
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {showMobileSidebar && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setShowMobileSidebar(false)}
+    <main className={`notes-window ${activeNote ? "writing" : "home"}`}>
+      <header className="window-bar">
+        <div className="window-left">
+          <button
+            className="home-mark"
+            aria-label="Home"
+            onClick={() => navigate(null)}
+          >
+            <svg viewBox="0 0 160 70" aria-hidden="true">
+              <path d="M0 1H35V34L97 0V34L33 69H0Z" />
+              <path d="M98 34L160 0V34L98 69Z" />
+            </svg>
+          </button>
+          <button
+            className="history-button"
+            aria-label="Back"
+            disabled={cursor === 0}
+            onClick={() => travel(-1)}
+          >
+            <ChevronLeft size={19} />
+          </button>
+          <button
+            className="history-button"
+            aria-label="Forward"
+            disabled={cursor === history.length - 1}
+            onClick={() => travel(1)}
+          >
+            <ChevronRight size={19} />
+          </button>
+        </div>
+        <button
+          className="title-pill"
+          aria-label="Switch notes"
+          onClick={() => setSwitching(true)}
+        >
+          <Search size={16} />
+          <span>
+            {activeNote
+              ? activeNote.title || "Untitled"
+              : `Search ${notes.length} notes`}
+          </span>
+          <kbd>⌘K</kbd>
+        </button>
+        <div className="window-right">
+          {activeNote && (
+            <>
+              <span className="save-state" role="status">
+                {!isOnline
+                  ? "Offline"
+                  : isSaving ||
+                      syncStatus === "syncing" ||
+                      pendingOperations > 0
+                    ? "Saving"
+                    : syncStatus === "unsynced"
+                      ? "Unsaved"
+                      : "Saved"}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="Share note"
+                  className="bar-icon"
+                >
+                  <Share size={18} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void copyNote();
+                    }}
+                  >
+                    Copy note
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void downloadNote()}>
+                    Download text
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void copyNote(true)}>
+                    Copy as Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void downloadNote(true)}>
+                    Download Markdown
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger aria-label="More" className="bar-icon">
+              <MoreHorizontal size={19} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {actions.slice(0, -1).map((action) => (
+                <DropdownMenuItem key={action.label} onClick={action.run}>
+                  {action.label}
+                </DropdownMenuItem>
+              ))}
+              {activeNote && (
+                <>
+                  <DropdownMenuCheckboxItem
+                    checked={isReadingMode}
+                    onCheckedChange={setIsReadingMode}
+                  >
+                    Reading mode
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuRadioGroup
+                    value={activeNote.font || "sans"}
+                    onValueChange={(font) => {
+                      void updateNote(activeNote.id, { font }).catch(() =>
+                        toast.error("Failed to change font"),
+                      );
+                    }}
+                    aria-label="Note font"
+                  >
+                    <DropdownMenuRadioItem value="sans">
+                      Sans
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="serif">
+                      Serif
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="mono">
+                      Mono
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuItem onClick={() => setInfo((value) => !value)}>
+                    Note information & history
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void moveNote(activeNote.id, null).catch(() =>
+                        toast.error("Failed to move note"),
+                      );
+                    }}
+                  >
+                    Move to All notes
+                  </DropdownMenuItem>
+                  {folders.map((folder) => (
+                    <DropdownMenuItem
+                      key={folder.id}
+                      onClick={() => {
+                        void moveNote(activeNote.id, folder.id).catch(() =>
+                          toast.error("Failed to move note"),
+                        );
+                      }}
+                    >
+                      Move to {folder.name}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              <DropdownMenuItem
+                onClick={() =>
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                }
+              >
+                Use {resolvedTheme === "dark" ? "light" : "dark"} theme
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setHelp(true)}>
+                Help & shortcuts
+              </DropdownMenuItem>
+              {account && (
+                <DropdownMenuItem onClick={leave}>Sign out</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            className={account ? "account-avatar" : "sign-in"}
+            aria-label={
+              account ? `Sign out ${account.name || "account"}` : "Sign in"
+            }
+            onClick={account ? leave : authenticate}
+          >
+            {account
+              ? (account.name || account.email || "A").slice(0, 1).toUpperCase()
+              : "Sign in"}
+          </button>
+        </div>
+      </header>
+      <div className="window-content">
+        {activeNote ? (
+          previewVersionId ? (
+            <VersionPreview
+              versionId={previewVersionId}
+              currentNote={activeNote}
+              onClose={() => setPreviewVersionId(null)}
+              onRestore={(note) => {
+                updateNoteLocally(note.id, {
+                  title: note.title,
+                  content: note.content,
+                  updatedAt: new Date(note.updatedAt),
+                });
+                setPreviewVersionId(null);
+              }}
+            />
+          ) : (
+            <ErrorBoundary>
+              <NoteEditor
+                isReadingMode={isReadingMode}
+                onToggleReadingMode={() => setIsReadingMode((value) => !value)}
+                activeNote={activeNote}
+                allNotes={notes}
+                onNoteUpdate={update}
+                onSavingStatusChange={setIsSaving}
+                onDeleteNote={removeNote}
+                onNavigateNote={navigate}
+                onCreateNote={(title, id) => newNote(title, null, id)}
+                isRightSidebarOpen={info}
+                onToggleRightSidebar={() => setInfo((value) => !value)}
+                onPreviewVersion={setPreviewVersionId}
+              />
+            </ErrorBoundary>
+          )
+        ) : (
+          <NoteWall
+            filter={wallFilter}
+            onFilterChange={setWallFilter}
+            notes={notes}
+            folders={folders}
+            openNote={navigate}
+            createNote={(folderId) => {
+              void newNote("", folderId);
+            }}
           />
         )}
-      </AnimatePresence>
-
-      {/* Desktop Left Sidebar */}
-      <div className="hidden md:block h-full flex-shrink-0">
-        <Sidebar
-          notes={notes}
-          folders={foldersWithNotes}
-          activeNoteId={activeNoteId}
-          setActiveNoteId={handleSetActiveNote}
-          createNote={handleCreateNote}
-          deleteNote={handleDeleteNote}
-          deleteFolder={handleDeleteFolder}
-          moveNote={handleMoveNote}
-          createFolder={handleCreateFolder}
-          onDataChange={loadData}
-          updateNoteLocally={updateNoteLocally}
-          togglePin={handleTogglePin}
-          syncStatus={combinedStatus}
-          onOpenHelp={() => setIsHelpOpen(true)}
-        />
       </div>
-
-      {/* Mobile Sidebar */}
-      <AnimatePresence>
-        {showMobileSidebar && (
-          <motion.div
-            ref={sidebarRef}
-            initial={{ x: "-100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "-100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed md:hidden inset-y-0 left-0 z-50 w-80"
-          >
-            <Sidebar
-              notes={notes}
-              folders={foldersWithNotes}
-              activeNoteId={activeNoteId}
-              setActiveNoteId={handleSetActiveNote}
-              createNote={handleCreateNote}
-              deleteNote={handleDeleteNote}
-              deleteFolder={handleDeleteFolder}
-              moveNote={handleMoveNote}
-              createFolder={handleCreateFolder}
-              onDataChange={loadData}
-              updateNoteLocally={updateNoteLocally}
-              togglePin={handleTogglePin}
-              syncStatus={combinedStatus}
-              onOpenHelp={() => setIsHelpOpen(true)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 h-full flex flex-col min-w-0">
-          <div className="md:hidden border-b border-line bg-panel flex items-center px-3 py-2.5 gap-3 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-              className="text-muted hover:text-ink hover:bg-selected h-9 w-9"
-            >
-              {showMobileSidebar ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </Button>
-            {activeNote && (
-              <h2 className="text-sm font-medium text-ink truncate">
-                {activeNote.title || "Untitled Note"}
-              </h2>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-hidden">
-            {previewVersionId && activeNote ? (
-              <VersionPreview
-                versionId={previewVersionId}
-                currentNote={activeNote}
-                onClose={handleClosePreview}
-                onRestore={handleRestoreComplete}
-              />
-            ) : (
-              <ErrorBoundary>
-                <NoteEditor
-                  activeNote={activeNote}
-                  allNotes={notes}
-                  onNoteUpdate={handleNoteUpdate}
-                  onSavingStatusChange={setIsSaving}
-                  onDeleteNote={handleDeleteNote}
-                  onNavigateNote={handleSetActiveNote}
-                  onCreateNote={handleCreateNoteFromLink}
-                  isRightSidebarOpen={showRightSidebar}
-                  onToggleRightSidebar={() =>
-                    setShowRightSidebar(!showRightSidebar)
-                  }
-                  onPreviewVersion={handlePreviewVersion}
-                />
-              </ErrorBoundary>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <CommandPalette
+      <NoteSwitcher
+        open={switching}
+        onOpenChange={setSwitching}
         notes={notes}
         folders={folders}
-        activeNoteId={activeNoteId}
-        setActiveNoteId={handleSetActiveNote}
-        createNote={handleCreateNote}
-        createFolder={handleCreateFolder}
-        deleteNote={handleDeleteNote}
-        togglePin={handleTogglePin}
+        openNote={navigate}
+        createNote={(title) => {
+          void newNote(title);
+        }}
+        actions={actions}
       />
-
-      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+      <AlertDialog
+        open={folderToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setFolderToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Delete “{folders.find((f) => f.id === folderToDelete)?.name}”? Its
+            notes will remain in All notes.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (folderToDelete)
+                  void deleteFolder(folderToDelete)
+                    .then(() => setWallFilter("all"))
+                    .catch(() => toast.error("Failed to delete folder"));
+              }}
+            >
+              Delete folder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <HelpModal isOpen={help} onClose={() => setHelp(false)} />
     </main>
   );
 }

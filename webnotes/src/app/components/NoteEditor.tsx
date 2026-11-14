@@ -19,14 +19,12 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
 import Collaboration, { isChangeOrigin } from "@tiptap/extension-collaboration";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
 import { SlashCommand } from "./SlashCommandExtension";
 import { slashCommandSuggestion } from "./SlashCommands";
-import { Toolbar } from "./Toolbar";
-import NoteSettings from "./NoteSettings";
-import ReadingModeToggle from "./ReadingModeToggle";
 import { MathInline, MathBlock } from "./extensions/math";
 import { CodeBlock } from "./extensions/CodeBlock";
 import UniqueID from "./extensions/UniqueID";
@@ -37,11 +35,15 @@ import { createNoteLinkSuggestion } from "./extensions/noteLinkSuggestion";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
-import { PanelRight } from "lucide-react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import { Toolbar } from "./Toolbar";
+import { useNotesStore } from "@/store/useNotesStore";
+import { NoteMeta } from "./NoteSummary";
 import RightSidebar from "./RightSidebar";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useNoteSync } from "@/hooks/useNoteSync";
+import { createContentSnapshot } from "@/lib/content-snapshot";
 
 import {
   Table,
@@ -60,10 +62,12 @@ import {
 interface NoteEditorProps {
   activeNote: Note | undefined;
   allNotes: Note[];
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onDeleteNote?: (noteId: string) => void;
   onNavigateNote: (noteId: string) => void;
+  isReadingMode: boolean;
+  onToggleReadingMode: () => void;
   onCreateNote?: (title: string, id?: string) => Promise<string | null>;
   isRightSidebarOpen: boolean;
   onToggleRightSidebar: () => void;
@@ -286,7 +290,7 @@ interface InnerEditorProps {
   fontClass: string;
   isReadingMode: boolean;
   isRightSidebarOpen: boolean;
-  onNoteUpdate: (note: Note) => void;
+  onNoteUpdate: (id: string, changes: Partial<Note>) => void;
   onSavingStatusChange: (isSaving: boolean) => void;
   onNavigateNote: (noteId: string) => void;
   onDeleteNote?: (noteId: string) => void;
@@ -360,6 +364,8 @@ function HydratedEditor({
   const editorRef = useRef<Editor | null>(null);
   const isPastingRef = useRef(false);
   const hasEditedBody = useRef(false);
+  const contentSnapshot = useRef<ReturnType<typeof createContentSnapshot> | null>(null);
+  const hasCheckedSnapshot = useRef(false);
   // ---------------------------------------------------------------------------
   // Extensions — stable for this editor's lifetime
   // ---------------------------------------------------------------------------
@@ -512,6 +518,48 @@ function HydratedEditor({
     editorRef.current = editor;
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+    const snapshot = createContentSnapshot(
+      () => (editor.isDestroyed ? undefined : editor.getHTML()),
+      (content) => {
+        const store = useNotesStore.getState();
+        // Closing a deleted note must not try to recreate its snapshot.
+        if (!store.notes.some((note) => note.id === noteId)) return;
+        void store.updateNote(noteId, { content }).catch((error: unknown) => {
+          console.error("Failed to save note content snapshot:", error);
+        });
+      },
+    );
+    contentSnapshot.current = snapshot;
+    const onUpdate = ({
+      transaction,
+    }: {
+      transaction: Parameters<typeof isChangeOrigin>[0];
+    }) => {
+      // Yjs undo/redo is a local edit too, despite using a Yjs-origin transaction.
+      if (
+        !isChangeOrigin(transaction) ||
+        transaction.getMeta(ySyncPluginKey)?.isUndoRedoOperation === true
+      ) {
+        snapshot.schedule();
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") snapshot.flush();
+    };
+    editor.on("update", onUpdate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", snapshot.flush);
+    return () => {
+      editor.off("update", onUpdate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", snapshot.flush);
+      snapshot.flush();
+      contentSnapshot.current = null;
+    };
+  }, [editor, noteId]);
+
   // Seed legacy HTML only after both applicable providers have hydrated.
   const hasSeededLegacy = useRef(false);
   useEffect(() => {
@@ -537,6 +585,30 @@ function HydratedEditor({
     ydoc,
   ]);
 
+  // HydratedEditor already waits for IndexedDB. Wait for the server pull and
+  // legacy seed above before repairing a snapshot missed during an earlier close.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || hasCheckedSnapshot.current) return;
+    if (
+      !hasSeededLegacy.current ||
+      status === "loading" ||
+      (isAuthenticated && !pulled)
+    ) return;
+    hasCheckedSnapshot.current = true;
+    // Block IDs are regenerated for fresh empty paragraphs, so compare without them.
+    const withoutIds = (html: string) => {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      template.content
+        .querySelectorAll("[data-id]")
+        .forEach((element) => element.removeAttribute("data-id"));
+      return template.innerHTML;
+    };
+    if (withoutIds(editor.getHTML()) !== withoutIds(activeNote.content ?? "")) {
+      contentSnapshot.current?.schedule();
+    }
+  }, [editor, status, isAuthenticated, pulled, activeNote.content]);
+
   useEffect(() => {
     if (editor && !editor.isDestroyed) editor.setEditable(!isReadingMode);
   }, [editor, isReadingMode]);
@@ -549,10 +621,7 @@ function HydratedEditor({
       {syncError && (
         <div className="absolute top-0 left-0 right-0 z-[100] bg-red-900/90 text-white px-4 py-2 flex items-center justify-between">
           <span className="text-sm">⚠️ {syncError}</span>
-          <button
-            onClick={dismissError}
-            className="text-xs hover:text-red-200"
-          >
+          <button onClick={dismissError} className="text-xs hover:text-red-200">
             Dismiss
           </button>
         </div>
@@ -560,6 +629,11 @@ function HydratedEditor({
 
       {editor && (
         <>
+          <BubbleMenu editor={editor}>
+            <div className="rounded-lg bg-popover shadow-lg">
+              <Toolbar editor={editor} />
+            </div>
+          </BubbleMenu>
           <TableControls editor={editor} />
           <TableGripHandles editor={editor} />
           <TableCellMenu editor={editor} />
@@ -568,57 +642,10 @@ function HydratedEditor({
 
       <div className="flex-1 flex flex-row overflow-hidden w-full h-full">
         <div className="flex-1 flex flex-col min-w-0 relative h-full">
-          <div
-            className="absolute top-8 right-12 z-[60] hidden md:flex items-center gap-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ReadingModeToggle
-              isReading={isReadingMode}
-              onToggle={onToggleReadingMode}
-            />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleRightSidebar();
-              }}
-              className={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
-                isRightSidebarOpen
-                  ? "text-yellow-500 bg-zinc-800"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-              }`}
-              title="Toggle Info Sidebar"
-              aria-label="Toggle Info Sidebar"
-              aria-expanded={isRightSidebarOpen}
-            >
-              <PanelRight className="h-4 w-4" />
-            </button>
-            {onDeleteNote && (
-              <NoteSettings
-                note={activeNote}
-                onDelete={() => onDeleteNote(activeNote.id)}
-                onUpdate={(u) => onNoteUpdate({ ...activeNote, ...u })}
-              />
-            )}
-          </div>
-
           {editor && <TableOfContents editor={editor} />}
 
-          <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-4 md:pt-8 editor-scroll-container relative">
+          <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-8 md:pt-[34px] editor-scroll-container relative">
             <div className="max-w-[600px] mx-auto pb-32">
-              <div
-                className={`inline-block mb-4 md:mb-6 transition-opacity duration-200 ${
-                  isReadingMode
-                    ? "opacity-0 pointer-events-none"
-                    : "opacity-100"
-                }`}
-              >
-                {editor ? (
-                  <Toolbar editor={editor} />
-                ) : (
-                  <div className="h-10" aria-hidden="true" />
-                )}
-              </div>
-
               <input
                 ref={titleInputRef}
                 type="text"
@@ -632,11 +659,18 @@ function HydratedEditor({
                   }
                 }}
                 placeholder="Untitled"
-                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[26px] break-words py-0 leading-[1.08] ${fontClass} ${
+                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[10px] tracking-[-.036em] break-words py-0 leading-[1.08] ${fontClass} ${
                   isReadingMode ? "cursor-default" : ""
                 }`}
                 aria-label="Note title"
               />
+
+              <div className="text-[13.5px] text-muted mb-[26px]">
+                <NoteMeta
+                  note={activeNote}
+                  folders={useNotesStore.getState().folders}
+                />
+              </div>
 
               <div
                 className="min-h-[500px] relative pb-8"
@@ -698,30 +732,40 @@ export default function NoteEditor({
   onDeleteNote,
   onNavigateNote,
   onCreateNote,
+  isReadingMode,
+  onToggleReadingMode,
   isRightSidebarOpen,
   onToggleRightSidebar,
   onPreviewVersion,
 }: NoteEditorProps) {
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
-  const [isReadingMode, setIsReadingMode] = useState(false);
   const [activeSubnote, setActiveSubnote] = useState<SubnoteTooltip | null>(
     null
   );
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    return () => {
-      if (titleSaveTimeoutRef.current)
-        clearTimeout(titleSaveTimeoutRef.current);
-    };
+  const pendingTitleSave = useRef<(() => void) | null>(null);
+  const flushTitle = useCallback(() => {
+    if (titleSaveTimeoutRef.current) clearTimeout(titleSaveTimeoutRef.current);
+    titleSaveTimeoutRef.current = null;
+    const save = pendingTitleSave.current;
+    pendingTitleSave.current = null;
+    save?.();
   }, []);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+  useEffect(() => () => flushTitle(), [activeNote?.id, flushTitle]);
+
+  useEffect(() => {
+    setTitle(activeNote?.title || "");
+  }, [activeNote?.id, activeNote?.title]);
+
+  useEffect(() => {
     if (activeNote) {
-      setTitle(activeNote.title || "");
       if (!activeNote.title && !activeNote.content && titleInputRef.current) {
         setTimeout(
           () => titleInputRef.current?.focus(),
@@ -743,17 +787,20 @@ export default function NoteEditor({
       if (activeNote?.id) {
         if (titleSaveTimeoutRef.current)
           clearTimeout(titleSaveTimeoutRef.current);
-        titleSaveTimeoutRef.current = setTimeout(() => {
-          onNoteUpdate({
-            ...activeNote,
-            title: newTitle,
-            updatedAt: new Date(),
-          });
-          titleSaveTimeoutRef.current = null;
-        }, EDITOR_CONFIG.AUTOSAVE_DELAY_MS);
+        pendingTitleSave.current = () => {
+          const latest = useNotesStore.getState().notes.find(
+            (note) => note.id === activeNote.id
+          );
+          if (latest)
+            onNoteUpdate(activeNote.id, { title: newTitle });
+        };
+        titleSaveTimeoutRef.current = setTimeout(
+          flushTitle,
+          EDITOR_CONFIG.AUTOSAVE_DELAY_MS
+        );
       }
     },
-    [activeNote, onNoteUpdate]
+    [activeNote, onNoteUpdate, flushTitle]
   );
 
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -792,7 +839,7 @@ export default function NoteEditor({
         onDeleteNote={onDeleteNote}
         onToggleRightSidebar={onToggleRightSidebar}
         onPreviewVersion={onPreviewVersion}
-        onToggleReadingMode={() => setIsReadingMode((p) => !p)}
+        onToggleReadingMode={onToggleReadingMode}
         titleInputRef={titleInputRef}
         onTitleChange={handleTitleChange}
         onEditorClick={handleEditorClick}
@@ -830,19 +877,18 @@ export default function NoteEditor({
       <style jsx global>{`
         #note-editor-root[data-font="serif"] .ProseMirror,
         #note-editor-root[data-font="serif"] .ProseMirror * {
-          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times,
-            serif !important;
+          font-family:
+            ui-serif, Georgia, Cambria, "Times New Roman", Times, serif !important;
         }
         #note-editor-root[data-font="mono"] .ProseMirror,
         #note-editor-root[data-font="mono"] .ProseMirror * {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          font-family:
+            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
             "Liberation Mono", "Courier New", monospace !important;
         }
         #note-editor-root[data-font="sans"] .ProseMirror,
         #note-editor-root[data-font="sans"] .ProseMirror * {
-          font-family: ui-sans-serif, system-ui, -apple-system,
-            BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-            sans-serif !important;
+          font-family: var(--font-geist-sans), sans-serif !important;
         }
         .ProseMirror {
           word-wrap: break-word !important;
