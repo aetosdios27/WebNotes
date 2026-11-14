@@ -38,6 +38,25 @@ export default function NoteWall({
 }) {
   const [limit, setLimit] = useState(48);
   const wall = useRef<HTMLElement>(null);
+  const tablist = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const row = tablist.current;
+    if (!row) return;
+    const measure = () =>
+      setEdges({
+        start: row.scrollLeft > 1,
+        end: row.scrollWidth - row.clientWidth - row.scrollLeft > 1,
+      });
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    row.addEventListener("scroll", measure, { passive: true });
+    measure();
+    return () => {
+      observer.disconnect();
+      row.removeEventListener("scroll", measure);
+    };
+  }, [folders, notes]);
   useEffect(() => {
     if (entrancePlayed || !notes.length) return;
     entrancePlayed = true;
@@ -92,29 +111,39 @@ export default function NoteWall({
   return (
     <section ref={wall} className="note-wall" aria-label="Home">
       <div className="wall-tabs">
-        <div role="tablist" aria-label="Filter notes">
-          <SlidingIndicator value={filter} />
-          {tabs.map((tab) => (
-            <button
-              role="tab"
-              aria-selected={filter === tab.id}
-              key={tab.id}
-              onClick={() => {
-                onFilterChange(tab.id);
-                setLimit(48);
-              }}
-            >
-              {tab.id === "all" ? (
-                <Files aria-hidden="true" />
-              ) : tab.id === "pinned" ? (
-                <Pin aria-hidden="true" />
-              ) : (
-                <FolderIcon aria-hidden="true" />
-              )}
-              {tab.name}
-              {tab.count > 0 && <span className="tab-count">{tab.count}</span>}
-            </button>
-          ))}
+        <div
+          className="wall-tab-mask"
+          data-fade-start={edges.start}
+          data-fade-end={edges.end}
+        >
+          <div ref={tablist} role="tablist" aria-label="Filter notes">
+            <SlidingIndicator value={filter} />
+            {tabs.map((tab) => (
+              <button
+                role="tab"
+                aria-selected={filter === tab.id}
+                key={tab.id}
+                onClick={() => {
+                  onFilterChange(tab.id);
+                  setLimit(48);
+                }}
+              >
+                {tab.id === "all" ? (
+                  <Files aria-hidden="true" />
+                ) : tab.id === "pinned" ? (
+                  <Pin aria-hidden="true" />
+                ) : (
+                  <FolderIcon aria-hidden="true" />
+                )}
+                <span className="tab-label" title={tab.name}>
+                  {tab.name}
+                </span>
+                {tab.count > 0 && (
+                  <span className="tab-count">{tab.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           className="new-note button-primary"

@@ -3,11 +3,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { z } from "zod";
+import { readBeaconInput } from "@/lib/sync/beacon-input";
 import { createUpdateLog } from "@/lib/sync/update-log";
 import { decodeClientUpdate, UpdateInputError } from "@/lib/sync/update-input";
-
-const syncInput = z.object({ id: z.string().min(1), update: z.string().min(1) });
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,12 +14,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const input = syncInput.safeParse(await req.json());
-    if (!input.success) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    let input;
+    try {
+      input = await readBeaconInput(req);
+    } catch (error) {
+      if (!(error instanceof UpdateInputError)) throw error;
+      return NextResponse.json({ error: error.message }, {
+        status: error.code === "TOO_LARGE" ? 413 : 400,
+      });
     }
-
-    const { id, update } = input.data;
+    const { id, update } = input;
 
     // Check the note exists and belongs to this user
     const note = await prisma.note.findFirst({
