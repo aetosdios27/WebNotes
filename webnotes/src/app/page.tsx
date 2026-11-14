@@ -26,6 +26,7 @@ import { useSettings } from "./components/settings/SettingsProvider";
 import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
+import { DELETE_UNDO_MS } from "@/lib/pending-deletes";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Note } from "@/lib/storage/types";
 import { isTauri } from "@/lib/tauri";
@@ -144,7 +145,7 @@ export default function Home() {
         const undo = deleteNote(id);
         setPreviewVersionId(null);
         toast.success("Note deleted", {
-          duration: 8_000,
+          duration: DELETE_UNDO_MS,
           action: { label: "Undo", onClick: () => { if (!undo()) toast.error("Undo window has ended"); } },
         });
       } catch {
