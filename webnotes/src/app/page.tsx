@@ -296,7 +296,6 @@ export default function Home() {
     createFolder: () => {
       void newFolder();
     },
-    home: () => navigate(null),
     help: () => setHelp(true),
     pin: (id) => {
       void pinNote(id);
