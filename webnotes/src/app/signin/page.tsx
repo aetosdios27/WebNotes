@@ -9,6 +9,10 @@ export const metadata: Metadata = { title: "Sign in · WebNotes" };
 export default async function SignInPage({ searchParams }: {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
+  // Desktop has no auth API or request context; OAuth runs in the hosted app.
+  if (process.env.NEXT_PUBLIC_IS_DESKTOP === "true") {
+    return <SignInForm desktop providers={[{ id: "google", name: "Google" }]} callbackUrl="/" error={null} />;
+  }
   const params = await searchParams;
   const requestHeaders = await headers();
   const origin = `${requestHeaders.get("x-forwarded-proto") === "https" ? "https" : "http"}://${requestHeaders.get("host") ?? "localhost"}`;

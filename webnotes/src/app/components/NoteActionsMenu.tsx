@@ -15,10 +15,12 @@ import {
   Type,
   History,
   CircleHelp,
+  Settings,
   Trash2,
   Check,
   ChevronRight,
 } from "lucide-react";
+import { NOTE_FONTS } from "@/lib/note-fonts";
 import type { Note, Folder as NoteFolder } from "@/lib/storage/types";
 
 export type NoteMenuActions = {
@@ -41,6 +43,7 @@ type Props = {
   reading: boolean;
   actions: NoteMenuActions;
   folderActions?: ReactNode;
+  onSettings?: () => void;
 };
 
 function Submenu({
@@ -86,6 +89,7 @@ export default function NoteActionsMenu({
   reading,
   actions,
   folderActions,
+  onSettings,
 }: Props) {
   const content = (
     <Menu.Popup data-depth="popover" className="note-actions-menu">
@@ -160,15 +164,15 @@ export default function NoteActionsMenu({
                 onValueChange={(value) => actions.font(note.id, value)}
                 aria-label="Note font"
               >
-                {["Sans", "Serif", "Mono"].map((font) => (
+                {NOTE_FONTS.map(({ id, label }) => (
                   <Menu.RadioItem
                     closeOnClick
                     className="note-menu-item"
-                    key={font}
-                    value={font.toLowerCase()}
+                    key={id}
+                    value={id}
                   >
                     <Type aria-hidden="true" />
-                    {font}
+                    {label}
                     <Menu.RadioItemIndicator className="menu-trailing">
                       <Check aria-hidden="true" />
                     </Menu.RadioItemIndicator>
@@ -193,6 +197,11 @@ export default function NoteActionsMenu({
           <CircleHelp aria-hidden="true" />
           Help & shortcuts<kbd>?</kbd>
         </Menu.Item>
+        {onSettings && (
+          <Menu.Item className="note-menu-item" onClick={onSettings}>
+            <Settings aria-hidden="true" />Settings<kbd>⌘,</kbd>
+          </Menu.Item>
+        )}
         {folderActions}
       </Menu.Group>
       {note && (

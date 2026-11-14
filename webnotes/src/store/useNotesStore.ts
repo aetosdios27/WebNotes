@@ -1,4 +1,5 @@
 // src/store/useNotesStore.ts
+import { defaultNoteFont } from "@/lib/note-fonts";
 import { create } from "zustand";
 import { clearDocument } from "y-indexeddb";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -237,12 +238,14 @@ export const useNotesStore = create<NotesState>()(
             }
 
             await TauriDB.init();
+            const settings = await storage.getSettings();
             const [tauriNotes, tauriFolders] = await Promise.all([
               TauriDB.getAllNotes(),
               TauriDB.getAllFolders(),
             ]);
 
             set({
+              settings,
               notes: sortNotes(tauriNotes.map(fromTauriNote)),
               folders: tauriFolders.map((f) => ({
                 id: f.id,
@@ -298,7 +301,7 @@ export const useNotesStore = create<NotesState>()(
         folderId: data.folderId ?? null,
         isPinned: data.isPinned ?? false,
         pinnedAt: data.pinnedAt ?? null,
-        font: data.font ?? null,
+        font: data.font ?? defaultNoteFont(get().settings.defaultFont),
         createdAt: data.createdAt ?? now,
         updatedAt: data.updatedAt ?? now,
       };
@@ -665,9 +668,7 @@ export const useNotesStore = create<NotesState>()(
       }));
 
       try {
-        if (!isTauri) {
-          await storage.updateSettings(newSettings);
-        }
+        await storage.updateSettings(newSettings);
       } catch (error) {
         console.error("Failed to update settings:", error);
         set({ settings: previousSettings });

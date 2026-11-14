@@ -1,3 +1,5 @@
+import type { NoteFont } from "../note-fonts";
+
 // src/lib/storage/types.ts
 
 export interface Note {
@@ -27,6 +29,7 @@ export interface Folder {
 export type SyncStatus = "synced" | "syncing" | "unsynced";
 
 export interface UserSettings {
+  defaultFont?: NoteFont;
   theme: "dark" | "light" | "system";
   fontSize: "small" | "medium" | "large";
   showLineNumbers: boolean;
