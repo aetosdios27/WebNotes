@@ -371,7 +371,7 @@ export default function Home() {
                 className="save-state"
                 role="status"
               >
-                {!isOnline ? (
+                {!isOnline || syncStatus === "unsynced" ? (
                   <CloudOff aria-hidden="true" />
                 ) : isSaving ||
                   pendingOperations > 0 ||
