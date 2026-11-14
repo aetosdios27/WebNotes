@@ -117,7 +117,7 @@ export default function NoteWall({
           ))}
         </div>
         <button
-          className="new-note"
+          className="new-note button-primary"
           onClick={() =>
             createNote(
               filter !== "all" && filter !== "pinned" ? filter : undefined,
