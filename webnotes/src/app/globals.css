@@ -751,11 +751,6 @@ body {
   opacity: 0.28;
   cursor: default;
 }
-.window-bar button:active:not(:disabled),
-.note-card:active,
-.new-note:active {
-  transform: translateY(1px);
-}
 .home-mark {
   margin-right: 7px;
 }
@@ -1327,7 +1322,7 @@ body {
     inset 0 -1px 0 #b58d0040,
     var(--elevation-paper);
 }
-:is(button, [data-pressable]):not(:disabled)[data-press-feedback] {
+:is(button, [data-pressable]):not(.note-card):not(:disabled)[data-press-feedback] {
   translate: 0 1px;
 }
 .title-pill[data-press-feedback],
@@ -1610,13 +1605,7 @@ body {
   align-items: center;
   gap: 7px;
 }
-.wall-tabs .tab-count {
-  color: var(--muted);
-  font-weight: 400;
-  font-size: 11px;
-  margin-left: -3px;
-  align-self: flex-start;
-}
+
 .note-card .pin-mark {
   width: 14px;
   height: 14px;
@@ -1673,3 +1662,9 @@ body {
     display: none;
   }
 }
+
+.wall-tabs [role="tab"] { align-items: baseline; }
+.wall-tabs [role="tab"] > svg { align-self: center; }
+
+.tippy-box { transition: opacity var(--duration-normal) var(--ease-out); }
+.tippy-box[data-state="hidden"] { opacity: 0; }
