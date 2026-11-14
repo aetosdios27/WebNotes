@@ -354,7 +354,8 @@ function HydratedEditor({
 }: InnerEditorProps & { ydoc: Y.Doc }) {
   const { status, data: session } = useSession();
   const isAuthenticated = status === "authenticated";
-  const { error: syncError, pulled, hasServerState, dismissError } = useNoteSync({
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
+  const { error: syncError, pulled, hasServerState } = useNoteSync({
     id: noteId,
     doc: ydoc,
     userId: isAuthenticated ? session?.user?.id : undefined,
@@ -362,6 +363,7 @@ function HydratedEditor({
   });
   useEffect(() => {
     onSyncErrorChange(Boolean(syncError));
+    if (!syncError) setNoticeDismissed(false);
     return () => onSyncErrorChange(false);
   }, [syncError, onSyncErrorChange]);
 
@@ -622,10 +624,10 @@ function HydratedEditor({
   // ---------------------------------------------------------------------------
   return (
     <>
-      {syncError && (
+      {syncError && !noticeDismissed && (
         <div className="sync-notice" role="status">
           <span>Sync is paused. Your device copy is still here; we’ll keep trying.</span>
-          <button onClick={dismissError} className="text-xs">
+          <button onClick={() => setNoticeDismissed(true)} className="text-xs">
             Dismiss
           </button>
         </div>
