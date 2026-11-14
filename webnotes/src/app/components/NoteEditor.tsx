@@ -32,7 +32,7 @@ import Callout from "./extensions/Callout";
 import NoteLink from "./extensions/NoteLink";
 import PlaceholderLink from "./extensions/PlaceholderLink";
 import { createNoteLinkSuggestion } from "./extensions/noteLinkSuggestion";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import { TableOfContents } from "./TableOfContents";
 import { motion, AnimatePresence } from "framer-motion";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -297,8 +297,8 @@ interface InnerEditorProps {
   onToggleRightSidebar: () => void;
   onPreviewVersion: (versionId: string) => void;
   onToggleReadingMode: () => void;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
-  onTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  titleInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onTitleChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onEditorClick: (e: React.MouseEvent) => void;
 }
 
@@ -352,6 +352,19 @@ function HydratedEditor({
   onTitleChange,
   onEditorClick,
 }: InnerEditorProps & { ydoc: Y.Doc }) {
+  // The title textarea grows to fit its wrapped lines instead of clipping them.
+  useLayoutEffect(() => {
+    const field = titleInputRef.current;
+    if (!field) return;
+    const fit = () => {
+      field.style.height = "auto";
+      field.style.height = `${field.scrollHeight}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    if (field.parentElement) observer.observe(field.parentElement);
+    return () => observer.disconnect();
+  }, [title, fontClass, titleInputRef]);
   const { status, data: session } = useSession();
   const isAuthenticated = status === "authenticated";
   const { error: syncError, pulled, hasServerState, dismissError } = useNoteSync({
@@ -646,9 +659,9 @@ function HydratedEditor({
 
           <div className="flex-1 overflow-y-auto px-4 md:px-12 pt-8 md:pt-[34px] editor-scroll-container relative">
             <div className="max-w-[600px] mx-auto pb-32">
-              <input
+              <textarea
                 ref={titleInputRef}
-                type="text"
+                rows={1}
                 value={title}
                 disabled={isReadingMode}
                 onChange={onTitleChange}
@@ -659,7 +672,7 @@ function HydratedEditor({
                   }
                 }}
                 placeholder="Untitled"
-                className={`w-full bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[10px] tracking-[-.036em] break-words py-0 leading-[1.08] ${fontClass} ${
+                className={`block w-full resize-none overflow-hidden bg-transparent text-[31px] md:text-[42px] font-bold text-white focus:outline-none mb-[10px] tracking-[-.036em] break-words py-0 leading-[1.08] ${fontClass} ${
                   isReadingMode ? "cursor-default" : ""
                 }`}
                 aria-label="Note title"
@@ -743,7 +756,7 @@ export default function NoteEditor({
   const [activeSubnote, setActiveSubnote] = useState<SubnoteTooltip | null>(
     null
   );
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
   const titleSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const pendingTitleSave = useRef<(() => void) | null>(null);
@@ -781,8 +794,9 @@ export default function NoteEditor({
   );
 
   const handleTitleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newTitle = e.target.value;
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      // A title is one line that wraps; pasted line breaks become spaces.
+      const newTitle = e.target.value.replace(/[\r\n]+/g, " ");
       setTitle(newTitle);
       if (activeNote?.id) {
         if (titleSaveTimeoutRef.current)
