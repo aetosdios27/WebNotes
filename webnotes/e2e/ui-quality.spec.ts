@@ -60,13 +60,12 @@ async function closeMenus(page: Page) {
   }
 }
 
-// The note side panel, opened like a writer would: a card, then ⋯ → Note information.
+// The note side panel, opened like a writer would: a card, then the header's outline toggle.
 const sidePanel = 'div:has(> div > [role="tablist"][aria-label="Note panel"])';
 async function openPanel(page: Page) {
   await page.locator('.note-card').first().click();
   await expect(page.locator('main')).toHaveClass(/writing/);
-  await openMore(page);
-  await page.getByRole('menuitem', { name: 'Note information & history' }).click();
+  await page.getByRole('button', { name: 'Toggle outline', exact: true }).click();
   await expect(page.locator(sidePanel).locator('.pane-tabs [role="tab"]')).toHaveCount(3);
 }
 
@@ -166,11 +165,11 @@ test('A icon and label agree on hover, Tab focus and menu highlight', async ({ p
   });
   await page.keyboard.press('Escape');
   await closeLibrary(page);
-  if (await page.locator('.folder-rail').isVisible()) {
-    await page.getByRole('button', { name: 'Collapse library', exact: true }).click();
-    failures.push(...await selectedRow(page.locator('.folder-rail'), 'collapsed'));
-    await hoverColours(page.locator('.folder-rail'), failures, 'collapsed hover');
-    await page.getByRole('button', { name: 'Expand library', exact: true }).click();
+  if (await page.locator('.app-sidebar').isVisible()) {
+    await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click();
+    failures.push(...await selectedRow(page.locator('.app-sidebar'), 'collapsed'));
+    await hoverColours(page.locator('.app-sidebar'), failures, 'collapsed hover');
+    await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
   }
   // The side panel and the Settings sheet are surfaces too.
   await closeMenus(page);
@@ -182,10 +181,11 @@ test('A icon and label agree on hover, Tab focus and menu highlight', async ({ p
   report('A', failures);
 });
 
-test('B disabled controls stay inert on hover', async ({ page }) => {
+test('B disabled controls stay inert on hover', async ({ page }, info) => {
   const failures: Violation[] = [];
   const disabled = page.locator(`${interactive.split(', ').map(s => `${s}:disabled`).join(', ')}, [aria-disabled="true"]`);
-  expect(await disabled.count()).toBeGreaterThan(0);
+  // Back and Forward live in the desktop sidebar; a phone uses the browser's own.
+  if (!info.project.name.endsWith('390')) expect(await disabled.count()).toBeGreaterThan(0);
   for (const control of await disabled.all()) {
     if (!await control.isVisible()) continue;
     await page.mouse.move(0, 0);
@@ -206,7 +206,7 @@ test('C interactive hit targets', async ({ page }) => {
       if (!await control.isVisible()) continue;
       // A visually hidden input is not the hit target; its label wraps it.
       if (await control.evaluate(el => el instanceof HTMLInputElement && getComputedStyle(el).opacity === '0')) continue;
-      const titleBar = await control.evaluate(el => !!el.closest('.window-bar'));
+      const titleBar = await control.evaluate(el => !!el.closest('.canvas-header, .app-sidebar'));
       // Every library control, labelled or not, is a full 32px target.
       const library = await control.evaluate(el => !!el.closest('.folder-rail, .folder-sheet'));
       const iconOnly = !(await control.innerText()).trim();
@@ -231,10 +231,10 @@ test('C interactive hit targets', async ({ page }) => {
   await scan(library);
   await page.keyboard.press('Escape');
   await closeLibrary(page);
-  if (await page.locator('.folder-rail').isVisible()) {
-    await page.getByRole('button', { name: 'Collapse library', exact: true }).click();
-    await scan(page.locator('.folder-rail'));
-    await page.getByRole('button', { name: 'Expand library', exact: true }).click();
+  if (await page.locator('.app-sidebar').isVisible()) {
+    await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click();
+    await scan(page.locator('.app-sidebar'));
+    await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
   }
   await page.keyboard.press('Control+k');
   await expect(page.getByRole('combobox')).toBeVisible();
@@ -246,7 +246,7 @@ test('C interactive hit targets', async ({ page }) => {
   await openContext(page);
   await scan(page.getByRole('menu').first());
   await showAccount(page);
-  await scan(page.locator('.window-right'));
+  await scan(page.locator('.canvas-header, .app-sidebar'));
   // The side panel and the Settings sheet are surfaces too.
   await openPanel(page);
   await scan(page.locator(sidePanel));
@@ -366,7 +366,7 @@ test('D extreme text fits wall, switcher and menus', async ({ page }) => {
 
 test('E title bar concepts are not duplicated in More', async ({ page }) => {
   const failures: Violation[] = [];
-  const barNames = await Promise.all((await page.locator('.window-bar').locator(interactive).all()).map(name));
+  const barNames = await Promise.all((await page.locator('.canvas-header, .app-sidebar').locator(interactive).all()).map(name));
   await openMore(page);
   const menuNames = await Promise.all((await page.locator('[role^="menuitem"]').all()).map(name));
   for (const [concept, aliases] of Object.entries(concepts)) {
@@ -402,7 +402,8 @@ for (const signedIn of [false, true]) test(`F title bar clicks have no immediate
   const failures: Violation[] = [];
   const signouts: string[] = [];
   page.on('request', request => { if (request.url().includes('/api/auth/signout')) signouts.push(request.url()); });
-  const controls = page.locator('.window-bar').locator(interactive);
+  // Chrome only: New note in the sidebar's search row is an explicit create action, not a bar click.
+  const controls = page.locator('.canvas-header, .side-top, .side-foot').locator(interactive);
   const candidates: { index: number; label: string }[] = [];
   for (const [index, control] of (await controls.all()).entries()) if (await control.isVisible() && (!(await control.innerText()).trim() || await control.evaluate(el => el.matches('.account-trigger'))) && await control.isEnabled()) candidates.push({ index, label: await name(control) });
   candidates.push({ index: -1, label: 'Share note' });
@@ -421,6 +422,8 @@ for (const signedIn of [false, true]) test(`F title bar clicks have no immediate
     if (page.url() !== url) { if (!navigationAllowlist[label]) failures.push({ id: label, expected: 'no navigation', actual: page.url() }); await page.goto(url); continue; }
     await expect.poll(async () => page.url() !== url || (await page.locator('main').innerHTML({ timeout: 1000 })) !== domBefore || (await page.locator('html').getAttribute('class')) !== theme || await page.locator('[role="menu"], [role="dialog"]').count() > 0).toBe(true);
     if (signouts.length || page.url() !== url || await noteCount() !== before) failures.push({ id: label, expected: 'no signout, navigation, or note mutation', actual: `signouts=${signouts.length}; url=${page.url()}; notes changed=${await noteCount() !== before}` });
+    const strip = page.getByRole('button', { name: 'Expand sidebar', exact: true });
+    if (await strip.isVisible()) await strip.click();
     if (label === 'Share note') { await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Home', exact: true }).click(); }
   }
   report(signedIn ? 'F account' : 'F guest', failures);

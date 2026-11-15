@@ -18,6 +18,7 @@ import {
   Share,
   MoreHorizontal,
   Folder as FolderIcon,
+  House,
   PanelLeft,
   PanelRight,
 } from "lucide-react";
@@ -544,15 +545,21 @@ export default function Home() {
         />
         <div className="canvas">
           <header className="canvas-header" data-tauri-drag-region>
-            <button
-              type="button"
-              className="bar-icon sidebar-toggle"
-              aria-label="Toggle sidebar"
-              title="Toggle sidebar (⌘\)"
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              <PanelLeft aria-hidden="true" />
-            </button>
+            {phone ? (
+              <button type="button" className="bar-icon" aria-label="Home" onClick={() => navigate(null)}>
+                <House aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="bar-icon sidebar-toggle"
+                aria-label="Toggle sidebar"
+                title="Toggle sidebar (⌘\)"
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                <PanelLeft aria-hidden="true" />
+              </button>
+            )}
             {activeNote ? (
               <nav className="canvas-crumbs" aria-label="Breadcrumb">
                 <button
@@ -604,19 +611,35 @@ export default function Home() {
                   <button type="button" className="bar-icon" aria-label="Toggle outline" onClick={() => setInfo(v => !v)} data-active={info || undefined}>
                     <PanelRight aria-hidden="true" />
                   </button>
-                  <NoteActionsMenu
-                    trigger={<button aria-label="More" className="bar-icon"><MoreHorizontal /></button>}
-                    note={activeNote}
-                    folders={folders}
-                    reading={isReadingMode}
-                    actions={menuActions}
-                    onSettings={!account ? () => openSettings(undefined, document.querySelector<HTMLButtonElement>('button[aria-label="More"]')) : undefined}
-                    folderActions={selectedFolder && actions.filter(a => a.label.endsWith("folder") && !a.label.startsWith("New")).map(a => (
-                      <DropdownMenuItem className="note-menu-item" key={a.label} onClick={a.run}><ActionIcon label={a.label} />{a.label}</DropdownMenuItem>
-                    ))}
-                  />
                 </>
               ) : null}
+              {phone && (
+                <>
+                  <button type="button" className="bar-icon" aria-label="Search notes" onClick={() => setSwitching(true)}>
+                    <Search aria-hidden="true" />
+                  </button>
+                  <ThemeToggle />
+                </>
+              )}
+              <NoteActionsMenu
+                compact={!phone}
+                trigger={<button aria-label="More" className="bar-icon"><MoreHorizontal /></button>}
+                note={activeNote}
+                folders={folders}
+                reading={isReadingMode}
+                actions={menuActions}
+                onSettings={!account ? () => openSettings(undefined, document.querySelector<HTMLButtonElement>('button[aria-label="More"]')) : undefined}
+                folderActions={selectedFolder && actions.filter(a => a.label.endsWith("folder") && !a.label.startsWith("New")).map(a => (
+                  <DropdownMenuItem className="note-menu-item" key={a.label} onClick={a.run}><ActionIcon label={a.label} />{a.label}</DropdownMenuItem>
+                ))}
+              />
+              {phone && (account ? (
+                <AccountMenu account={account} onSignOut={leave} />
+              ) : (
+                <button type="button" className="sign-in" onClick={authenticate} aria-label="Sign in">
+                  <LogIn aria-hidden="true" />
+                </button>
+              ))}
               <WindowControls />
             </div>
           </header>

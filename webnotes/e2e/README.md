@@ -21,7 +21,7 @@ actual avatar menu while keeping notes local.
   side panel and the Settings sheet.
 - B: disabled foreground, descendant foreground and background are unchanged by
   hover (bug 3).
-- C: title-bar controls must be 32×32; other icon-only controls 24×24 (bug 7).
+- C: chrome controls (canvas header and sidebar) must be 32×32; other icon-only controls 24×24 (bug 7).
   Also exercised inside the side panel and the Settings sheet; radio inputs
   hidden behind a styled label are not hit targets.
 - D: page width, visible-overflow text and card content intersections with other

@@ -39,7 +39,7 @@ export const test = base.extend({
     if (process.env.UI_MUTATION === 'icon') await page.addStyleTag({ content: 'button:hover svg.lucide { color: var(--ink) !important; }' });
     const mutations: Record<string, string> = {
       disabled: 'button:disabled:hover { color: red !important; background: red !important; }',
-      targets: '.window-bar .history-button { min-width: 8px !important; width: 8px !important; height: 8px !important; padding: 0 !important; }',
+      targets: '.app-sidebar .history-button { min-width: 8px !important; width: 8px !important; height: 8px !important; padding: 0 !important; }',
       resolved: '.settings-rail nav a[aria-current="page"] { background: var(--ink) !important; }',
       overflow: 'html { min-width: 2000px !important; }',
       // G: the active pane chip matches its track; its ink icon alone must not pass.
