@@ -6,8 +6,6 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import {
   Files,
   Folder as FolderIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Pin,
   Plus,
@@ -20,9 +18,8 @@ import { FittedName } from "./ui/fitted-name";
 import { whenCurrent } from "@/lib/edit-guard";
 import { RollingText } from "./ui/rolling-text";
 
-const COLLAPSED_KEY = "webnotes_rail_collapsed";
-/** Below this width the rail becomes a sheet opened from the wall header. */
-const PHONE_QUERY = "(max-width: 700px)";
+/** Below this width the rail becomes a sheet opened from the canvas header. */
+export const PHONE_QUERY = "(max-width: 700px)";
 
 type FolderActions = {
   folders: Folder[];
@@ -225,92 +222,36 @@ function Library({ place, notes, filter, onSelect, query, onQueryChange, filterI
   );
 }
 
-function readCollapsed() {
-  try { return localStorage.getItem(COLLAPSED_KEY) === "1"; } catch { return false; }
-}
-
-export default function FolderRail({ notes, filter, onFilterChange, sheetOpen, onSheetOpenChange, ...actions }: FolderActions & {
+export default function FolderRail({ notes, filter, onFilterChange, sheetOpen, onSheetOpenChange, collapsed, onExpand, filterInput, ...actions }: FolderActions & {
   notes: Note[];
   filter: string;
   onFilterChange: (filter: string) => void;
   sheetOpen: boolean;
   onSheetOpenChange: (open: boolean) => void;
+  collapsed: boolean;
+  onExpand: () => void;
+  filterInput?: RefObject<HTMLInputElement | null>;
 }) {
-  // The home screen mounts after the store loads, never during SSR.
-  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [query, setQuery] = useState("");
-  const railFilter = useRef<HTMLInputElement>(null);
   const sheetFilter = useRef<HTMLInputElement>(null);
-  const compactActive = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (collapsed) compactActive.current?.scrollIntoView({ block: "nearest" });
-  }, [collapsed, filter]);
-  function collapse(next: boolean) {
-    setCollapsed(next);
-    try { localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0"); } catch { /* private mode */ }
-  }
   const { folderEditing } = actions;
   // Creating or renaming needs the list on screen: open whichever surface shows it.
   useEffect(() => {
     if (folderEditing === null) return;
     setQuery("");
     if (matchMedia(PHONE_QUERY).matches) onSheetOpenChange(true);
-    else if (collapsed) collapse(false);
+    else if (collapsed) onExpand();
   }, [folderEditing]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return;
-      event.preventDefault();
-      if (matchMedia(PHONE_QUERY).matches) { onSheetOpenChange(true); return; }
-      if (collapsed) collapse(false);
-      requestAnimationFrame(() => railFilter.current?.focus());
-    };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
-  }, [collapsed, onSheetOpenChange]);
   const select = (id: string) => {
     onFilterChange(id);
     onSheetOpenChange(false);
   };
   return (
     <>
-      <aside className="folder-rail" data-collapsed={collapsed || undefined} aria-label="Your library">
-        <div className="rail-top">
-          <span>Your library</span>
-          <button type="button" className="library-icon-button" onClick={() => collapse(!collapsed)}
-            aria-label={collapsed ? "Expand library" : "Collapse library"}
-            title={collapsed ? "Expand library" : "Collapse library"} aria-expanded={!collapsed}>
-            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
-          </button>
-        </div>
-        {collapsed ? (
-          <div className="rail-compact">
-            <button type="button" className="library-row" aria-label="All notes" title="All notes"
-              data-active={filter === "all" || undefined} aria-current={filter === "all" ? "true" : undefined}
-              onClick={() => select("all")}><Files aria-hidden="true" /></button>
-            <button type="button" className="library-row" aria-label="Pinned" title="Pinned"
-              data-active={filter === "pinned" || undefined} aria-current={filter === "pinned" ? "true" : undefined}
-              onClick={() => select("pinned")}><Pin aria-hidden="true" /></button>
-            <hr />
-            <nav className="library-folders" aria-label="Folders, newest first">
-              {actions.folders.map(folder => (
-                <button key={folder.id} ref={filter === folder.id ? compactActive : undefined}
-                  type="button" className="library-row" aria-label={folder.name} title={folder.name}
-                  data-active={filter === folder.id || undefined}
-                  aria-current={filter === folder.id ? "true" : undefined}
-                  onClick={() => select(folder.id)}>
-                  <FolderIcon aria-hidden="true" />
-                </button>
-              ))}
-            </nav>
-          </div>
-        ) : (
-          <Library place="rail" notes={notes} filter={filter} onSelect={select} query={query}
-            onQueryChange={setQuery} filterInput={railFilter} actions={actions} />
-        )}
-      </aside>
+      <div className="folder-rail" aria-label="Your library">
+        <Library place="rail" notes={notes} filter={filter} onSelect={select} query={query}
+          onQueryChange={setQuery} filterInput={filterInput} actions={actions} />
+      </div>
       <Dialog.Root open={sheetOpen} onOpenChange={(open) => {
         // A name being typed in the sheet leaves with it.
         if (!open && folderEditing !== null) actions.onFolderEditingChange(null);

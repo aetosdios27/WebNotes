@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useCallback, useMemo, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -17,13 +17,22 @@ import {
   Search,
   Share,
   MoreHorizontal,
+  BookOpen,
+  Files,
+  Folder as FolderIcon,
+  House,
+  PanelLeft,
+  PanelRight,
+  Pin,
+  Plus,
 } from "lucide-react";
+
 import NoteActionsMenu, {
   type NoteMenuActions,
 } from "./components/NoteActionsMenu";
 import { RollingText } from "./components/ui/rolling-text";
-import ThemeToggle from "./components/ThemeToggle";
 import { useSettings } from "./components/settings/SettingsProvider";
+import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
@@ -37,6 +46,8 @@ import LoadingScreen from "./components/LoadingScreen";
 import { HelpModal } from "./components/HelpModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import NoteWall from "./components/NoteWall";
+import AppSidebar from "./components/AppSidebar";
+import WindowControls from "./components/WindowControls";
 import FolderRail from "./components/FolderRail";
 import NoteSwitcher from "./components/NoteSwitcher";
 import { noteMarkdown } from "@/lib/note-markdown";
@@ -108,7 +119,27 @@ export default function Home() {
   const selectedFolder = !activeNoteId
     ? folders.find((f) => f.id === wallFilter)
     : undefined;
+  const scopeCount = useMemo(
+    () => notes.filter((n) => wallFilter === "all" || (wallFilter === "pinned" ? n.isPinned : n.folderId === wallFilter)).length,
+    [notes, wallFilter],
+  );
   const [info, setInfo] = useState(false);
+  const [collapsed, setCollapsedState] = useState(false);
+  const setCollapsed = useCallback((value: boolean) => {
+    setCollapsedState(value);
+    try { localStorage.setItem("webnotes_sidebar_collapsed", value ? "1" : "0"); } catch { /* private mode */ }
+  }, []);
+  useEffect(() => {
+    try { setCollapsedState(localStorage.getItem("webnotes_sidebar_collapsed") === "1"); } catch { /* private mode */ }
+  }, []);
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 700px)");
+    const upd = () => setPhone(m.matches);
+    upd();
+    m.addEventListener("change", upd);
+    return () => m.removeEventListener("change", upd);
+  }, []);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   // Our place in the browser's own history (see src/lib/history-labels.ts),
   // so the ← → arrows mirror it instead of keeping a second, drifting copy.
@@ -124,6 +155,7 @@ export default function Home() {
   // page statically prerenderable, which `useSearchParams` would not.
   const [urlVersion, setUrlVersion] = useState(0);
   const activeNote = notes.find((n) => n.id === activeNoteId);
+  const noteFolder = activeNote?.folderId ? folders.find((f) => f.id === activeNote.folderId) : undefined;
   useEffect(() => {
     void loadData();
   }, [loadData]);
@@ -308,6 +340,11 @@ export default function Home() {
     const keydown = (event: KeyboardEvent) => {
       if (isSettingsOpen) return;
       if (event.defaultPrevented) return;
+      if ((event.metaKey || event.ctrlKey) && event.key === "\\") {
+        event.preventDefault();
+        setCollapsed(!collapsed);
+        return;
+      }
       if (event.key === "Escape" && !switching &&
           document.activeElement === document.body &&
           !document.querySelector('[role="dialog"]:not([data-closed]), [role="menu"]:not([data-closed]), [data-state="open"][role="listbox"]')) {
@@ -367,7 +404,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [newNote, newFolder, switching, navigate, isSettingsOpen]);
+  }, [newNote, newFolder, switching, navigate, isSettingsOpen, collapsed, setCollapsed]);
   const actions = [
     {
       label: "New note",
@@ -487,158 +524,150 @@ export default function Home() {
   if (isLoading) return <LoadingScreen />;
   return (
     <main className={`notes-window ${activeNote ? "writing" : "home"}`}>
-      <header className="window-bar">
-        <div className="window-left">
-          <button
-            className="home-mark"
-            aria-label="Home"
-            onClick={() => navigate(null)}
-          >
-            <svg viewBox="0 0 160 70" aria-hidden="true">
-              <path d="M0 1H35V34L97 0V34L33 69H0Z" />
-              <path d="M98 34L160 0V34L98 69Z" />
-            </svg>
-          </button>
-          <button
-            className="history-button"
-            aria-label="Back"
-            disabled={!canGoBack}
-            onClick={() => window.history.back()}
-          >
-            <ChevronLeft size={19} />
-          </button>
-          <button
-            className="history-button"
-            aria-label="Forward"
-            disabled={!canGoForward}
-            onClick={() => window.history.forward()}
-          >
-            <ChevronRight size={19} />
-          </button>
-        </div>
-        <button
-          className="title-pill"
-          aria-label="Switch notes"
-          onClick={() => setSwitching(true)}
-        >
-          {activeNote ? <FileText /> : <Search />}
-          <span>
-            {activeNote ? (
-              activeNote.title || "Untitled"
+      <div className="shell-regions">
+        <AppSidebar
+          notes={notes}
+          filter={wallFilter}
+          onFilterChange={changeWallFilter}
+          sheetOpen={foldersOpen}
+          onSheetOpenChange={setFoldersOpen}
+          folderEditing={folderEditing}
+          onFolderEditingChange={setFolderEditing}
+          saveFolder={async (id, name) => {
+            if (id === "new") await createFolder({ name });
+            else await updateFolder(id, { name });
+          }}
+          onDeleteFolder={(id) => { setFoldersOpen(false); setFolderToDelete(id); }}
+          folders={folders}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          phone={phone}
+          onHome={() => navigate(null)}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onSearch={() => setSwitching(true)}
+          onNewNote={() => { void newNote(); }}
+          account={account ?? undefined}
+          onSignIn={authenticate}
+          onSignOut={leave}
+          onHelp={() => setHelp(true)}
+        />
+        <div className="canvas">
+          <header className="canvas-header" data-tauri-drag-region>
+            {phone ? (
+              activeNote ? (
+                <button type="button" className="bar-icon" aria-label="Home" onClick={() => navigate(null)}>
+                  <House aria-hidden="true" />
+                </button>
+              ) : (
+                <button type="button" className="bar-icon" aria-label="Open folders" onClick={() => setFoldersOpen(true)}>
+                  <PanelLeft aria-hidden="true" />
+                </button>
+              )
             ) : (
-              <>
-                Search <RollingText value={notes.length} /> notes
-              </>
-            )}
-          </span>
-          <kbd>⌘K</kbd>
-        </button>
-        <div className="window-right">
-          {activeNote && (
-            <>
-              <span className="save-state" role="status">
-                {!isOnline || syncStatus === "unsynced" ? (
-                  <CloudOff aria-hidden="true" />
-                ) : isSaving ||
-                  pendingOperations > 0 ||
-                  syncStatus === "syncing" ? (
-                  <CloudUpload aria-hidden="true" />
-                ) : (
-                  <Check aria-hidden="true" />
-                )}
-                <RollingText
-                  reserve="Unsaved"
-                  value={
-                    !isOnline
-                      ? "Offline"
-                      : isSaving ||
-                          syncStatus === "syncing" ||
-                          pendingOperations > 0
-                        ? "Saving"
-                        : syncStatus === "unsynced"
-                          ? "Unsaved"
-                          : "Saved"
-                  }
-                />
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  aria-label="Share note"
-                  className="bar-icon"
-                >
-                  <Share size={18} />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      void copyNote();
-                    }}
-                  >
-                    <Copy aria-hidden="true" />
-                    Copy note
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void downloadNote()}>
-                    <Download aria-hidden="true" />
-                    Download text
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void copyNote(true)}>
-                    <Copy aria-hidden="true" />
-                    Copy as Markdown
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void downloadNote(true)}>
-                    <Download aria-hidden="true" />
-                    Download Markdown
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-          <ThemeToggle />
-          <NoteActionsMenu
-            trigger={
-              <button aria-label="More" className="bar-icon">
-                <MoreHorizontal />
+              <button
+                type="button"
+                className="bar-icon sidebar-toggle"
+                aria-label="Toggle sidebar"
+                title="Toggle sidebar (⌘\)"
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                <PanelLeft aria-hidden="true" />
               </button>
-            }
-            note={activeNote}
-            folders={folders}
-            reading={isReadingMode}
-            actions={menuActions}
-            onSettings={
-              !account
-                ? () => openSettings(undefined, document.querySelector<HTMLButtonElement>('button[aria-label="More"]'))
-                : undefined
-            }
-            folderActions={
-              selectedFolder &&
-              actions
-                .filter(
-                  (action) =>
-                    action.label.endsWith("folder") &&
-                    !action.label.startsWith("New"),
-                )
-                .map((action) => (
-                  <DropdownMenuItem
-                    className="note-menu-item"
-                    key={action.label}
-                    onClick={action.run}
-                  >
-                    <ActionIcon label={action.label} />
-                    {action.label}
-                  </DropdownMenuItem>
-                ))
-            }
-          />
-          {account ? (
-            <AccountMenu account={account} onSignOut={leave} />
-          ) : (
-            <button className="sign-in" onClick={authenticate}>
-              <LogIn aria-hidden="true" />
-              <span>Sign in</span>
-            </button>
-          )}
-        </div>
-      </header>
+            )}
+            {activeNote ? (
+              <nav className="canvas-crumbs" aria-label="Breadcrumb">
+                <button
+                  type="button"
+                  className="crumb"
+                  onClick={() => pushUrl(wallPath(noteFolder?.id ?? "all"))}
+                  title={noteFolder?.name ?? "All notes"}
+                >
+                  {noteFolder ? <FolderIcon aria-hidden="true" /> : <Files aria-hidden="true" />}
+                  <span className="ell">{noteFolder?.name ?? "All notes"}</span>
+                </button>
+                <ChevronRight className="chev" aria-hidden="true" />
+                <span className="crumb here ell" title={activeNote.title || "Untitled"}>
+                  {activeNote.title || "Untitled"}
+                </span>
+              </nav>
+            ) : (
+              <div className="canvas-crumbs">
+                <span className="crumb here">
+                  {selectedFolder ? <FolderIcon aria-hidden="true" /> : wallFilter === "pinned" ? <Pin aria-hidden="true" /> : <Files aria-hidden="true" />}
+                  <span className="ell" title={selectedFolder?.name ?? (wallFilter === "pinned" ? "Pinned" : "All notes")}>
+                    {selectedFolder?.name ?? (wallFilter === "pinned" ? "Pinned" : "All notes")}
+                  </span>
+                </span>
+                <span className="count">
+                  <RollingText value={scopeCount} /> {scopeCount === 1 ? "note" : "notes"}
+                </span>
+              </div>
+            )}
+            <div className="canvas-actions">
+              {activeNote ? (
+                <>
+                  <span className="save-state" role="status">
+                    {!isOnline || syncStatus === "unsynced" ? <CloudOff aria-hidden="true" /> : isSaving || pendingOperations > 0 || syncStatus === "syncing" ? <CloudUpload aria-hidden="true" /> : <Check aria-hidden="true" />}
+                    <RollingText reserve="Unsaved" value={!isOnline ? "Offline" : isSaving || syncStatus === "syncing" || pendingOperations > 0 ? "Saving" : syncStatus === "unsynced" ? "Unsaved" : "Saved"} />
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger aria-label="Share note" className="bar-icon"><Share size={18} /></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { void copyNote(); }}><Copy aria-hidden="true" />Copy note</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void downloadNote()}><Download aria-hidden="true" />Download text</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void copyNote(true)}><Copy aria-hidden="true" />Copy as Markdown</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void downloadNote(true)}><Download aria-hidden="true" />Download Markdown</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <button type="button" className="bar-icon" aria-label="Reading mode" onClick={() => setIsReadingMode(v => !v)} data-active={isReadingMode || undefined}>
+                    <BookOpen aria-hidden="true" />
+                  </button>
+                  <button type="button" className="bar-icon" aria-label="Toggle outline" onClick={() => setInfo(v => !v)} data-active={info || undefined}>
+                    <PanelRight aria-hidden="true" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="new-note button-primary"
+                  aria-label="New note"
+                  onClick={() => void newNote("", selectedFolder?.id ?? null)}
+                >
+                  <Plus size={15} aria-hidden="true" />
+                  New note
+                </button>
+              )}
+              {phone && (
+                <>
+                  <button type="button" className="bar-icon" aria-label="Search notes" onClick={() => setSwitching(true)}>
+                    <Search aria-hidden="true" />
+                  </button>
+                  <ThemeToggle />
+                </>
+              )}
+              <NoteActionsMenu
+                compact={!phone}
+                trigger={<button aria-label="More" className="bar-icon"><MoreHorizontal /></button>}
+                note={activeNote}
+                folders={folders}
+                reading={isReadingMode}
+                actions={menuActions}
+                onSettings={!account ? () => openSettings(undefined, document.querySelector<HTMLButtonElement>('button[aria-label="More"]')) : undefined}
+                folderActions={selectedFolder && actions.filter(a => a.label.endsWith("folder") && !a.label.startsWith("New")).map(a => (
+                  <DropdownMenuItem className="note-menu-item" key={a.label} onClick={a.run}><ActionIcon label={a.label} />{a.label}</DropdownMenuItem>
+                ))}
+              />
+              {phone && (account ? (
+                <AccountMenu account={account} onSignOut={leave} />
+              ) : (
+                <button type="button" className="sign-in" onClick={authenticate} aria-label="Sign in">
+                  <LogIn aria-hidden="true" />
+                </button>
+              ))}
+              <WindowControls />
+            </div>
+          </header>
       <div className="window-content">
         {activeNote ? (
           previewVersionId ? (
@@ -675,23 +704,7 @@ export default function Home() {
           )
         ) : (
           <div className="home-layout">
-            <FolderRail
-              notes={notes}
-              folders={folders}
-              filter={wallFilter}
-              onFilterChange={changeWallFilter}
-              sheetOpen={foldersOpen}
-              onSheetOpenChange={setFoldersOpen}
-              folderEditing={folderEditing}
-              onFolderEditingChange={setFolderEditing}
-              saveFolder={async (id, name) => {
-                if (id === "new") await createFolder({ name });
-                else await updateFolder(id, { name });
-              }}
-              onDeleteFolder={(id) => { setFoldersOpen(false); setFolderToDelete(id); }}
-            />
             <NoteWall
-              onOpenFolders={() => setFoldersOpen(true)}
               menuActions={menuActions}
               activeNoteId={activeNoteId}
               isReadingMode={isReadingMode}
@@ -705,6 +718,8 @@ export default function Home() {
             />
           </div>
         )}
+      </div>
+      </div>
       </div>
       <NoteSwitcher
         open={switching}

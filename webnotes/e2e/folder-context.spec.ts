@@ -22,15 +22,15 @@ test('library preserves the selected folder context', async ({ page }, info) => 
     await expectActiveInView(page.locator('.folder-sheet'));
     return;
   }
-  const rail = page.locator('.folder-rail');
-  await expectActiveInView(rail);
-  await page.getByRole('button', { name: 'Collapse library', exact: true }).click();
-  await expect(rail.locator('.library-folders button')).toHaveCount(30);
-  await expectActiveInView(rail);
-  await expect(rail.getByRole('button', { name: 'Folder 29', exact: true })).toHaveAttribute('title', 'Folder 29');
+  const sidebar = page.locator('.app-sidebar');
+  await expectActiveInView(sidebar);
+  await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click();
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+  await expect(sidebar.getByRole('button', { name: 'Folder 29', exact: true })).toHaveAttribute('title', 'Folder 29');
   await page.screenshot({ path: `/tmp/webnotes-rail-${info.project.name}-collapsed.png` });
-  await page.getByRole('button', { name: 'Expand library', exact: true }).click();
-  await expectActiveInView(rail);
+  await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+  await expect(sidebar).not.toHaveAttribute('data-collapsed');
+  await expectActiveInView(sidebar);
   await page.screenshot({ path: `/tmp/webnotes-rail-${info.project.name}-expanded.png` });
 });
 
@@ -42,7 +42,7 @@ test('phone folder sheet yields to navigation and delete confirmation', async ({
   await page.locator('.note-switcher input').fill('Folder 29');
   await page.keyboard.press('Enter');
   await expect(page.locator('.folder-sheet')).not.toBeVisible();
-  await expect(page.locator('.wall-heading h1')).toHaveText('Folder 29');
+  await expect(page.locator('.canvas-crumbs .crumb.here')).toHaveText('Folder 29');
   await page.getByRole('button', { name: 'Open folders', exact: true }).click();
   await page.locator('.folder-sheet [data-scope="folder-29"]').click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete folder', exact: true }).click();

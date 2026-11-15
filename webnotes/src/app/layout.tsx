@@ -9,7 +9,6 @@ import { Toaster } from "@/app/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SettingsProvider } from "./components/settings/SettingsProvider";
-import TitleBar from "@/app/components/TitleBar";
 
 // Serif: Instrument Serif (display / reading)
 const instrument = Instrument_Serif({
@@ -80,9 +79,6 @@ export default function RootLayout({
           <SettingsProvider>
             {/* APP SHELL */}
             <div className="app-shell h-screen flex flex-col overflow-hidden bg-background">
-              {/* WINDOW CHROME (never scrolls) */}
-              <TitleBar />
-
               {/* APP CONTENT (owns scrolling) */}
               <div className="flex-1 overflow-hidden">{children}</div>
             </div>

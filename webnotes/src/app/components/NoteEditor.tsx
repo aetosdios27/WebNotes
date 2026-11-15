@@ -855,7 +855,7 @@ function HydratedEditor({
               animate={{ width: 300, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="border-l border-zinc-800 bg-zinc-900/50 flex-shrink-0 h-full overflow-hidden"
+              className="border-l border-line bg-panel flex-shrink-0 h-full overflow-hidden"
             >
               <div className="w-[300px] h-full">
                 <RightSidebar

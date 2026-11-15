@@ -46,6 +46,9 @@ type Props = {
   actions: NoteMenuActions;
   folderActions?: ReactNode;
   onSettings?: () => void;
+  /** Reading mode, note information and help live in the canvas header and
+   * sidebar footer, so this menu leaves them out. */
+  compact?: boolean;
 };
 
 function Submenu({
@@ -92,6 +95,7 @@ export default function NoteActionsMenu({
   actions,
   folderActions,
   onSettings,
+  compact = false,
 }: Props) {
   const noteGroup = note && (
     <Menu.Group aria-label="Note">
@@ -142,7 +146,7 @@ export default function NoteActionsMenu({
           ))}
         </Menu.RadioGroup>
       </Submenu>
-      {!context && (
+      {!context && !compact && (
         <Menu.CheckboxItem
           closeOnClick
           className="note-menu-item"
@@ -178,13 +182,15 @@ export default function NoteActionsMenu({
           ))}
         </Menu.RadioGroup>
       </Submenu>
-      <Menu.Item
-        className="note-menu-item"
-        onClick={() => actions.information(note.id)}
-      >
-        <History aria-hidden="true" />
-        Note information & history
-      </Menu.Item>
+      {!compact && (
+        <Menu.Item
+          className="note-menu-item"
+          onClick={() => actions.information(note.id)}
+        >
+          <History aria-hidden="true" />
+          Note information & history
+        </Menu.Item>
+      )}
     </Menu.Group>
   );
   const dangerGroup = note && (
@@ -222,10 +228,12 @@ export default function NoteActionsMenu({
       <Menu.Separator className="note-menu-separator" />
       <Menu.Group aria-label="App">
         <Menu.GroupLabel className="note-menu-label">App</Menu.GroupLabel>
-        <Menu.Item className="note-menu-item" onClick={actions.help}>
-          <CircleHelp aria-hidden="true" />
-          Help & shortcuts<kbd>?</kbd>
-        </Menu.Item>
+        {!compact && (
+          <Menu.Item className="note-menu-item" onClick={actions.help}>
+            <CircleHelp aria-hidden="true" />
+            Help & shortcuts<kbd>?</kbd>
+          </Menu.Item>
+        )}
         {onSettings && (
           <Menu.Item className="note-menu-item" onClick={onSettings}>
             <Settings aria-hidden="true" />Settings<kbd>⌘,</kbd>
