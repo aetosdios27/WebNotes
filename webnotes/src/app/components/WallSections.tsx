@@ -1,12 +1,14 @@
 "use client";
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FilePlus2, Pin } from "lucide-react";
 import type { Folder, Note } from "@/lib/storage/types";
 import {
   BATCH, cardSize, datedCount, foldedCount, groupByTime, limitToReach, loadedSections,
-  scrubberYears, sectionForMonth, sectionMonth, type MonthKey, type ScrubberYear, type Section,
+  sectionForMonth, type MonthKey, type Section,
 } from "@/lib/time-sections";
+import { buildRailYears } from "@/lib/time-rail";
 import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
+import TimeRail from "./TimeRail";
 import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
 import { RollingText } from "./ui/rolling-text";
 
@@ -46,7 +48,6 @@ const NoteCard = memo(function NoteCard({ note, folders, reading, actions, openN
 let savedPage = { filter: "", limit: BATCH };
 
 const sectionId = (key: string) => `wall-section-${key}`;
-const monthDate = (key: MonthKey) => new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1);
 
 function sectionLabel(section: Section<Note>) {
   switch (section.kind) {
@@ -83,80 +84,6 @@ function scrollToSection(body: HTMLElement | null, key: string | null) {
   scroller.scrollTo({ top, behavior: "instant" });
 }
 
-function MonthScrubber({ years, sections, body, jump }: {
-  years: ScrubberYear[];
-  sections: Section<Note>[];
-  body: React.RefObject<HTMLDivElement | null>;
-  jump: (key: MonthKey | null) => void;
-}) {
-  const [active, setActive] = useState<MonthKey>();
-  useEffect(() => {
-    const scroller = scrollParent(body.current);
-    if (!scroller) return;
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      const top = scroller.getBoundingClientRect().top + 48;
-      const elements = body.current?.querySelectorAll<HTMLElement>("[data-section]") ?? [];
-      const current = Array.from(elements).find(element => element.getBoundingClientRect().bottom > top);
-      setActive(sectionMonth(sections.find(section => section.key === current?.dataset.section)));
-    };
-    const schedule = () => { frame ||= requestAnimationFrame(measure); };
-    measure();
-    scroller.addEventListener("scroll", schedule, { passive: true });
-    addEventListener("resize", schedule);
-    return () => {
-      cancelAnimationFrame(frame);
-      scroller.removeEventListener("scroll", schedule);
-      removeEventListener("resize", schedule);
-    };
-  }, [body, sections]);
-  const expanded = active ? Number(active.slice(0, 4)) : years[0]?.year;
-  const move = (event: KeyboardEvent<HTMLElement>) => {
-    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
-    const end = { Home: 0, End: -1 }[event.key];
-    if (step === undefined && end === undefined) return;
-    event.preventDefault();
-    const buttons = Array.from(event.currentTarget.querySelectorAll("button"));
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    const next = end !== undefined ? buttons.at(end) : buttons[Math.min(buttons.length - 1, Math.max(0, index + step!))];
-    next?.focus();
-  };
-  return (
-    <nav className="month-scrubber" aria-label="Jump to a month" onKeyDown={move}>
-      <button className="scrub-now" title="Back to the newest notes" onClick={() => jump(null)}>Now</button>
-      {years.map(({ year, months }) => (
-        <Fragment key={year}>
-          <span className="scrub-separator" aria-hidden="true" />
-          <button
-            className="scrub-year"
-            aria-expanded={year === expanded}
-            aria-label={`${year}, ${months.length} ${months.length === 1 ? "month" : "months"}`}
-            onClick={() => jump(months[0].key)}
-          >
-            {year}
-          </button>
-          {year === expanded && months.map(({ key }) => {
-            const date = monthDate(key);
-            return (
-              <button
-                key={key}
-                className="scrub-month"
-                aria-current={key === active ? "true" : undefined}
-                aria-label={date.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-                title={date.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-                onClick={() => jump(key)}
-              >
-                {date.toLocaleDateString(undefined, { month: "short" })}
-              </button>
-            );
-          })}
-        </Fragment>
-      ))}
-    </nav>
-  );
-}
-
 export default function WallSections({ notes, filter, folders, menuActions, activeNoteId, isReadingMode, openNote, createNote }: {
   /** Notes already filtered and ordered like the store: pinned first, then newest edit. */
   notes: Note[];
@@ -174,7 +101,7 @@ export default function WallSections({ notes, filter, folders, menuActions, acti
   useEffect(() => { savedPage = { filter, limit }; }, [filter, limit]);
   const loaded = useMemo(() => loadedSections(sections, limit), [sections, limit]);
   const total = datedCount(sections);
-  const years = useMemo(() => scrubberYears(sections), [sections]);
+  const years = useMemo(() => buildRailYears(sections), [sections]);
   const body = useRef<HTMLDivElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -229,7 +156,7 @@ export default function WallSections({ notes, filter, folders, menuActions, acti
     );
 
   return (
-    <div ref={body} className="wall-body" data-scrubber={years.length > 0 || undefined}>
+    <div ref={body} className="wall-body" data-rail={years.length > 0 || undefined}>
       <div className="wall-sections">
         {loaded.map(section => {
           const label = sectionLabel(section);
@@ -274,7 +201,7 @@ export default function WallSections({ notes, filter, folders, menuActions, acti
           </div>
         )}
       </div>
-      {years.length > 0 && <MonthScrubber years={years} sections={sections} body={body} jump={jump} />}
+      {years.length > 0 && <TimeRail years={years} sections={sections} body={body} jump={jump} />}
     </div>
   );
 }

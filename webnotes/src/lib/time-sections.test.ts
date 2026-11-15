@@ -8,7 +8,7 @@ test("runs in the fixture zone", () => {
 });
 import {
   BATCH, cardSize, foldedCount, groupByTime, limitToReach, loadedSections,
-  scrubberYears, sectionForMonth, sectionMonth, PINNED_ROWS,
+  sectionForMonth, sectionMonth, PINNED_ROWS,
 } from "./time-sections";
 
 type N = { id: string; updatedAt: Date; isPinned?: boolean };
@@ -116,30 +116,7 @@ describe("ordering", () => {
   });
 });
 
-describe("scrubber", () => {
-  test("is absent for a single month, including Today and This week in it", () => {
-    const sections = groupByTime([
-      note("today", at(2026, 11, 14, 9)),
-      note("week", at(2026, 11, 10)),
-      note("month", at(2026, 11, 2)),
-      note("pinned", at(2024, 1, 1), true),
-    ], { now });
-    expect(scrubberYears(sections)).toEqual([]);
-  });
-
-  test("lists years and months newest first, only months with notes", () => {
-    const sections = groupByTime([
-      note("today", at(2026, 11, 14, 9)),
-      note("sep", at(2026, 9, 1)),
-      note("jan", at(2026, 1, 1)),
-      note("dec-24", at(2024, 12, 31)),
-    ], { now });
-    expect(scrubberYears(sections)).toEqual([
-      { year: 2026, months: [{ key: "2026-11", month: 11 }, { key: "2026-09", month: 9 }, { key: "2026-01", month: 1 }] },
-      { year: 2024, months: [{ key: "2024-12", month: 12 }] },
-    ]);
-  });
-
+describe("month jumps", () => {
   test("jumps to the first section with that month and highlights a section's newest month", () => {
     const sections = groupByTime([
       note("dec", at(2026, 12, 2, 8)),
