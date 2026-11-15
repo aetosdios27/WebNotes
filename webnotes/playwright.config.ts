@@ -15,7 +15,8 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 5_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
-  use: { baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', screenshot: 'only-on-failure', trace: 'retain-on-failure', reducedMotion: 'reduce' },
+  // A single stuck action fails in 15s and retries, rather than using up the whole test timeout.
+  use: { actionTimeout: 15_000, baseURL: `http://127.0.0.1:${port}`, browserName: 'chromium', screenshot: 'only-on-failure', trace: 'retain-on-failure', reducedMotion: 'reduce' },
   projects: ['light', 'dark'].flatMap(theme => [1280, 390].map(width => ({
     name: `${theme}-${width}`, use: { viewport: { width, height: width === 390 ? 844 : 800 } },
   }))),
