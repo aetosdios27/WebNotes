@@ -17,7 +17,7 @@ test('note history restores the time wall and folder URL', async ({ page }, info
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\?folder=folder-29$/);
   await page.reload();
-  await expect(page.locator('.wall-heading h1')).toHaveText('Folder 29');
+  await expect(page.locator('.canvas-crumbs .crumb.here')).toHaveText('Folder 29');
   if (info.project.name.endsWith('390'))
     await page.getByRole('button', { name: 'Open folders', exact: true }).click();
   const library = page.locator(info.project.name.endsWith('390') ? '.folder-sheet' : '.folder-rail');

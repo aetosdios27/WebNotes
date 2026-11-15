@@ -386,7 +386,7 @@ test('E title bar concepts are not duplicated in More', async ({ page }) => {
     return names;
   };
   const libraryNames = await visibleNames(library);
-  const headerNames = await visibleNames(page.locator('.wall-header'));
+  const headerNames = await visibleNames(page.locator('.canvas-header'));
   for (const label of new Set([...libraryNames, ...headerNames])) {
     const count = [...libraryNames, ...headerNames].filter(n => n === label).length;
     if (count > 1) failures.push({ id: `library: ${label}`, expected: 'one control', actual: `${count}` });

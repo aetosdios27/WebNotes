@@ -10,4 +10,5 @@ export const smallTargetAllowlist: Record<string, string> = {};
 export const navigationAllowlist: Record<string, string> = {
   'Sign in': 'Opens the sign-in page; leaving the wall is what it is for.',
   Home: 'Leaves the open note for the wall; each view has its own URL.',
+  'New note': 'Opens a fresh empty note; composing is what the button is for.',
 };

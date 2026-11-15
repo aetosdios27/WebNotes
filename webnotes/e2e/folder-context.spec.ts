@@ -42,7 +42,7 @@ test('phone folder sheet yields to navigation and delete confirmation', async ({
   await page.locator('.note-switcher input').fill('Folder 29');
   await page.keyboard.press('Enter');
   await expect(page.locator('.folder-sheet')).not.toBeVisible();
-  await expect(page.locator('.wall-heading h1')).toHaveText('Folder 29');
+  await expect(page.locator('.canvas-crumbs .crumb.here')).toHaveText('Folder 29');
   await page.getByRole('button', { name: 'Open folders', exact: true }).click();
   await page.locator('.folder-sheet [data-scope="folder-29"]').click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete folder', exact: true }).click();

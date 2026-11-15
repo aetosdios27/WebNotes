@@ -4,8 +4,6 @@ import type { Note, Folder } from "@/lib/storage/types";
 import { motionTiming } from "./ui/motion-tokens";
 import type { NoteMenuActions } from "./NoteActionsMenu";
 import WallSections from "./WallSections";
-import { PanelLeftOpen, Plus } from "lucide-react";
-import { RollingText } from "./ui/rolling-text";
 
 let entrancePlayed = false;
 let savedWall = { filter: "all", top: 0 };
@@ -19,7 +17,6 @@ export default function NoteWall({
   openNote,
   createNote,
   filter,
-  onOpenFolders,
 }: {
   menuActions: NoteMenuActions;
   activeNoteId: string | null;
@@ -29,7 +26,6 @@ export default function NoteWall({
   folders: Folder[];
   openNote: (id: string) => void;
   createNote: (folderId?: string) => void;
-  onOpenFolders?: () => void;
 }) {
   const wall = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -65,45 +61,8 @@ export default function NoteWall({
   }, [notes]);
   const filtered = useMemo(() => notes.filter(note => filter === "all" ||
     (filter === "pinned" ? note.isPinned : note.folderId === filter)), [notes, filter]);
-  const scopeName =
-    filter === "all"
-      ? "All notes"
-      : filter === "pinned"
-        ? "Pinned"
-        : (folders.find((f) => f.id === filter)?.name ?? "All notes");
   return (
     <section ref={wall} className="note-wall" aria-label="Home">
-      <header className="wall-header">
-        <div className="wall-heading">
-          {onOpenFolders && (
-            <button
-              type="button"
-              className="wall-folders-button"
-              aria-label="Open folders"
-              title="Open folders"
-              onClick={onOpenFolders}
-            >
-              <PanelLeftOpen aria-hidden="true" />
-            </button>
-          )}
-          <h1 title={scopeName}>{scopeName}</h1>
-          <button
-            className="new-note button-primary"
-            onClick={() =>
-              createNote(
-                filter !== "all" && filter !== "pinned" ? filter : undefined,
-              )
-            }
-          >
-            <Plus size={15} />
-            New note
-          </button>
-        </div>
-        <p className="wall-subline">
-          <RollingText value={filtered.length} />{" "}
-          {filtered.length === 1 ? "note" : "notes"}
-        </p>
-      </header>
       <WallSections key={filter} notes={filtered} filter={filter} folders={folders}
         menuActions={menuActions} activeNoteId={activeNoteId} isReadingMode={isReadingMode}
         openNote={openNote}

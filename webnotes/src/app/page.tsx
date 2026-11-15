@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useCallback, useMemo, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -17,18 +17,22 @@ import {
   Search,
   Share,
   MoreHorizontal,
+  BookOpen,
+  Files,
   Folder as FolderIcon,
   House,
   PanelLeft,
   PanelRight,
+  Pin,
+  Plus,
 } from "lucide-react";
 
 import NoteActionsMenu, {
   type NoteMenuActions,
 } from "./components/NoteActionsMenu";
 import { RollingText } from "./components/ui/rolling-text";
-import ThemeToggle from "./components/ThemeToggle";
 import { useSettings } from "./components/settings/SettingsProvider";
+import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./components/AccountMenu";
 import { ActionIcon } from "./components/ui/action-icon";
 import { toast } from "sonner";
@@ -115,6 +119,10 @@ export default function Home() {
   const selectedFolder = !activeNoteId
     ? folders.find((f) => f.id === wallFilter)
     : undefined;
+  const scopeCount = useMemo(
+    () => notes.filter((n) => wallFilter === "all" || (wallFilter === "pinned" ? n.isPinned : n.folderId === wallFilter)).length,
+    [notes, wallFilter],
+  );
   const [info, setInfo] = useState(false);
   const [collapsed, setCollapsedState] = useState(false);
   const setCollapsed = useCallback((value: boolean) => {
@@ -147,6 +155,7 @@ export default function Home() {
   // page statically prerenderable, which `useSearchParams` would not.
   const [urlVersion, setUrlVersion] = useState(0);
   const activeNote = notes.find((n) => n.id === activeNoteId);
+  const noteFolder = activeNote?.folderId ? folders.find((f) => f.id === activeNote.folderId) : undefined;
   useEffect(() => {
     void loadData();
   }, [loadData]);
@@ -538,7 +547,7 @@ export default function Home() {
           canGoForward={canGoForward}
           onSearch={() => setSwitching(true)}
           onNewNote={() => { void newNote(); }}
-          account={account as never}
+          account={account ?? undefined}
           onSignIn={authenticate}
           onSignOut={leave}
           onHelp={() => setHelp(true)}
@@ -546,9 +555,15 @@ export default function Home() {
         <div className="canvas">
           <header className="canvas-header" data-tauri-drag-region>
             {phone ? (
-              <button type="button" className="bar-icon" aria-label="Home" onClick={() => navigate(null)}>
-                <House aria-hidden="true" />
-              </button>
+              activeNote ? (
+                <button type="button" className="bar-icon" aria-label="Home" onClick={() => navigate(null)}>
+                  <House aria-hidden="true" />
+                </button>
+              ) : (
+                <button type="button" className="bar-icon" aria-label="Open folders" onClick={() => setFoldersOpen(true)}>
+                  <PanelLeft aria-hidden="true" />
+                </button>
+              )
             ) : (
               <button
                 type="button"
@@ -565,11 +580,11 @@ export default function Home() {
                 <button
                   type="button"
                   className="crumb"
-                  onClick={() => navigate(null)}
-                  title={selectedFolder?.name ?? "All notes"}
+                  onClick={() => pushUrl(wallPath(noteFolder?.id ?? "all"))}
+                  title={noteFolder?.name ?? "All notes"}
                 >
-                  <FolderIcon aria-hidden="true" />
-                  <span className="ell">{selectedFolder?.name ?? "All notes"}</span>
+                  {noteFolder ? <FolderIcon aria-hidden="true" /> : <Files aria-hidden="true" />}
+                  <span className="ell">{noteFolder?.name ?? "All notes"}</span>
                 </button>
                 <ChevronRight className="chev" aria-hidden="true" />
                 <span className="crumb here ell" title={activeNote.title || "Untitled"}>
@@ -579,13 +594,13 @@ export default function Home() {
             ) : (
               <div className="canvas-crumbs">
                 <span className="crumb here">
-                  <FolderIcon aria-hidden="true" />
+                  {selectedFolder ? <FolderIcon aria-hidden="true" /> : wallFilter === "pinned" ? <Pin aria-hidden="true" /> : <Files aria-hidden="true" />}
                   <span className="ell" title={selectedFolder?.name ?? (wallFilter === "pinned" ? "Pinned" : "All notes")}>
                     {selectedFolder?.name ?? (wallFilter === "pinned" ? "Pinned" : "All notes")}
                   </span>
                 </span>
                 <span className="count">
-                  <RollingText value={notes.filter(n => wallFilter === "all" ? true : wallFilter === "pinned" ? n.isPinned : n.folderId === wallFilter).length} /> notes
+                  <RollingText value={scopeCount} /> {scopeCount === 1 ? "note" : "notes"}
                 </span>
               </div>
             )}
@@ -606,13 +621,23 @@ export default function Home() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <button type="button" className="bar-icon" aria-label="Reading mode" onClick={() => setIsReadingMode(v => !v)} data-active={isReadingMode || undefined}>
-                    <FileText aria-hidden="true" />
+                    <BookOpen aria-hidden="true" />
                   </button>
                   <button type="button" className="bar-icon" aria-label="Toggle outline" onClick={() => setInfo(v => !v)} data-active={info || undefined}>
                     <PanelRight aria-hidden="true" />
                   </button>
                 </>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="new-note button-primary"
+                  aria-label="New note"
+                  onClick={() => void newNote("", selectedFolder?.id ?? null)}
+                >
+                  <Plus size={15} aria-hidden="true" />
+                  New note
+                </button>
+              )}
               {phone && (
                 <>
                   <button type="button" className="bar-icon" aria-label="Search notes" onClick={() => setSwitching(true)}>
@@ -680,7 +705,6 @@ export default function Home() {
         ) : (
           <div className="home-layout">
             <NoteWall
-              onOpenFolders={() => setFoldersOpen(true)}
               menuActions={menuActions}
               activeNoteId={activeNoteId}
               isReadingMode={isReadingMode}
