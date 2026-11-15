@@ -85,30 +85,12 @@ export function sectionMonths(sections: readonly Section<unknown>[]): MonthKey[]
   return months;
 }
 
-export interface ScrubberYear {
-  year: number;
-  months: { key: MonthKey; month: number }[];
-}
-
-/** The scrubber appears only when there is more than one month to move between. */
-export function scrubberYears(sections: readonly Section<unknown>[]): ScrubberYear[] {
-  const months = sectionMonths(sections);
-  if (months.length < 2) return [];
-  const years: ScrubberYear[] = [];
-  for (const key of months) {
-    const [year, month] = key.split("-").map(Number);
-    if (years.at(-1)?.year !== year) years.push({ year, months: [] });
-    years.at(-1)!.months.push({ key, month });
-  }
-  return years;
-}
-
 /** The first section holding notes from `month`; Today and This week can hold two months. */
 export function sectionForMonth<T>(sections: readonly Section<T>[], month: MonthKey) {
   return sections.find(section => section.months.includes(month));
 }
 
-/** The month a section stands for in the scrubber: its newest. */
+/** The month a section stands for on the time rail: its newest. */
 export function sectionMonth(section: Section<unknown> | undefined): MonthKey | undefined {
   return section?.months[0];
 }

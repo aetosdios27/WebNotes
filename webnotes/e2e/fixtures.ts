@@ -47,7 +47,7 @@ export const test = base.extend({
       // G: the current Settings rail item loses its raised surface; ink and weight alone must not pass.
       rail: '.settings-rail nav a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }',
       order: '.note-cell:nth-child(2) { order: -1; }',
-      'wall-targets': '.month-scrubber .scrub-now { min-height: 20px !important; height: 20px !important; }',
+      'wall-targets': '.section-toggle { min-height: 20px !important; height: 20px !important; }',
       selected: '.library-row[data-active] { background: transparent !important; box-shadow: none !important; font-weight: inherit !important; }',
     };
     const css = mutations[process.env.UI_MUTATION || ''];

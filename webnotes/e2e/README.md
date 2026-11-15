@@ -10,7 +10,7 @@ an existing server locally; stop it when finished:
 All checks run on Chromium in light/dark at 1280×800 and 390×844. Each isolated
 browser context seeds the real `webnotes_notes_v1` / `webnotes_folders_v1` local
 adapter format: 55 notes edited over ~16 months (12 pinned, so Pinned folds and the
-month scrubber shows), an 80-letter title, an unbroken URL, an empty Untitled note, 30
+time rail shows), an 80-letter title, an unbroken URL, an empty Untitled note, 30
 folders including 60- and 78-letter names. Theme is set in localStorage followed by a reload.
 No production hook or application change is needed. The account test intercepts
 only the NextAuth session response (without a cloud user ID) to exercise the
@@ -65,4 +65,4 @@ CI builds once for all projects; no existing PR workflow builds Next. It uses
 two workers, cancels superseded runs, caches browsers and uploads the HTML report,
 screenshots and traces on failure. No retries conceal nondeterministic failures.
 
-The combined preview also checks month scrubber targets and row-by-row card order. The `wall-targets` and `order` mutations exercise these checks.
+The combined preview also checks the Pinned fold target, the time rail and row-by-row card order. The `wall-targets` and `order` mutations exercise these checks.
