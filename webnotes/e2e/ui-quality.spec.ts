@@ -218,9 +218,9 @@ test('C interactive hit targets', async ({ page }) => {
     }
   }
   await scan(page.locator('.notes-window'));
-  // The wall's own navigation (month scrubber, Pinned fold) uses 32×32 targets even with text.
-  const wallTargets = await page.locator('.month-scrubber button, .section-toggle').all();
-  if (!await page.locator('.month-scrubber').count() || !await page.locator('.section-toggle').count()) failures.push({ id: 'wall navigation', expected: 'month scrubber and Pinned fold for the seed', actual: 'missing' });
+  // The Pinned fold uses a 32×32 target even with text; the time rail is a full-height strip.
+  const wallTargets = await page.locator('.section-toggle').all();
+  if (!await page.locator('.time-rail .trail').count() || !await page.locator('.section-toggle').count()) failures.push({ id: 'wall navigation', expected: 'time rail and Pinned fold for the seed', actual: 'missing' });
   for (const control of wallTargets) {
     const box = await control.boundingBox();
     if (box && (box.width < 32 || box.height < 32)) failures.push({ id: `wall: ${await name(control)}`, expected: '>= 32×32', actual: `${box.width}×${box.height}` });
@@ -290,16 +290,16 @@ test('D extreme text fits wall, switcher and menus', async ({ page }) => {
   const pageWidth = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, expected: innerWidth }));
   if (pageWidth.actual > pageWidth.expected) failures.push({ id: 'page horizontal scroll', actual: `${pageWidth.actual}`, expected: `${pageWidth.expected}` });
   failures.push(...await overflow(page, '.note-wall', 'wall'));
-  // Sections, cards and the scrubber never intersect; card content stays inside its card;
+  // Sections, cards and the time rail never intersect; card content stays inside its card;
   // within each section cards run row by row, left to right.
   const overlap = await page.evaluate(() => {
     const failures: Violation[] = [];
     const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     const cards = Array.from(document.querySelectorAll('.note-card'));
     const headings = Array.from(document.querySelectorAll('.section-heading'));
-    const scrubber = document.querySelector('.month-scrubber');
-    if (headings.length < 3 || !scrubber) failures.push({ id: 'wall sections', expected: 'at least 3 section headings and a month scrubber', actual: `${headings.length} headings, scrubber ${!!scrubber}` });
-    const blocks = [...cards.map((el, i) => [`card ${i}`, el] as const), ...headings.map(el => [`heading ${el.textContent}`, el] as const), ...(scrubber ? [['scrubber', scrubber] as const] : [])];
+    const rail = document.querySelector('.time-rail .trail');
+    if (headings.length < 3 || !rail) failures.push({ id: 'wall sections', expected: 'at least 3 section headings and a time rail', actual: `${headings.length} headings, rail ${!!rail}` });
+    const blocks = [...cards.map((el, i) => [`card ${i}`, el] as const), ...headings.map(el => [`heading ${el.textContent}`, el] as const), ...(rail ? [['rail', rail] as const] : [])];
     for (const [i, [a, first]] of blocks.entries()) for (const [b, second] of blocks.slice(i + 1)) {
       if (hit(first.getBoundingClientRect(), second.getBoundingClientRect())) failures.push({ id: `${a} overlaps ${b}`, expected: 'no intersection', actual: `${first.textContent?.slice(0, 40)} / ${second.textContent?.slice(0, 40)}` });
     }

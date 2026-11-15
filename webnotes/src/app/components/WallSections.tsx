@@ -1,12 +1,12 @@
 "use client";
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FilePlus2, Pin } from "lucide-react";
 import type { Folder, Note } from "@/lib/storage/types";
 import {
   BATCH, cardSize, datedCount, foldedCount, groupByTime, limitToReach, loadedSections,
-  sectionForMonth, sectionMonth, type MonthKey, type Section,
+  sectionForMonth, type MonthKey, type Section,
 } from "@/lib/time-sections";
-import { buildRailYears, type RailYear } from "@/lib/time-rail";
+import { buildRailYears } from "@/lib/time-rail";
 import NoteActionsMenu, { type NoteMenuActions } from "./NoteActionsMenu";
 import TimeRail from "./TimeRail";
 import { NoteMeta, NoteMiniature, noteText } from "./NoteSummary";
@@ -48,7 +48,6 @@ const NoteCard = memo(function NoteCard({ note, folders, reading, actions, openN
 let savedPage = { filter: "", limit: BATCH };
 
 const sectionId = (key: string) => `wall-section-${key}`;
-const monthDate = (key: MonthKey) => new Date(Number(key.slice(0, 4)), Number(key.slice(5)) - 1, 1);
 
 function sectionLabel(section: Section<Note>) {
   switch (section.kind) {
@@ -157,7 +156,7 @@ export default function WallSections({ notes, filter, folders, menuActions, acti
     );
 
   return (
-    <div ref={body} className="wall-body" data-scrubber={years.length > 0 || undefined}>
+    <div ref={body} className="wall-body" data-rail={years.length > 0 || undefined}>
       <div className="wall-sections">
         {loaded.map(section => {
           const label = sectionLabel(section);

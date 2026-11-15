@@ -1,240 +1,243 @@
 "use client";
-import { useEffect, useRef } from "react";
-import type { RefObject } from "react";
-import type { Section } from "@/lib/time-sections";
-import type { MonthKey } from "@/lib/time-sections";
-import type { RailYear, RailMonth } from "@/lib/time-rail";
+import { useEffect, useRef, type RefObject } from "react";
+import { sectionMonth, type MonthKey, type Section } from "@/lib/time-sections";
 import {
-  PEAK, SIGMA, MONTH_HEIGHT, DWELL_MS, LERP, restBase, computeLayout, rebaseOrigin,
+  computeLayout, rebaseOrigin, restGeometry, tickLength, DWELL_MS, LERP, MONTH_HEIGHT,
+  type Layout, type RailYear, type Viewport,
 } from "@/lib/time-rail";
-import { sectionForMonth, sectionMonth } from "@/lib/time-sections";
+
+const monthName = (month: number) => new Date(2000, month - 1, 1).toLocaleDateString(undefined, { month: "short" });
+const plural = (count: number) => count ? `${count.toLocaleString()} ${count === 1 ? "note" : "notes"}` : "No notes";
+
+type Rail = {
+  pointer: number | null;
+  keyboard: number | null;
+  origin: number;
+  expanded: number | null;
+  anchor: number;
+  hoverYear: number;
+  hoverMonth: number;
+  since: number;
+  active: number;
+  view: Viewport;
+  rows: { top: number; height: number }[];
+  readout: number | null;
+  first: boolean;
+  months: HTMLElement[];
+};
 
 function scrollParent(element: HTMLElement | null) {
   for (let node = element?.parentElement; node; node = node.parentElement)
     if (/auto|scroll/.test(getComputedStyle(node).overflowY)) return node;
-  return document.scrollingElement as HTMLElement | null;
+  return null;
 }
 
-export default function TimeRail({
-  years,
-  sections,
-  body,
-  jump,
-}: {
+export default function TimeRail({ years, sections, body, jump }: {
   years: RailYear[];
   sections: Section<unknown>[];
   body: RefObject<HTMLDivElement | null>;
   jump: (key: MonthKey | null) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const rafRef = useRef(0);
-  const reduced = useRef(false);
+  const track = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<HTMLDivElement[]>([]);
+  const readoutRef = useRef<HTMLDivElement>(null);
+  const jumpRef = useRef(jump);
+  useEffect(() => { jumpRef.current = jump; }, [jump]);
 
   useEffect(() => {
-    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const el = containerRef.current;
-    if (!el || years.length === 0) return;
-
-    const N = years.length;
-    const TR: any = {
-      el, years, N, py: null as number | null, exp: null as number | null,
-      origin: 0, hoverYear: -1, hoverMonth: -1, since: 0,
-      active: 0, monthNodes: [] as HTMLElement[], nodes: [] as HTMLElement[],
-      anchor: 0, first: true, ry: null as number | null, reduced: reduced.current,
+    const el = track.current, readout = readoutRef.current, scroller = scrollParent(body.current);
+    if (!el || !readout || !scroller || !years.length) return;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const rows = years.length;
+    const rail: Rail = {
+      pointer: null, keyboard: null, origin: 0, expanded: null, anchor: 0, hoverYear: -1, hoverMonth: -1,
+      since: 0, active: 0, view: { top: 0, height: 0 }, rows: years.map(() => ({ top: 0, height: 0 })),
+      readout: null, first: true, months: [],
     };
 
-    // build nodes
-    TR.nodes = years.map((y, i) => {
-      const d = document.createElement("div");
-      d.className = "ty" + (y.year % 10 === 0 ? " dec" : "");
-      d.innerHTML = `<span class="lb">${y.year}</span><span class="tk"></span>`;
-      el.appendChild(d);
-      return d;
-    });
-    TR.read = document.createElement("div");
-    TR.read.className = "tread";
-    el.appendChild(TR.read);
-
-    TR.cur = years.map(() => ({ t: 0, h: 0 }));
-
-    const maxCount = Math.max(...years.map(y => y.count)) || 1;
-    TR.nodes.forEach((n: HTMLElement, i: number) => {
-      const y = years[i];
-      const len = y.count ? 4 + Math.round(12 * Math.sqrt(y.count / maxCount)) : 2;
-      const tk = n.querySelector(".tk") as HTMLElement;
-      if (tk) tk.style.width = len + "px";
-    });
+    const measure = () => {
+      const scroll = scroller.getBoundingClientRect();
+      const own = el.parentElement!.getBoundingClientRect();
+      const end = body.current?.getBoundingClientRect().bottom ?? scroll.bottom;
+      const top = Math.max(0, scroll.top - own.top);
+      const height = Math.max(0, Math.min(scroll.bottom, end) - own.top);
+      el.style.height = `${height}px`;
+      rail.view = { top, height: height - top };
+      const line = scroll.top + 48;
+      const current = Array.from(body.current?.querySelectorAll<HTMLElement>("[data-section]") ?? []).find(node => node.getBoundingClientRect().bottom > line);
+      const month = sectionMonth(sections.find(section => section.key === current?.dataset.section));
+      const index = years.findIndex(year => year.year === (month ? Number(month.slice(0, 4)) : years[0].year));
+      rail.active = Math.max(0, index);
+    };
 
     const collapse = () => {
-      TR.exp = null;
-      TR.monthNodes.forEach((n: HTMLElement) => { n.classList.add("out"); setTimeout(() => n.remove(), 130); });
-      TR.monthNodes = [];
-      TR.hoverMonth = -1;
+      rail.expanded = null;
+      rail.hoverMonth = -1;
+      for (const node of rail.months) {
+        node.classList.add("out");
+        setTimeout(() => node.remove(), 130);
+      }
+      rail.months = [];
     };
-    const expand = (i: number, labelTop: number) => {
-      TR.exp = i;
-      TR.anchor = labelTop;
-      TR.hoverMonth = -1;
-      const y = years[i];
-      TR.monthNodes = y.months.map((m: RailMonth, k: number) => {
-        const d = document.createElement("div");
-        d.className = "tm" + (m.count ? " has" : "");
-        if (!reduced.current) d.style.animationDelay = `${k * 16}ms`;
-        d.innerHTML = `<span class="in"><span class="lb">${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m.month - 1]}</span><span class="tk"></span></span>`;
-        el.appendChild(d);
-        return d;
+    const expand = (row: number, top: number) => {
+      rail.expanded = row;
+      rail.anchor = top;
+      rail.hoverMonth = -1;
+      rail.months = years[row].months.map((month, i) => {
+        const node = document.createElement("div");
+        node.className = "tm";
+        node.style.setProperty("--i", String(i));
+        node.innerHTML = `<span class="in"><span class="lb">${monthName(month.month)}</span><span class="tk"></span></span>`;
+        el.appendChild(node);
+        return node;
       });
     };
 
-    // active year from scroll
-    const measureActive = () => {
-      const scroller = scrollParent(body.current);
-      if (!scroller || !body.current) return;
-      const top = scroller.getBoundingClientRect().top + 48;
-      const elements = body.current.querySelectorAll<HTMLElement>("[data-section]");
-      const current = Array.from(elements).find((e) => e.getBoundingClientRect().bottom > top);
-      const m = sectionMonth(sections.find((s) => s.key === current?.dataset.section));
-      const activeYear = m ? Number(m.slice(0, 4)) : years[0]?.year;
-      const idx = years.findIndex((y) => y.year === activeYear);
-      TR.active = idx >= 0 ? idx : 0;
+    const layout = (): Layout => {
+      const pointer = rail.keyboard != null
+        ? restGeometry(rows, rail.view).restTop + (rail.keyboard + 0.5) * restGeometry(rows, rail.view).base
+        : rail.pointer;
+      return computeLayout({
+        rows, view: rail.view, pointer, origin: rail.keyboard != null ? 0 : rail.origin,
+        expanded: rail.expanded, expandedMonths: rail.expanded == null ? 0 : years[rail.expanded].months.length, anchor: rail.anchor,
+      });
     };
 
-    const layout = () => {
-      const H = el.clientHeight;
-      const base = restBase(N, H);
-      const restTop = (H - base * N) / 2;
-      const py = TR.py;
-      const expandedIndex = TR.exp;
-      const monthCount = expandedIndex != null ? years[expandedIndex].months.length : 0;
-      const L = computeLayout({ N, H, py, origin: TR.origin, expandedIndex, expandedMonthCount: monthCount, anchor: TR.anchor });
-      return { ...L, base, restTop };
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      TR.py = e.clientY - r.top;
-    };
-    const onPointerLeave = () => {
-      TR.py = null;
-      collapse();
-      TR.origin = 0;
-      TR.hoverYear = -1;
-    };
-    const onClick = () => {
-      if (TR.hoverYear < 0) return;
-      TR.active = TR.hoverYear;
-      const y = years[TR.hoverYear];
-      const m = TR.hoverMonth >= 0 ? y.months[TR.hoverMonth] : null;
-      const key = m ? m.key : y.months[0]?.key ?? null;
-      if (key) jump(key);
-    };
-    el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerleave", onPointerLeave);
-    el.addEventListener("click", onClick);
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const dir = e.key === "ArrowDown" ? 1 : -1;
-        TR.hoverYear = Math.min(N - 1, Math.max(0, TR.hoverYear + (TR.hoverYear < 0 ? 0 : dir) + (TR.hoverYear < 0 ? 1 : 0)));
-        // set py to hovered row center approximated via layout target? keep origin
-      }
-      if (e.key === "Enter") {
-        if (TR.exp != null) {
-          const y = years[TR.exp];
-          jump(y.months[TR.hoverMonth >= 0 ? TR.hoverMonth : 0]?.key ?? y.months[0].key);
-        } else if (TR.hoverYear >= 0) {
-          expand(TR.hoverYear, 0);
-        }
-      }
-      if (e.key === "Escape") collapse();
-    };
-    el.addEventListener("keydown", onKeyDown);
-    el.tabIndex = 0;
-
+    let frame = 0;
     const tick = (now: number) => {
-      if (!el.isConnected) return;
-      const L = layout();
-      if (TR.py != null) {
-        if (TR.exp != null) {
-          const t = L.top[TR.exp];
-          const mTop = t + L.h[TR.exp];
-          const out = TR.py < t - 1 ? -0.02 : TR.py > mTop + L.extra ? 1.02 : null;
-          if (out != null) {
-            const e2 = TR.exp;
+      let target = layout();
+      if (rail.pointer != null && rail.keyboard == null) {
+        if (rail.expanded != null) {
+          const top = target.tops[rail.expanded], monthsTop = top + target.heights[rail.expanded];
+          const direction = rail.pointer < top - 1 ? "up" : rail.pointer > monthsTop + target.monthsHeight ? "down" : null;
+          if (direction) {
+            const row = rail.expanded;
             collapse();
-            TR.origin = rebaseOrigin(TR.py, L.restTop, e2, out, L.base);
-            TR.hoverYear = -1;
-            TR.raf = requestAnimationFrame(tick);
-            return;
+            rail.origin = rebaseOrigin(rail.pointer, target.restTop, target.base, row, direction);
+            rail.hoverYear = -1;
+            target = layout();
+          } else {
+            rail.hoverMonth = rail.pointer < monthsTop ? -1 : Math.min(years[rail.expanded].months.length - 1, Math.floor((rail.pointer - monthsTop - 4) / MONTH_HEIGHT));
           }
-          TR.hoverMonth = TR.py < mTop ? -1 : Math.min(years[TR.exp].months.length - 1, Math.floor((TR.py - mTop - 4) / MONTH_HEIGHT));
         }
-        if (TR.exp == null) {
-          const k = Math.floor(L.u!);
-          if (k !== TR.hoverYear) { TR.hoverYear = k; TR.since = now; }
-          else if (now - TR.since > DWELL_MS) expand(k, L.top[k]);
+        if (rail.expanded == null) {
+          const row = Math.floor(target.focus!);
+          if (row !== rail.hoverYear) { rail.hoverYear = row; rail.since = now; }
+          else if (now - rail.since > DWELL_MS) { expand(row, target.tops[row]); target = layout(); }
         }
       }
-      measureActive();
-      const awake = TR.py != null;
+
+      const awake = rail.pointer != null || rail.keyboard != null;
       el.classList.toggle("awake", awake);
-      const lerp = reduced.current ? 1 : (TR.first ? 1 : LERP);
-      TR.first = false;
-      for (let i = 0; i < N; i++) {
-        const c = TR.cur[i];
-        c.t += (L.top[i] - c.t) * lerp;
-        c.h += (L.h[i] - c.h) * lerp;
-        const n = TR.nodes[i];
-        const y = years[i].year;
-        const always = i === 0 || i === N - 1 || i === TR.active || (N > 12 && (i > 0 && Math.floor(y / 10) !== Math.floor(years[i - 1].year / 10)));
-        const show = Math.max(always ? 1 : 0, Math.min(1, (c.h - 11) / 7));
-        n.style.transform = `translateY(${c.t + c.h / 2}px)`;
-        const lb = n.querySelector(".lb") as HTMLElement;
-        if (lb) lb.style.opacity = show.toFixed(3);
-        n.classList.toggle("hot", awake && i === TR.hoverYear && TR.hoverMonth < 0);
-        n.classList.toggle("act", i === TR.active);
+      const step = rail.first || reduced.matches ? 1 : LERP;
+      rail.first = false;
+      for (let i = 0; i < rows; i++) {
+        const row = rail.rows[i];
+        row.top += (target.tops[i] - row.top) * step;
+        row.height += (target.heights[i] - row.height) * step;
+        const node = rowRefs.current[i];
+        const year = years[i].year;
+        const pinned = i === 0 || i === rows - 1 || i === rail.active || (rows > 12 && Math.floor(year / 10) !== Math.floor(years[i - 1].year / 10));
+        node.style.transform = `translateY(${row.top + row.height / 2}px)`;
+        (node.firstChild as HTMLElement).style.opacity = String(pinned ? 1 : Math.max(0, Math.min(1, (row.height - 11) / 7)));
+        node.classList.toggle("hot", awake && i === rail.hoverYear && rail.hoverMonth < 0);
+        node.classList.toggle("act", i === rail.active);
       }
-      if (TR.exp != null) {
-        const c = TR.cur[TR.exp];
-        const mTop = c.t + c.h + 4;
-        TR.monthNodes.forEach((n: HTMLElement, k: number) => {
-          n.style.transform = `translateY(${mTop + k * MONTH_HEIGHT + MONTH_HEIGHT / 2}px)`;
-          n.classList.toggle("hot", k === TR.hoverMonth);
+      if (rail.expanded != null) {
+        const row = rail.rows[rail.expanded], monthsTop = row.top + row.height + 4;
+        rail.months.forEach((node, i) => {
+          node.style.transform = `translateY(${monthsTop + i * MONTH_HEIGHT + MONTH_HEIGHT / 2}px)`;
+          node.classList.toggle("hot", i === rail.hoverMonth);
         });
       }
-      if (awake && TR.hoverYear >= 0) {
-        const y = years[TR.hoverYear];
-        const m = TR.hoverMonth >= 0 ? y.months[TR.hoverMonth] : null;
-        const c = TR.cur[TR.hoverYear];
-        const ry = m ? c.t + c.h + 4 + TR.hoverMonth * MONTH_HEIGHT + MONTH_HEIGHT / 2 : c.t + c.h / 2;
-        TR.ry = TR.ry == null ? ry : TR.ry + (ry - TR.ry) * 0.3;
-        TR.read.style.transform = `translateY(${TR.ry - 12}px)`;
-        const n = m ? m.count : y.count;
-        TR.read.innerHTML = `<b>${m ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m.month - 1] + " " : ""}${y.year}</b><span class="num">${n ? n.toLocaleString() + (n === 1 ? " note" : " notes") : "No notes"}</span>`;
-      } else TR.ry = null;
-      TR.raf = requestAnimationFrame(tick);
+      if (awake && rail.hoverYear >= 0) {
+        const year = years[rail.hoverYear], month = rail.hoverMonth >= 0 ? year.months[rail.hoverMonth] : null;
+        const row = rail.rows[rail.hoverYear];
+        const y = month ? row.top + row.height + 4 + rail.hoverMonth * MONTH_HEIGHT + MONTH_HEIGHT / 2 : row.top + row.height / 2;
+        rail.readout = rail.readout == null || reduced.matches ? y : rail.readout + (y - rail.readout) * 0.3;
+        readout.style.transform = `translateY(${rail.readout - 12}px)`;
+        readout.innerHTML = `<b>${month ? `${monthName(month.month)} ` : ""}${year.year}</b><span>${plural(month ? month.count : year.count)}</span>`;
+      } else rail.readout = null;
+      frame = requestAnimationFrame(tick);
     };
-    TR.raf = requestAnimationFrame(tick);
 
-    const scroller = scrollParent(body.current);
-    const onScroll = () => { /* active measured in tick */ };
-    scroller?.addEventListener("scroll", onScroll, { passive: true });
+    const toRail = (event: PointerEvent) => event.clientY - el.getBoundingClientRect().top;
+    const onMove = (event: PointerEvent) => { rail.keyboard = null; rail.pointer = toRail(event); };
+    const onLeave = () => { rail.pointer = null; rail.origin = 0; rail.hoverYear = -1; collapse(); };
+    const target = () => {
+      const year = years[rail.hoverYear];
+      return year && (rail.hoverMonth >= 0 ? year.months[rail.hoverMonth] : year.months[0]).key;
+    };
+    const onClick = () => {
+      const key = target();
+      if (!key) return;
+      rail.active = rail.hoverYear;
+      jumpRef.current(key);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      const delta = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+      if (delta) {
+        event.preventDefault();
+        rail.pointer = null;
+        if (rail.expanded != null) {
+          const next = rail.hoverMonth + delta;
+          if (next >= -1 && next < years[rail.expanded].months.length) { rail.hoverMonth = next; return; }
+          collapse();
+        }
+        const from = rail.keyboard ?? rail.active;
+        rail.keyboard = rail.keyboard == null ? from : Math.max(0, Math.min(rows - 1, from + delta));
+        rail.hoverYear = rail.keyboard;
+      } else if (event.key === "Enter" && rail.keyboard != null) {
+        event.preventDefault();
+        if (rail.expanded == null) expand(rail.keyboard, layout().tops[rail.keyboard]);
+        else onClick();
+      } else if (event.key === "Escape" && rail.expanded != null) {
+        collapse();
+      }
+    };
+    const onBlur = () => { rail.keyboard = null; rail.hoverYear = -1; collapse(); };
 
+    let scheduled = 0;
+    const schedule = () => { scheduled ||= requestAnimationFrame(() => { scheduled = 0; measure(); }); };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(scroller);
+    if (body.current) resize.observe(body.current);
+    scroller.addEventListener("scroll", schedule, { passive: true });
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("click", onClick);
+    el.addEventListener("keydown", onKey);
+    el.addEventListener("blur", onBlur);
+    measure();
+    frame = requestAnimationFrame(tick);
     return () => {
-      cancelAnimationFrame(TR.raf);
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerleave", onPointerLeave);
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(scheduled);
+      resize.disconnect();
+      scroller.removeEventListener("scroll", schedule);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("click", onClick);
-      el.removeEventListener("keydown", onKeyDown);
-      scroller?.removeEventListener("scroll", onScroll);
-      // cleanup nodes
-      while (el.firstChild) el.removeChild(el.firstChild);
+      el.removeEventListener("keydown", onKey);
+      el.removeEventListener("blur", onBlur);
+      for (const node of rail.months) node.remove();
     };
-  }, [years, sections, body, jump]);
+  }, [years, sections, body]);
 
-  if (years.length === 0) return null;
+  if (!years.length) return null;
+  const max = Math.max(...years.map(year => year.count));
   return (
-    <div ref={containerRef} className="trail time-rail" role="navigation" aria-label="Jump through time" tabIndex={0} />
+    <nav className="time-rail" aria-label="Jump through time">
+      <div ref={track} className="trail" tabIndex={0} aria-describedby="time-rail-help">
+        {years.map((year, i) => (
+          <div key={year.year} ref={node => { if (node) rowRefs.current[i] = node; }} className={`ty${year.year % 10 === 0 ? " dec" : ""}`}>
+            <span className="lb">{year.year}</span>
+            <span className="tk" style={{ width: tickLength(year.count, max) }} />
+          </div>
+        ))}
+        <div ref={readoutRef} className="tread" aria-hidden="true" />
+      </div>
+      <span id="time-rail-help" hidden>Use the up and down arrows to choose a year, Enter to open its months or jump, Escape to close.</span>
+    </nav>
   );
 }

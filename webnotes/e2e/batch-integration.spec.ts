@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 
 test('note history restores the time wall and folder URL', async ({ page }, info) => {
   const wall = page.locator('.note-wall');
-  await expect(page.locator('.month-scrubber')).toBeVisible();
+  await expect(page.locator('.time-rail .trail')).toBeVisible();
   const card = page.locator('.note-card').last();
   await card.scrollIntoViewIfNeeded();
   const top = await wall.evaluate(el => el.scrollTop);
