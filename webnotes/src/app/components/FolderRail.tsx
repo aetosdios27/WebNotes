@@ -166,32 +166,6 @@ function Library({ place, notes, filter, onSelect, query, onQueryChange, filterI
   );
   return (
     <>
-      <div className="library-filter">
-        <Search aria-hidden="true" />
-        <label className="sr-only" htmlFor={inputId}>Filter folders</label>
-        <input
-          id={inputId}
-          ref={filterInput}
-          type="search"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Filter folders"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Escape") return;
-            e.preventDefault();
-            if (query) { e.stopPropagation(); onQueryChange(""); }
-            else if (place === "rail") e.currentTarget.blur();
-          }}
-        />
-        {query ? (
-          <button type="button" className="library-icon-button" aria-label="Clear folder filter"
-            onClick={() => { onQueryChange(""); filterInput?.current?.focus(); }}>
-            <X aria-hidden="true" />
-          </button>
-        ) : <kbd aria-hidden="true">/</kbd>}
-      </div>
       <div className="library-scopes">
         <Row id="all" name="All notes" count={notes.length} active={filter === "all"}
           icon={<Files aria-hidden="true" />} onSelect={onSelect} />
@@ -200,12 +174,40 @@ function Library({ place, notes, filter, onSelect, query, onQueryChange, filterI
       </div>
       <div className="library-heading">
         <span role="status">{needle ? `${matches.length} of ${folders.length} folders` : `Folders · ${folders.length}`}</span>
-        <span className="library-order">Newest first</span>
+        {folders.length > 1 && <span className="library-order">Newest first</span>}
         <button type="button" className="library-icon-button" aria-label="New folder" title="New folder"
           onClick={() => onFolderEditingChange("new")}>
           <Plus aria-hidden="true" />
         </button>
       </div>
+      {folders.length > 0 && (
+        <div className="library-filter">
+          <Search aria-hidden="true" />
+          <label className="sr-only" htmlFor={inputId}>Filter folders</label>
+          <input
+            id={inputId}
+            ref={filterInput}
+            type="search"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Filter folders"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return;
+              e.preventDefault();
+              if (query) { e.stopPropagation(); onQueryChange(""); }
+              else if (place === "rail") e.currentTarget.blur();
+            }}
+          />
+          {query ? (
+            <button type="button" className="library-icon-button" aria-label="Clear folder filter"
+              onClick={() => { onQueryChange(""); filterInput?.current?.focus(); }}>
+              <X aria-hidden="true" />
+            </button>
+          ) : <kbd aria-hidden="true">/</kbd>}
+        </div>
+      )}
       <nav className="library-folders" aria-label="Folders, newest first">
         {folderEditing === "new" && edit("new", "")}
         {matches.map((folder) => folderEditing === folder.id ? edit(folder.id, folder.name) : (
