@@ -2,16 +2,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Note, Folder } from "@/lib/storage/types";
 import { motionTiming } from "./ui/motion-tokens";
-import { Plus, PanelLeftOpen } from "lucide-react";
 import type { NoteMenuActions } from "./NoteActionsMenu";
 import WallSections from "./WallSections";
+import { PanelLeftOpen, Plus } from "lucide-react";
 import { RollingText } from "./ui/rolling-text";
 
 let entrancePlayed = false;
 let savedWall = { filter: "all", top: 0 };
 
 export default function NoteWall({
-  onOpenFolders,
   menuActions,
   activeNoteId,
   isReadingMode,
@@ -20,8 +19,8 @@ export default function NoteWall({
   openNote,
   createNote,
   filter,
+  onOpenFolders,
 }: {
-  onOpenFolders: () => void;
   menuActions: NoteMenuActions;
   activeNoteId: string | null;
   isReadingMode: boolean;
@@ -30,6 +29,7 @@ export default function NoteWall({
   folders: Folder[];
   openNote: (id: string) => void;
   createNote: (folderId?: string) => void;
+  onOpenFolders?: () => void;
 }) {
   const wall = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -75,15 +75,17 @@ export default function NoteWall({
     <section ref={wall} className="note-wall" aria-label="Home">
       <header className="wall-header">
         <div className="wall-heading">
-          <button
-            type="button"
-            className="wall-folders-button"
-            aria-label="Open folders"
-            title="Open folders"
-            onClick={onOpenFolders}
-          >
-            <PanelLeftOpen aria-hidden="true" />
-          </button>
+          {onOpenFolders && (
+            <button
+              type="button"
+              className="wall-folders-button"
+              aria-label="Open folders"
+              title="Open folders"
+              onClick={onOpenFolders}
+            >
+              <PanelLeftOpen aria-hidden="true" />
+            </button>
+          )}
           <h1 title={scopeName}>{scopeName}</h1>
           <button
             className="new-note button-primary"
