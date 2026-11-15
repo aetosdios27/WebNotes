@@ -1,10 +1,10 @@
 name: UI quality
 on:
   pull_request:
-    paths: ['webnotes/**']
+    paths: ['webnotes/**', '.github/workflows/ui-quality.yml']
   push:
     branches: [main]
-    paths: ['webnotes/**']
+    paths: ['webnotes/**', '.github/workflows/ui-quality.yml']
 concurrency:
   group: ui-quality-${{ github.ref }}
   cancel-in-progress: true
@@ -12,8 +12,14 @@ permissions:
   contents: read
 jobs:
   ui-quality:
+    name: ui-quality (${{ matrix.project }})
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      # One job per Playwright project: the suite's wall time is its slowest quarter.
+      matrix:
+        project: [light-1280, light-390, dark-1280, dark-390]
     defaults:
       run:
         working-directory: webnotes
@@ -31,14 +37,20 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('webnotes/bun.lock') }}
-      - run: bunx playwright install --with-deps chromium
-      # Playwright's webServer builds once, then runs next start for all projects.
-      # No other PR job builds Next; do not duplicate that work in a separate step.
-      - run: bun run test:ui
+      - run: bunx playwright install --with-deps --only-shell chromium
+      - uses: actions/cache@v4
+        with:
+          path: webnotes/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('webnotes/bun.lock') }}-${{ hashFiles('webnotes/src/**', 'webnotes/next.config.ts') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('webnotes/bun.lock') }}-
+      # Playwright's webServer builds, then runs next start. Each job builds for
+      # itself: with the Next cache that costs less than passing a build between jobs.
+      - run: bun run test:ui --project=${{ matrix.project }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: ui-quality-report
+          name: ui-quality-report-${{ matrix.project }}
           path: |
             webnotes/playwright-report/
             webnotes/test-results/

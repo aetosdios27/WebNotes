@@ -6,7 +6,10 @@ const port = process.env.UI_PORT || '3100';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  // CI runs one project per job on a 4-core runner, so both get four workers.
+  workers: 4,
+  // A broken shell fails every test at the 60s timeout; stop early instead of running out the job.
+  maxFailures: process.env.CI ? 4 : 0,
   // One retry absorbs a cold start; Playwright still reports the test as flaky.
   retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
