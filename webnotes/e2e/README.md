@@ -30,6 +30,10 @@ actual avatar menu while keeping notes local.
 - E: concepts reachable from both title bar and More fail (bug 4).
 - F: guest/account icon clicks must preserve notes and URL and send no signout
   request; controls must react. Home and Share are exercised from an open note (bug 5).
+- H: an icon-only control is a centred square, and a selected one is marked once
+  (a fill, never a fill plus a bar). Run on the wall, the collapsed strip in each
+  scope, and an open note with its side panel. Segmented tabs are exempt: they
+  share one sliding pill.
 - G: selection is visible. For every tablist, toggle group, nav section and radio
   fieldset (wall tabs, ⌘K filter chips, side panel pane switcher, Settings rail
   and Appearance theme choices), the one selected element must beat each
