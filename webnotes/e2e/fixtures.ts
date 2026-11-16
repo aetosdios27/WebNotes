@@ -17,7 +17,8 @@ const folders: Folder[] = Array.from({ length: 30 }, (_, i) => ({ id: `folder-${
 const now = Date.now();
 const notes: Note[] = Array.from({ length: 55 }, (_, i) => ({
   id: `note-${i}`, title: i === 0 ? longTitle : i === 1 ? '' : `Seed note ${i}`,
-  content: i === 0 ? `<p>https://example.com/${'unbroken'.repeat(30)}</p>` : i === 1 ? '' : `<p>Body ${i} ${'words worth keeping '.repeat(i % 5 * 4)}</p>`,
+  // Seed content is what the editor would save (ids, no trailing space); otherwise opening a note rewrites it and moves it to Today.
+  content: i === 0 ? `<p data-id="p-${i}">https://example.com/${'unbroken'.repeat(30)}</p>` : i === 1 ? '' : `<p data-id="p-${i}">Body ${i}${' words worth keeping'.repeat(i % 5 * 4)}</p>`,
   folderId: i === 0 ? 'folder-0' : i % 2 === 0 ? `folder-${i % 29 + 1}` : null, createdAt,
   updatedAt: new Date(now - i * 9 * 864e5 - i * 1000), isPinned: i < 48 && i % 4 === 0,
   pinnedAt: i < 48 && i % 4 === 0 ? new Date(now - i * 1000) : null,
