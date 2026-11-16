@@ -6,7 +6,8 @@ import { useTheme } from "next-themes";
 import { isTauri } from "@/lib/tauri";
 import { open } from "@tauri-apps/plugin-shell";
 import { signIn } from "next-auth/react";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { Spinner } from "@/app/components/ui/spinner";
 import { Button } from "../components/ui/button";
 import AsciiLogo from "./AsciiLogo";
 import styles from "./signin.module.css";
@@ -73,7 +74,7 @@ export default function SignInForm({
               >
                 {pending === provider.id ? (
                   <>
-                    <LoaderCircle size={16} className={styles.spinner} aria-hidden="true" />
+                    <Spinner />
                     Connecting to {provider.name}…
                   </>
                 ) : (

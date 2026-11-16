@@ -87,6 +87,7 @@
     "htmldiff-js": "^1.0.5",
     "jsdom": "^28.0.0",
     "katex": "^0.16.28",
+    "loading-dev": "0.3.8",
     "long-press": "^1.0.0",
     "lowlight": "^3.3.0",
     "lucide-animated": "^1.0.0",

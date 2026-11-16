@@ -2,6 +2,7 @@
 
 "use client";
 
+import { Spinner } from "@/app/components/ui/spinner";
 import { useEffect, useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -244,8 +245,9 @@ export default function VersionPreview({
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-black text-zinc-500">
-        Loading version...
+      <div role="status" className="flex-1 flex items-center justify-center gap-2 bg-background text-sm text-muted">
+        <Spinner />
+        Loading version
       </div>
     );
   }
@@ -329,7 +331,10 @@ export default function VersionPreview({
                 disabled={restoreMutation.isPending}
               >
                 {restoreMutation.isPending ? (
-                  "Restoring..."
+                  <>
+                    <Spinner size={14} className="mr-2" />
+                    Restoring
+                  </>
                 ) : (
                   <>
                     <RotateCcw className="w-4 h-4 mr-2" />

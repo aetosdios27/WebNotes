@@ -77,6 +77,7 @@
         "htmldiff-js": "^1.0.5",
         "jsdom": "^28.0.0",
         "katex": "^0.16.28",
+        "loading-dev": "0.3.8",
         "long-press": "^1.0.0",
         "lowlight": "^3.3.0",
         "lucide-animated": "^1.0.0",
@@ -1795,6 +1796,8 @@
     "loader-runner": ["loader-runner@4.3.1", "", {}, "sha512-IWqP2SCPhyVFTBtRcgMHdzlf9ul25NwaFx4wCEH/KjAXuuHY4yNjvPXsBokp8jCB936PyWRaPKUNh8NvylLp2Q=="],
 
     "loader-utils": ["loader-utils@2.0.4", "", { "dependencies": { "big.js": "^5.2.2", "emojis-list": "^3.0.0", "json5": "^2.1.2" } }, "sha512-xXqpXoINfFhgua9xiqD8fPFHgkoq1mmmpE92WlDbm9rNRd/EbRb+Gqf908T2DMfuHjjJlksiK2RbHVOdD/MqSw=="],
+
+    "loading-dev": ["loading-dev@0.3.8", "", { "peerDependencies": { "react": ">=19.0.0", "react-dom": ">=19.0.0" } }, "sha512-E4ZUsEnX0NXSFwtNO/I6K7JeZp6p7T6/zgOHVy/rX32hBsK/q4Ys4++HQWfxhCdPbBiMt7NJeC0hrS9qPStxgw=="],
 
     "locate-path": ["locate-path@6.0.0", "", { "dependencies": { "p-locate": "^5.0.0" } }, "sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw=="],
 

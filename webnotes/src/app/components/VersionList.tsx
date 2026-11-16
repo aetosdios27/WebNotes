@@ -2,7 +2,8 @@
 
 import { trpc } from "@/lib/trpc/client";
 import { formatDistanceToNow } from "date-fns";
-import { Clock, Loader2, Eye, CloudOff } from "lucide-react";
+import { Clock, Eye, CloudOff } from "lucide-react";
+import { Spinner } from "@/app/components/ui/spinner";
 import { Button } from "@/app/components/ui/button";
 import { useNotesStore } from "@/store/useNotesStore";
 
@@ -50,7 +51,7 @@ export function VersionList({ noteId, onPreview }: VersionListProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center p-8">
-        <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
+        <Spinner size={20} className="text-muted" />
       </div>
     );
   }
@@ -86,7 +87,7 @@ export function VersionList({ noteId, onPreview }: VersionListProps) {
           disabled={isSnapshotting}
         >
           {isSnapshotting ? (
-            <Loader2 className="w-3 h-3 animate-spin mr-2" />
+            <Spinner size={14} />
           ) : (
             "Save Snapshot Now"
           )}
@@ -108,7 +109,7 @@ export function VersionList({ noteId, onPreview }: VersionListProps) {
           disabled={isSnapshotting}
         >
           {isSnapshotting ? (
-            <Loader2 className="w-3 h-3 animate-spin mr-2" />
+            <Spinner size={14} />
           ) : (
             "Create Snapshot"
           )}

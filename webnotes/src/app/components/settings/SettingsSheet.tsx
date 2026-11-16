@@ -1,5 +1,6 @@
 "use client";
 
+import { Spinner } from "@/app/components/ui/spinner";
 import {
   useCallback,
   useEffect,
@@ -372,7 +373,7 @@ export function SettingsSheet({
             <div className="settings-scroll" ref={scroll}>
               {section.id === "account" &&
                 (status === "loading" && !isTauri ? (
-                  <p role="status">Loading account…</p>
+                  <p role="status" className="settings-waiting"><Spinner size={14} />Loading account</p>
                 ) : account ? (
                   <>
                     <div className="settings-profile">
@@ -596,8 +597,8 @@ export function SettingsSheet({
                         disabled={exporting}
                         onClick={() => void download()}
                       >
-                        <Download aria-hidden="true" />
-                        {exporting ? "Exporting…" : "Markdown .zip"}
+                        {exporting ? <Spinner size={14} /> : <Download aria-hidden="true" />}
+                        {exporting ? "Exporting" : "Markdown .zip"}
                       </button>
                     </Row>
                   </div>

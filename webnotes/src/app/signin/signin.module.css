@@ -116,14 +116,6 @@
 .canvas[data-ready="true"] {
   opacity: 1;
 }
-.spinner {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @keyframes enter {
   from {
     opacity: 0;
@@ -151,8 +143,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .form > *,
-  .spinner {
+  .form > * {
     animation: none;
   }
 }
