@@ -619,6 +619,60 @@ test('G selected options differ visibly from their siblings', async ({ page }) =
   report('G', failures);
 });
 
+// An icon-only control is a centred square, and a selected one is marked once:
+// a fill, never a fill plus a bar beside it.
+async function iconGeometry(page: Page, state: string): Promise<Violation[]> {
+  return page.evaluate(state => {
+    const failures: Violation[] = [];
+    const painted = (colour: string) => { const n = colour.match(/[\d.]+/g); return !!n && (n.length < 4 || Number(n[3]) > 0.02); };
+    const shown = (el: Element) => {
+      const r = el.getBoundingClientRect(), style = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+    };
+    // Segmented tabs share one sliding pill, so each tab is wider than tall by design.
+    for (const el of document.querySelectorAll('button:not([role="tab"]), [role="button"]')) {
+      if (!shown(el)) continue;
+      const name = el.getAttribute('aria-label') || el.getAttribute('title') || el.className.toString();
+      const style = getComputedStyle(el), box = el.getBoundingClientRect();
+      const bar = ['::before', '::after'].map(pseudo => getComputedStyle(el, pseudo))
+        .find(p => p.content !== 'none' && p.content !== 'normal' && painted(p.backgroundColor) && (parseFloat(p.width) <= 4 || parseFloat(p.height) <= 4));
+      const selected = el.matches('[aria-current], [aria-pressed="true"], [data-active]');
+      if (selected && painted(style.backgroundColor) && bar) failures.push({ id: `${state}: ${name} marked twice`, expected: 'a fill or a bar, not both', actual: 'fill and bar' });
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let labelled = false;
+      while (walker.nextNode()) {
+        const parent = walker.currentNode.parentElement;
+        if (walker.currentNode.textContent?.trim() && parent && !parent.closest('svg, kbd, .sr-only, .strip-initial') && parent.getBoundingClientRect().width > 1) labelled = true;
+      }
+      const icons = Array.from(el.querySelectorAll('svg')).filter(shown);
+      if (labelled || icons.length !== 1) continue;
+      const icon = icons[0].getBoundingClientRect();
+      const dx = icon.left + icon.width / 2 - (box.left + box.width / 2), dy = icon.top + icon.height / 2 - (box.top + box.height / 2);
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) failures.push({ id: `${state}: ${name} icon off-centre`, expected: 'within 1px of the centre', actual: `${dx.toFixed(1)}, ${dy.toFixed(1)}` });
+      if (Math.abs(box.width - box.height) > 1 && (painted(style.backgroundColor) || selected))
+        failures.push({ id: `${state}: ${name} not square`, expected: 'equal width and height', actual: `${box.width}×${box.height}` });
+    }
+    return failures;
+  }, state);
+}
+
+test('H icon-only controls are centred squares, selected once', async ({ page }, info) => {
+  const failures: Violation[] = [];
+  failures.push(...await iconGeometry(page, 'home'));
+  if (!info.project.name.endsWith('390')) {
+    for (const scope of ['all', 'pinned', 'folder']) {
+      await (scope === 'folder' ? page.locator('.library-folders .library-row').first() : page.locator(`.folder-rail [data-scope="${scope}"]`)).click();
+      await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click();
+      await expect(page.locator('.app-sidebar .strip')).toBeVisible();
+      failures.push(...await iconGeometry(page, `strip ${scope}`));
+      await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+    }
+  }
+  await openPanel(page);
+  failures.push(...await iconGeometry(page, 'note with panel'));
+  report('H', failures);
+});
+
 test('G rejects identical controls with multiple painted edges', async ({ page }) => {
   await page.setContent(`<main><div role="tablist">
     <button role="tab" aria-selected="true">Selected</button>

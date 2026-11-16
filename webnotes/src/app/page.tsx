@@ -638,7 +638,7 @@ export default function Home() {
                   New note
                 </button>
               )}
-              {phone && (
+              {phone && !activeNote && (
                 <>
                   <button type="button" className="bar-icon" aria-label="Search notes" onClick={() => setSwitching(true)}>
                     <Search aria-hidden="true" />
@@ -658,7 +658,7 @@ export default function Home() {
                   <DropdownMenuItem className="note-menu-item" key={a.label} onClick={a.run}><ActionIcon label={a.label} />{a.label}</DropdownMenuItem>
                 ))}
               />
-              {phone && (account ? (
+              {phone && !activeNote && (account ? (
                 <AccountMenu account={account} onSignOut={leave} />
               ) : (
                 <button type="button" className="sign-in" onClick={authenticate} aria-label="Sign in">

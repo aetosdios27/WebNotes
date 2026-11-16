@@ -48,6 +48,8 @@ export const test = base.extend({
       // G: the current Settings rail item loses its raised surface; ink and weight alone must not pass.
       rail: '.settings-rail nav a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }',
       order: '.note-cell:nth-child(2) { order: -1; }',
+      // H: the collapsed strip's rows as they first shipped: wider than tall, icon pushed left.
+      strip: '.strip .library-row { width: 100% !important; padding: 5px 8px !important; justify-content: flex-start !important; }',
       'wall-targets': '.section-toggle { min-height: 20px !important; height: 20px !important; }',
       selected: '.library-row[data-active] { background: transparent !important; box-shadow: none !important; font-weight: inherit !important; }',
     };
