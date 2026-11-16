@@ -2644,3 +2644,62 @@ button.crumb:hover { background: var(--selected); color: var(--ink); }
   .tm .in, .tm.out .in { animation: none; }
   .tread { transition: none; }
 }
+
+/* Loading screen */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: var(--background);
+  color: var(--ink);
+}
+.tide {
+  margin: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 9px;
+  color: transparent;
+  user-select: none;
+}
+/* Each cell is its heavy glyph with the thin one laid over it; the wave cross-fades them. */
+.tide b {
+  position: relative;
+  font-weight: inherit;
+  color: var(--ink);
+  animation: tide-heavy 2400ms ease-in-out var(--tide-delay) infinite;
+}
+.tide i {
+  position: absolute;
+  inset: 0;
+  font-style: normal;
+  color: var(--ink);
+  animation: tide-thin 2400ms ease-in-out var(--tide-delay) infinite;
+}
+@keyframes tide-heavy {
+  0%, 100% { color: color-mix(in srgb, var(--ink) 0%, transparent); }
+  44% { color: color-mix(in srgb, var(--ink) 92%, transparent); }
+  50% { color: var(--caret); }
+  56% { color: color-mix(in srgb, var(--ink) 92%, transparent); }
+}
+@keyframes tide-thin {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tide b { animation: none; }
+  .tide i { display: none; }
+}
+.loading-screen p {
+  margin: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
