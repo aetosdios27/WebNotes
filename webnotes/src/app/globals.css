@@ -5,12 +5,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 :root {
   color-scheme: light;
-  --background: #fff;
-  --panel: #f6f6f4;
-  --wall: #f3f3f0;
+  /* Three soft whites, back to front: window, sheet, then pure white for cards and floats. */
+  --background: #fbfaf8;
+  --panel: #f2f1ed;
+  --wall: #efeeea;
   --card: #fff;
-  --selected: #eeeeea;
-  --line: #e8e8e4;
+  --selected: #e8e7e1;
+  --line: #e9e8e3;
   --ink: #111110;
   --reading: #3d3d3a;
   --muted: #8b8b86;
@@ -58,12 +59,13 @@
   color-scheme: dark;
   --caret: #fbca04;
   --danger: #f97066;
-  --background: #101010;
-  --panel: #161615;
-  --wall: #0a0a0a;
-  --card: #161615;
-  --selected: #1f1f1e;
-  --line: #222221;
+  /* A near-black window; the sheet, then cards, each step clearly up from it. */
+  --background: #131312;
+  --panel: #181817;
+  --wall: #040404;
+  --card: #1b1b1a;
+  --selected: #272725;
+  --line: #252524;
   --ink: #f4f4f1;
   --reading: #c9c9c4;
   --muted: #7e7e79;
@@ -71,7 +73,7 @@
   --highlight-band: rgba(251, 202, 4, 0.32);
   --check: var(--ink);
   --check-ink: var(--background);
-  --float: #1a1a19;
+  --float: #1e1e1c;
   --float-line: rgba(255, 255, 255, 0.09);
   --edge: rgb(255 255 244 / 0.09);
   --top-light: rgb(255 255 244 / 0.06);
@@ -1079,16 +1081,119 @@ body {
   background: var(--highlight);
   transform: skewX(-28deg);
 }
-.wall-empty,
 .load-notes {
   padding: 40px;
   color: var(--muted);
   text-align: center;
 }
-.wall-empty button,
 .load-notes button {
   text-decoration: underline;
   cursor: pointer;
+}
+.empty-note {
+  margin: -2px 0 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.note-grid.empty-row {
+  /* One row at any width: extra outlines wrap into zero-height rows and are clipped. */
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  row-gap: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 25%, transparent 92%);
+  mask-image: linear-gradient(90deg, #000 25%, transparent 92%);
+}
+.empty-row-far {
+  margin-top: 14px;
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(#000, transparent 85%);
+  mask-image: linear-gradient(#000, transparent 85%);
+}
+.first-note,
+.empty-outline {
+  height: 152px;
+  border-radius: var(--radius-surface);
+}
+.first-note {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 17px 14px;
+  border: 1.5px dashed var(--faint);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.first-note:hover {
+  border-color: var(--muted);
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+}
+.first-note-plus {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--highlight);
+  box-shadow:
+    inset 0 1px 0 #fff7,
+    0 0 0 1px #a888102e,
+    0 2px 5px #5e4b1920;
+}
+.notes-window .first-note-plus svg.lucide {
+  color: #241f0a;
+}
+.first-note-copy {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.first-note-copy strong {
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.first-note-copy > span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.empty-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 20px 17px;
+  border: 1px solid var(--line);
+}
+.empty-outline i {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--line);
+}
+.empty-outline i:nth-child(1) { width: 55%; height: 9px; margin-bottom: 5px; }
+.empty-outline i:nth-child(3) { width: 82%; }
+.empty-outline i:nth-child(4) { width: 40%; }
+@media (max-width: 700px) {
+  .note-grid.empty-row {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .note-grid.empty-row-far {
+    -webkit-mask-image: linear-gradient(#000, transparent 85%);
+    mask-image: linear-gradient(#000, transparent 85%);
+  }
 }
 .switcher-veil {
   position: fixed;
@@ -2436,7 +2541,7 @@ button.crumb:hover { background: var(--selected); color: var(--ink); }
 .app-sidebar .library-empty { padding: 4px 8px 12px; }
 .library-heading [role="status"] + .library-icon-button { margin-left: auto; }
 .app-sidebar .library-folders { margin-right: -4px; }
-.dark .canvas { border-color: rgb(255 255 244 / 0.11); }
+.dark .canvas { border-color: rgb(255 255 244 / 0.12); box-shadow: inset 0 1px 0 var(--top-light), 0 1px 2px #000a, 0 14px 36px #0009; }
 .app-sidebar .sign-in { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 8px; font-size: 12px; }
 
 @media (max-width: 700px) {
