@@ -690,6 +690,9 @@ body {
   background: var(--panel);
   color: var(--ink);
 }
+.dark .notes-window {
+  background: var(--wall);
+}
 .shell-regions {
   display: flex;
   flex: 1;
@@ -746,9 +749,6 @@ body {
 }
 .sidebar-toggle { flex: none; }
 
-.notes-window.home {
-  background: var(--wall);
-}
 .history-button,
 .bar-icon {
   color: var(--muted);
@@ -1387,7 +1387,7 @@ body {
 }
 
 /* Depth is hierarchy: the writing page and its body type stay unshadowed. */
-.notes-window.home {
+.notes-window {
   background-size: 160px 160px;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23262014' opacity='.075' filter='url(%23grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
 }
@@ -2399,7 +2399,6 @@ textarea,
   min-height: 0;
   padding: 10px 10px 8px;
   transition: width 200ms cubic-bezier(.2,.8,.2,1);
-  background: var(--panel);
 }
 .app-sidebar[data-collapsed] { width: 56px; padding: 10px 8px 8px; align-items: center; }
 .side-top { display: flex; align-items: center; gap: 2px; height: 32px; margin-bottom: 8px; }
@@ -2430,7 +2429,14 @@ button.crumb:hover { background: var(--selected); color: var(--ink); }
 .strip .library-row { position: relative; }
 .strip .library-row[data-active]::before { content: ''; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--ink); }
 .strip-initial { position: absolute; right: 3px; bottom: 3px; font-size: 8.5px; font-weight: 600; background: var(--ink); color: var(--background); border-radius: 4px; padding: 0 3px; line-height: 12px; }
-.app-sidebar .folder-rail { flex: 1; min-height: 0; overflow: auto; }
+.app-sidebar .folder-rail { flex: 1; min-height: 0; width: auto; padding: 0; border: 0; background: none; box-shadow: none; }
+.app-sidebar .library-row { min-height: 32px; padding: 5px 8px; }
+.app-sidebar .library-heading { padding: 14px 0 4px 8px; }
+.app-sidebar .library-filter { height: 32px; margin: 2px 0 8px; }
+.app-sidebar .library-empty { padding: 4px 8px 12px; }
+.library-heading [role="status"] + .library-icon-button { margin-left: auto; }
+.app-sidebar .library-folders { margin-right: -4px; }
+.dark .canvas { border-color: rgb(255 255 244 / 0.11); }
 .app-sidebar .sign-in { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 8px; font-size: 12px; }
 
 @media (max-width: 700px) {
