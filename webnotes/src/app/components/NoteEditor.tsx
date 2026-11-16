@@ -2,6 +2,7 @@
 
 "use client";
 
+import { Spinner } from "@/app/components/ui/spinner";
 import { noteDocumentTitle } from "@/lib/note-url";
 import { FONT_CLASSES } from "@/lib/note-fonts";
 import { Selection, type SelectionBookmark } from "@tiptap/pm/state";
@@ -324,8 +325,9 @@ function InnerEditor(props: InnerEditorProps) {
 
   if (!isHydrated) {
     return (
-      <div className="flex items-center justify-center h-full bg-black">
-        <div className="animate-pulse text-zinc-500">Loading note...</div>
+      <div role="status" className="flex items-center justify-center gap-2 h-full bg-background text-sm text-muted">
+        <Spinner />
+        Loading note
       </div>
     );
   }

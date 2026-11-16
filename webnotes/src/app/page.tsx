@@ -1,5 +1,6 @@
 "use client";
 
+import { Spinner } from "@/app/components/ui/spinner";
 import { useEffect, useCallback, useMemo, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
@@ -10,7 +11,6 @@ import {
   LogIn,
   FileText,
   Check,
-  CloudUpload,
   CloudOff,
   ChevronLeft,
   ChevronRight,
@@ -608,7 +608,7 @@ export default function Home() {
               {activeNote ? (
                 <>
                   <span className="save-state" role="status">
-                    {!isOnline || syncStatus === "unsynced" ? <CloudOff aria-hidden="true" /> : isSaving || pendingOperations > 0 || syncStatus === "syncing" ? <CloudUpload aria-hidden="true" /> : <Check aria-hidden="true" />}
+                    {!isOnline || syncStatus === "unsynced" ? <CloudOff aria-hidden="true" /> : isSaving || pendingOperations > 0 || syncStatus === "syncing" ? <Spinner size={14} /> : <Check aria-hidden="true" />}
                     <RollingText reserve="Unsaved" value={!isOnline ? "Offline" : isSaving || syncStatus === "syncing" || pendingOperations > 0 ? "Saving" : syncStatus === "unsynced" ? "Unsaved" : "Saved"} />
                   </span>
                   <DropdownMenu>

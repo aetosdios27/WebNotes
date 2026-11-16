@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Button } from "@/app/components/ui/button";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+import { Spinner } from "@/app/components/ui/spinner";
 
 export default function DesktopAuth() {
   const { data: session, status } = useSession();
@@ -59,7 +60,7 @@ export default function DesktopAuth() {
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-black text-white">
-      <Loader2 className="w-10 h-10 animate-spin text-zinc-500 mb-4" />
+      <Spinner size={32} className="text-zinc-500 mb-4" />
       <p className="text-zinc-400">{msg}</p>
     </div>
   );

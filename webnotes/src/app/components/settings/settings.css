@@ -933,3 +933,10 @@ body:has(.settings-sheet[data-presentation="modal"]) .app-shell {
     transition: none !important;
   }
 }
+
+.settings-waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
