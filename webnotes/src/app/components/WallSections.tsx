@@ -1,6 +1,6 @@
 "use client";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FilePlus2, Pin } from "lucide-react";
+import { Clock, Pin, Plus } from "lucide-react";
 import type { Folder, Note } from "@/lib/storage/types";
 import {
   BATCH, cardSize, datedCount, foldedCount, groupByTime, limitToReach, loadedSections,
@@ -84,6 +84,41 @@ function scrollToSection(body: HTMLElement | null, key: string | null) {
   scroller.scrollTo({ top, behavior: "instant" });
 }
 
+const Outline = () => <li className="empty-outline" aria-hidden="true"><i /><i /><i /><i /></li>;
+
+/** An empty wall is the wall's own layout: the first slot starts a note, the rest show where notes will go. */
+function EmptyWall({ filter, folders, createNote }: { filter: string; folders: Folder[]; createNote: () => void }) {
+  const pinned = filter === "pinned";
+  const folder = folders.find(f => f.id === filter);
+  return (
+    <div className="wall-body wall-empty">
+      <section className="wall-section" aria-labelledby="empty-wall-heading">
+        <h2 className="section-heading" id="empty-wall-heading">
+          {pinned ? <Pin aria-hidden="true" /> : <Clock aria-hidden="true" />}
+          <span className="section-label">{pinned ? "Pinned" : "Today"}</span>
+          <span className="section-count">0</span>
+        </h2>
+        {pinned && <p className="empty-note">Pin a note from its menu to keep it at the top of every wall.</p>}
+        <ol className="note-grid empty-row">
+          {!pinned && (
+            <li className="note-cell">
+              <button type="button" className="first-note" onClick={createNote}>
+                <span className="first-note-plus"><Plus aria-hidden="true" /></span>
+                <span className="first-note-copy">
+                  <strong>{folder ? `New note in ${folder.name}` : "New note"}</strong>
+                  <span>{folder ? "A note you start here is filed in this folder." : "Notes you write show up here, newest first."}</span>
+                </span>
+              </button>
+            </li>
+          )}
+          <Outline /><Outline /><Outline /><Outline /><Outline />
+        </ol>
+        {!pinned && <ol className="note-grid empty-row empty-row-far" aria-hidden="true"><Outline /><Outline /><Outline /><Outline /><Outline /><Outline /></ol>}
+      </section>
+    </div>
+  );
+}
+
 export default function WallSections({ notes, filter, folders, menuActions, activeNoteId, isReadingMode, openNote, createNote }: {
   /** Notes already filtered and ordered like the store: pinned first, then newest edit. */
   notes: Note[];
@@ -146,14 +181,7 @@ export default function WallSections({ notes, filter, folders, menuActions, acti
     else scrollToSection(body.current, section.key);
   }, [sections, limit]);
 
-  if (!notes.length)
-    return (
-      <div className="wall-empty">
-        <FilePlus2 className="empty-icon" aria-hidden="true" />
-        {filter === "pinned" ? "Nothing pinned yet. Pin a note from its menu to keep it here." : <>No notes here yet.{" "}
-          <button onClick={createNote}>Write your first note</button></>}
-      </div>
-    );
+  if (!notes.length) return <EmptyWall filter={filter} folders={folders} createNote={createNote} />;
 
   return (
     <div ref={body} className="wall-body" data-rail={years.length > 0 || undefined}>

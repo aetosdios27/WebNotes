@@ -798,7 +798,7 @@ body:has(.settings-sheet[data-presentation="modal"]) .app-shell {
     border-top: 1px solid var(--line);
   }
   .settings-rail nav a[aria-current="page"] {
-    background: var(--float);
+    background: transparent;
     font-weight: 450;
     box-shadow: none;
   }
