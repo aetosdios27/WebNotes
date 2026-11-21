@@ -18,34 +18,27 @@ const katexOptions = {
 
 export function renderLatex(
   latex: string,
-  displayMode: boolean = false
+  displayMode = false,
 ): { html: string; error: string | null } {
-  if (!latex.trim()) {
-    return { html: '', error: null };
-  }
+  if (!latex.trim()) return { html: '', error: null };
 
   try {
-    return { html: katex.renderToString(latex, { ...katexOptions, displayMode, throwOnError: true }), error: null };
-  } catch (e: any) {
-    try {
-      const html = katex.renderToString(latex, { ...katexOptions, displayMode, throwOnError: false });
-      return { html, error: e.message || 'Invalid LaTeX' };
-    } catch {
-      return { html: `<span class="math-error">${escapeHtml(latex)}</span>`, error: e.message };
-    }
+    const html = katex.renderToString(latex, {
+      ...katexOptions,
+      // KaTeX can write definitions into the macros object during a render.
+      macros: { ...katexOptions.macros },
+      displayMode,
+      throwOnError: true,
+    });
+    return { html, error: null };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '';
+    if (/expected ['"]\}['"]/i.test(message)) return { html: '', error: 'Missing }' };
+    if (/undefined control sequence/i.test(message)) return { html: '', error: 'Unknown LaTeX command' };
+    if (/unexpected end of input/i.test(message)) return { html: '', error: 'Incomplete formula' };
+    return { html: '', error: 'Invalid LaTeX' };
   }
 }
-
-// Escape HTML for safe display
-export function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ============================================
-// MATH TEMPLATES - 100% Coverage
-// ============================================
 
 export const mathTemplates = {
   // ==================
@@ -120,118 +113,3 @@ export const mathTemplates = {
   // ==================
   cases: '\\begin{cases} x & \\text{if } x > 0 \\\\ -x & \\text{otherwise} \\end{cases}',
 };
-
-// ============================================
-// TYPING SHORTCUTS
-// ============================================
-
-export const mathShortcuts: Record<string, string> = {
-  // Fractions & Powers
-  '//': '\\frac{}{}',
-
-  // Comparisons
-  '>=': '\\geq',
-  '<=': '\\leq',
-  '!=': '\\neq',
-  '==': '\\equiv',
-  '~=': '\\approx',
-
-  // Arrows
-  '->': '\\rightarrow',
-  '<-': '\\leftarrow',
-  '<->': '\\leftrightarrow',
-  '=>': '\\Rightarrow',
-  '<=>': '\\Leftrightarrow',
-
-  // Dots
-  '...': '\\ldots',
-
-  // Common
-  'inf': '\\infty',
-  'xx': '\\times',
-  '**': '\\cdot',
-  '+-': '\\pm',
-
-  // Operators
-  'sum': '\\sum',
-  'prod': '\\prod',
-  'int': '\\int',
-  'lim': '\\lim',
-  'sqrt': '\\sqrt{}',
-
-  // Greek lowercase
-  'alpha': '\\alpha',
-  'beta': '\\beta',
-  'gamma': '\\gamma',
-  'delta': '\\delta',
-  'eps': '\\epsilon',
-  'zeta': '\\zeta',
-  'eta': '\\eta',
-  'theta': '\\theta',
-  'iota': '\\iota',
-  'kappa': '\\kappa',
-  'lambda': '\\lambda',
-  'mu': '\\mu',
-  'nu': '\\nu',
-  'xi': '\\xi',
-  'pi': '\\pi',
-  'rho': '\\rho',
-  'sigma': '\\sigma',
-  'tau': '\\tau',
-  'phi': '\\phi',
-  'chi': '\\chi',
-  'psi': '\\psi',
-  'omega': '\\omega',
-
-  // Greek uppercase
-  'Gamma': '\\Gamma',
-  'Delta': '\\Delta',
-  'Theta': '\\Theta',
-  'Lambda': '\\Lambda',
-  'Pi': '\\Pi',
-  'Sigma': '\\Sigma',
-  'Phi': '\\Phi',
-  'Psi': '\\Psi',
-  'Omega': '\\Omega',
-
-  // Calculus
-  'nabla': '\\nabla',
-  'partial': '\\partial',
-
-  // Set theory
-  'forall': '\\forall',
-  'exists': '\\exists',
-  'in': '\\in',
-  'notin': '\\notin',
-  'subset': '\\subset',
-  'subseteq': '\\subseteq',
-  'cup': '\\cup',
-  'cap': '\\cap',
-  'empty': '\\emptyset',
-
-  // Number sets
-  'RR': '\\mathbb{R}',
-  'NN': '\\mathbb{N}',
-  'ZZ': '\\mathbb{Z}',
-  'QQ': '\\mathbb{Q}',
-  'CC': '\\mathbb{C}',
-};
-
-// Apply shortcuts to input
-export function applyMathShortcuts(input: string): string {
-  let result = input;
-
-  const sortedShortcuts = Object.entries(mathShortcuts)
-    .sort((a, b) => b[0].length - a[0].length);
-
-  for (const [shortcut, replacement] of sortedShortcuts) {
-    const regex = new RegExp(`${escapeRegex(shortcut)}(?=\\s|$|[{}\\[\\]()^_])`, 'g');
-    result = result.replace(regex, replacement);
-  }
-
-  return result;
-}
-
-function escapeRegex(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

@@ -1,4 +1,5 @@
 export { MathInline } from './MathInline';
 export { MathBlock } from './MathBlock';
-export { MathInput } from './MathInput';
-export { renderLatex, mathTemplates, mathShortcuts } from './MathUtils';
+export { MathEditor } from './MathEditor';
+export { MathEditing } from './MathEditing';
+export { renderLatex, mathTemplates } from './MathUtils';

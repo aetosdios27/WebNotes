@@ -29,7 +29,8 @@ import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
 import { SlashCommand } from "./SlashCommandExtension";
-import { MathInline, MathBlock } from "./extensions/math";
+import { MathInline, MathBlock, MathEditor, MathEditing } from "./extensions/math";
+import { addMathMarkdown } from "./extensions/math/MathMarkdown";
 import { CodeBlock } from "./extensions/CodeBlock";
 import UniqueID from "./extensions/UniqueID";
 import Callout from "./extensions/Callout";
@@ -44,7 +45,7 @@ import { Toolbar } from "./Toolbar";
 import { useNotesStore } from "@/store/useNotesStore";
 import { NoteMeta } from "./NoteSummary";
 import RightSidebar from "./RightSidebar";
-import { marked } from "marked";
+import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 import { useNoteSync } from "@/hooks/useNoteSync";
 import { createContentSnapshot } from "@/lib/content-snapshot";
@@ -95,6 +96,7 @@ const EDITOR_CONFIG = {
 };
 
 const MARKDOWN_PATTERNS = {
+  MATH: /\$[^\s$][\s\S]*\$|^\$\$[ \t]*$/m,
   HEADING: /^#{1,6}\s/m,
   LIST: /^[-*+]\s/m,
   ORDERED_LIST: /^\d+\.\s/m,
@@ -114,6 +116,8 @@ const MARKDOWN_PATTERNS = {
 
 const getFontClass = (font: string | null | undefined): string =>
   FONT_CLASSES[font ?? "sans"] ?? FONT_CLASSES.sans;
+
+const clipboardMarkdown = new MarkdownIt({ html: true, linkify: true, breaks: true }).use(addMathMarkdown);
 
 const hasMarkdownSyntax = (text: string): boolean =>
   Object.values(MARKDOWN_PATTERNS).some((p) => p.test(text)) ||
@@ -413,7 +417,6 @@ function HydratedEditor({
           "codeBlock",
           "blockquote",
           "horizontalRule",
-          "mathBlock",
           "table",
           "callout",
         ],
@@ -457,6 +460,7 @@ function HydratedEditor({
       SlashCommand,
       MathInline,
       MathBlock,
+      MathEditing,
     ],
     [ydoc, noteLinkSuggestion, onNavigateNote]
   );
@@ -492,20 +496,15 @@ function HydratedEditor({
         handlePaste: (view, event) => {
           const text = event.clipboardData?.getData("text/plain");
           const html = event.clipboardData?.getData("text/html");
-          if (html && !html.includes("<meta")) return false;
+          if (html && !/^\s*(?:<meta[^>]*>\s*)+$/i.test(html)) return false;
           if (text && hasMarkdownSyntax(text)) {
             event.preventDefault();
             isPastingRef.current = true;
             try {
-              const parsed = marked.parse(text, {
-                async: false,
-                gfm: true,
-                breaks: true,
-              }) as string;
+              const parsed = clipboardMarkdown.render(text);
               const clean = sanitizeHtml(parsed);
               const ed = editorRef.current;
               if (!ed || ed.isDestroyed) return false;
-              if (!ed.state.selection.empty) ed.commands.deleteSelection();
               ed.commands.insertContent(clean, {
                 parseOptions: { preserveWhitespace: "full" },
               });
@@ -839,7 +838,7 @@ function HydratedEditor({
                       event.preventDefault();
                       focusTitleEnd();
                     }
-                  }}><EditorContent editor={editor} /></div>
+                  }}><EditorContent editor={editor} /><MathEditor editor={editor} /></div>
                 ) : (
                   <div
                     className="h-40 rounded-md bg-zinc-800 animate-pulse"
@@ -1037,18 +1036,18 @@ export default function NoteEditor({
 
       <style jsx global>{`
         #note-editor-root[data-font="serif"] .ProseMirror,
-        #note-editor-root[data-font="serif"] .ProseMirror * {
+        #note-editor-root[data-font="serif"] .ProseMirror :not(:where(.katex, .katex *, .math-invalid)) {
           font-family:
             ui-serif, Georgia, Cambria, "Times New Roman", Times, serif !important;
         }
         #note-editor-root[data-font="mono"] .ProseMirror,
-        #note-editor-root[data-font="mono"] .ProseMirror * {
+        #note-editor-root[data-font="mono"] .ProseMirror :not(:where(.katex, .katex *, .math-invalid)) {
           font-family:
             ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
             "Liberation Mono", "Courier New", monospace !important;
         }
         #note-editor-root[data-font="sans"] .ProseMirror,
-        #note-editor-root[data-font="sans"] .ProseMirror * {
+        #note-editor-root[data-font="sans"] .ProseMirror :not(:where(.katex, .katex *, .math-invalid)) {
           font-family: var(--font-geist-sans), sans-serif !important;
         }
         .ProseMirror {
