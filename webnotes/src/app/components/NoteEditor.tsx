@@ -29,7 +29,6 @@ import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { useSession } from "next-auth/react";
 import { SlashCommand } from "./SlashCommandExtension";
-import { slashCommandSuggestion } from "./SlashCommands";
 import { MathInline, MathBlock } from "./extensions/math";
 import { CodeBlock } from "./extensions/CodeBlock";
 import UniqueID from "./extensions/UniqueID";
@@ -455,7 +454,7 @@ function HydratedEditor({
         linkify: false,
         tightLists: true,
       }),
-      SlashCommand.configure({ suggestion: slashCommandSuggestion }),
+      SlashCommand,
       MathInline,
       MathBlock,
     ],
@@ -471,6 +470,9 @@ function HydratedEditor({
       content: "",
       editorProps: {
         attributes: {
+          role: "textbox",
+          "aria-label": "Note body",
+          "aria-multiline": "true",
           class:
             "prose prose-invert prose-lg focus:outline-none max-w-none break-words",
         },

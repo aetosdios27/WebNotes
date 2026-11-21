@@ -1,982 +1,263 @@
 "use client";
 
-import { motionTiming } from "./ui/motion-tokens";
+import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
+import type { EditorView } from "@tiptap/pm/view";
 import { ReactRenderer } from "@tiptap/react";
-import tippy from "tippy.js";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import {
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Code,
-  Quote,
-  Minus,
-  Type,
-  Sigma,
-  Divide,
-  Grid3X3,
-  Infinity,
-  Brackets,
-  Braces,
-  ArrowRight,
-  PlusCircle,
-  Table,
-} from "lucide-react";
-import { mathTemplates } from "./extensions/math";
-import type { Editor, Range } from "@tiptap/core";
+import type { SuggestionProps } from "@tiptap/suggestion";
+import { useLayoutEffect, useRef } from "react";
+import { commandGroups, type SlashCommandItem } from "./slash-command-registry";
+import { SlidingIndicator } from "./ui/sliding-indicator";
 
-// =============================================================================
-// TYPES
-// =============================================================================
+type SlashSuggestionProps = SuggestionProps<SlashCommandItem>;
+type MenuProps = {
+  id: string;
+  query: string;
+  items: SlashCommandItem[];
+  selected: SlashCommandItem | undefined;
+  onSelect: (item: SlashCommandItem) => void;
+  onRun: (item: SlashCommandItem) => void;
+};
 
-interface CommandProps {
-  editor: Editor;
-  range: Range;
+function optionId(listboxId: string, item: SlashCommandItem) {
+  return `${listboxId}-${item.id}`;
 }
 
-interface CommandItem {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  command: (props: CommandProps) => void;
-  keywords?: string[];
-}
+function SlashCommands({ id, query, items, selected, onSelect, onRun }: MenuProps) {
+  const selectedRow = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    selectedRow.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [query, selected]);
 
-interface SlashCommandsProps {
-  items: CommandItem[];
-  command: (item: CommandItem) => void;
-  editor: Editor;
-}
-
-// =============================================================================
-// COMPONENT
-// =============================================================================
-
-export const SlashCommands = forwardRef((props: SlashCommandsProps, ref) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const selectItem = (index: number) => {
-    const item = props.items[index];
-    if (item) {
-      props.command(item);
-      requestAnimationFrame(() => {
-        const { view, state } = props.editor;
-        const block = view.domAtPos(state.selection.from).node;
-        const element = block instanceof Element ? block : block.parentElement;
-        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          element?.animate([{ opacity: 0 }, { opacity: 1 }], {
-            ...motionTiming(view.dom, "normal"),
-          });
-        }
-      });
-    }
-  };
-
-  const upHandler = () => {
-    setSelectedIndex(
-      (selectedIndex + props.items.length - 1) % props.items.length
+  const row = (item: SlashCommandItem) => {
+    const Icon = item.icon;
+    return (
+      <div
+        key={item.id}
+        id={optionId(id, item)}
+        ref={item === selected ? selectedRow : null}
+        className="slash-option"
+        role="option"
+        aria-selected={item === selected}
+        onPointerMove={() => onSelect(item)}
+        onClick={() => onRun(item)}
+      >
+        <Icon aria-hidden="true" />
+        <span className="slash-title">{item.title}</span>
+        {item.shortcut && <kbd aria-hidden="true" data-shortcut={item.shortcut}>{item.shortcut}</kbd>}
+        {item.symbol && <span className="slash-symbol" aria-hidden="true">{item.symbol}</span>}
+      </div>
     );
   };
 
-  const downHandler = () => {
-    setSelectedIndex((selectedIndex + 1) % props.items.length);
-  };
-
-  const enterHandler = () => {
-    selectItem(selectedIndex);
-  };
-
-  useEffect(() => setSelectedIndex(0), [props.items]);
-
-  useImperativeHandle(ref, () => ({
-    onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-      if (event.key === "ArrowUp") {
-        upHandler();
-        return true;
-      }
-
-      if (event.key === "ArrowDown") {
-        downHandler();
-        return true;
-      }
-
-      if (event.key === "Enter") {
-        enterHandler();
-        return true;
-      }
-
-      return false;
-    },
-  }));
-
   return (
-    <div data-depth="popover" className="slash-menu bg-popover text-ink border border-line rounded-lg overflow-hidden p-2 min-w-[280px] max-h-[400px] overflow-y-auto">
-      {props.items.length > 0 ? (
-        props.items.map((item, index) => (
-          <button
-            key={index}
-            onClick={() => selectItem(index)}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left transition-colors ${
-              index === selectedIndex
-                ? "bg-selected text-ink"
-                : "text-muted hover:bg-selected hover:text-ink"
-            }`}
-          >
-            <div className="flex-shrink-0 text-zinc-500">{item.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{item.title}</div>
-              <div className="text-xs text-zinc-600 truncate">
-                {item.description}
-              </div>
-            </div>
-          </button>
-        ))
-      ) : (
-        <div className="text-sm text-zinc-500 px-3 py-2">No results</div>
-      )}
+    <div data-depth="popover" className="slash-menu bg-popover">
+      <div
+        id={id}
+        role="listbox"
+        aria-label="Insert a block"
+        className="slash-results"
+        data-searching={query.trim() ? "" : undefined}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        <SlidingIndicator value={`${query}:${selected?.id ?? ""}`} />
+        {query.trim() ? items.map(row) : commandGroups.map((group) => (
+          <div key={group} role="group" aria-label={group}>
+            <div className="slash-group-label" aria-hidden="true">{group}</div>
+            {items.filter((item) => item.group === group).map(row)}
+          </div>
+        ))}
+        {items.length === 0 && (
+          <div className="slash-empty" role="status">No blocks match “{query}”</div>
+        )}
+      </div>
     </div>
   );
-});
+}
 
-SlashCommands.displayName = "SlashCommands";
+let nextMenuId = 0;
 
-// =============================================================================
-// COMMANDS
-// =============================================================================
+export function renderSlashCommands(dismiss: (view: EditorView) => void) {
+  let menu: ReturnType<typeof mountMenu> | undefined;
 
-export const slashCommandItems = (): CommandItem[] => [
-  // ============================================
-  // TEXT & HEADINGS
-  // ============================================
-  {
-    title: "Text",
-    description: "Just start writing with plain text",
-    icon: <Type className="h-4 w-4" />,
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .toggleNode("paragraph", "paragraph")
-        .run();
+  return {
+    onStart(props: SlashSuggestionProps) {
+      menu?.close();
+      menu = mountMenu(props, dismiss);
     },
-  },
-  {
-    title: "Heading 1",
-    description: "Big section heading",
-    icon: <Heading1 className="h-4 w-4" />,
-    keywords: ["h1", "heading1", "title"],
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setNode("heading", { level: 1 })
-        .run();
+    onUpdate(props: SlashSuggestionProps) {
+      menu?.update(props);
     },
-  },
-  {
-    title: "Heading 2",
-    description: "Medium section heading",
-    icon: <Heading2 className="h-4 w-4" />,
-    keywords: ["h2", "heading2", "subtitle"],
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setNode("heading", { level: 2 })
-        .run();
-    },
-  },
-  {
-    title: "Heading 3",
-    description: "Small section heading",
-    icon: <Heading3 className="h-4 w-4" />,
-    keywords: ["h3", "heading3", "subheading"],
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setNode("heading", { level: 3 })
-        .run();
-    },
-  },
-
-  // ============================================
-  // LISTS
-  // ============================================
-  {
-    title: "Bullet List",
-    description: "Create a simple bullet list",
-    icon: <List className="h-4 w-4" />,
-    keywords: ["ul", "list", "bullet", "unordered"],
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBulletList().run();
-    },
-  },
-  {
-    title: "Numbered List",
-    description: "Create a numbered list",
-    icon: <ListOrdered className="h-4 w-4" />,
-    keywords: ["ol", "ordered", "numbered", "list"],
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleOrderedList().run();
-    },
-  },
-  {
-    title: "Task List",
-    description: "Create a checklist with todos",
-    icon: <CheckSquare className="h-4 w-4" />,
-    keywords: ["todo", "task", "checkbox", "checklist", "check", "[]"],
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleTaskList().run();
-    },
-  },
-
-  // ============================================
-  // BLOCKS
-  // ============================================
-  {
-    title: "Quote",
-    description: "Create a blockquote",
-    icon: <Quote className="h-4 w-4" />,
-    keywords: ["blockquote", "citation", "quote"],
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).toggleBlockquote().run();
-    },
-  },
-  {
-    title: "Code Block",
-    description: "Create a code block",
-    icon: <Code className="h-4 w-4" />,
-    keywords: ["code", "codeblock", "snippet", "programming"],
-    command: ({ editor, range }: any) => {
-      console.log("SLASH COMMAND: Code Block Triggered");
-
-      // Delete the slash command text first
-      editor.chain().focus().deleteRange(range).run();
-
-      // Insert code block node directly using the transaction
-      const { state } = editor;
-      const { tr, schema } = state;
-      const codeBlockType = schema.nodes.codeBlock;
-
-      if (codeBlockType) {
-        console.log("SLASH COMMAND: Inserting Node with language=text");
-        const node = codeBlockType.create({ language: "text" });
-        console.log("SLASH COMMAND: Node Created:", node.attrs);
-        tr.replaceSelectionWith(node);
-        editor.view.dispatch(tr);
-        editor.commands.focus();
-      } else {
-        console.error("SLASH COMMAND: codeBlock schema not found!");
+    onKeyDown({ view, event }: { view: EditorView; event: KeyboardEvent }) {
+      if (event.key === "Escape") {
+        dismiss(view);
+        return true;
       }
-    },
-  },
-  {
-    title: "Divider",
-    description: "Insert a horizontal rule",
-    icon: <Minus className="h-4 w-4" />,
-    keywords: ["hr", "horizontal", "line", "separator", "divider"],
-    command: ({ editor, range }: any) => {
-      editor.chain().focus().deleteRange(range).setHorizontalRule().run();
-    },
-  },
 
-  // ============================================
-  // TABLES
-  // ============================================
-  {
-    title: "Table",
-    description: "Insert a 3×3 table",
-    icon: <Table className="h-4 w-4" />,
-    keywords: ["table", "grid", "rows", "columns", "spreadsheet", "data"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 3, cols: 3, withHeaderRow: false })
-        .run();
+      if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return false;
+      return menu?.keyDown(event.key) ?? false;
     },
-  },
-  {
-    title: "Table 2×2",
-    description: "Insert a small 2×2 table",
-    icon: <Grid3X3 className="h-4 w-4" />,
-    keywords: ["table", "grid", "small", "2x2"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 2, cols: 2, withHeaderRow: false })
-        .run();
+    onExit() {
+      menu?.close();
+      menu = undefined;
     },
-  },
-  {
-    title: "Table 4×4",
-    description: "Insert a larger 4×4 table",
-    icon: <Grid3X3 className="h-4 w-4" />,
-    keywords: ["table", "grid", "large", "4x4"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: 4, cols: 4, withHeaderRow: false })
-        .run();
-    },
-  },
+  };
+}
 
-  // ============================================
-  // MATH - BASIC
-  // ============================================
-  {
-    title: "Math Inline",
-    description: "Inline equation ($...$)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "latex", "equation", "formula", "inline", "$", "katex"],
-    command: ({ editor, range }: any) => {
-      editor.chain().focus().deleteRange(range).setMathInline("").run();
-    },
-  },
-  {
-    title: "Math Block",
-    description: "Display equation ($$...$$)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "latex", "equation", "block", "display", "$$", "katex"],
-    command: ({ editor, range }: any) => {
-      editor.chain().focus().deleteRange(range).setMathBlock("").run();
-    },
-  },
-  {
-    title: "Fraction",
-    description: "Insert a fraction (a/b)",
-    icon: <Divide className="h-4 w-4" />,
-    keywords: ["math", "fraction", "frac", "divide", "ratio"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.fraction)
-        .run();
-    },
-  },
-  {
-    title: "Square Root",
-    description: "Insert square root (√)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "sqrt", "root", "square"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.sqrt)
-        .run();
-    },
-  },
-  {
-    title: "Subscript",
-    description: "Insert subscript (xᵢ)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "subscript", "index", "sub"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.subscript)
-        .run();
-    },
-  },
-  {
-    title: "Superscript",
-    description: "Insert superscript (xⁿ)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "superscript", "power", "exponent", "sup"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.superscript)
-        .run();
-    },
-  },
-  {
-    title: "Infinity",
-    description: "Insert infinity (∞)",
-    icon: <Infinity className="h-4 w-4" />,
-    keywords: ["math", "infinity", "inf", "infinite"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.infinity)
-        .run();
-    },
-  },
-  {
-    title: "Plus/Minus",
-    description: "Insert plus-minus (±)",
-    icon: <PlusCircle className="h-4 w-4" />,
-    keywords: ["math", "plus", "minus", "pm", "plusminus"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.plusMinus)
-        .run();
-    },
-  },
+function mountMenu(initial: SlashSuggestionProps, dismiss: (view: EditorView) => void) {
+  const { editor } = initial;
+  const { view } = editor;
+  const id = `slash-commands-${++nextMenuId}`;
+  let current = initial;
+  let selectedIndex = 0;
+  let firstMiss = initial.items.length ? undefined : initial.query.length;
+  let open = true;
+  let request = 0;
 
-  // ============================================
-  // MATH - CALCULUS
-  // ============================================
-  {
-    title: "Sum",
-    description: "Insert summation (Σ)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "sum", "sigma", "summation", "series"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.sum)
-        .run();
-    },
-  },
-  {
-    title: "Product",
-    description: "Insert product (Π)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "product", "pi", "prod", "multiply"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.product)
-        .run();
-    },
-  },
-  {
-    title: "Integral",
-    description: "Insert integral (∫)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "integral", "int", "calculus", "integration"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.integral)
-        .run();
-    },
-  },
-  {
-    title: "Limit",
-    description: "Insert limit (lim)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "limit", "lim", "calculus"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.limit)
-        .run();
-    },
-  },
-  {
-    title: "Derivative",
-    description: "Insert derivative (d/dx)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "derivative", "diff", "calculus", "dx"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.derivative)
-        .run();
-    },
-  },
-  {
-    title: "Partial Derivative",
-    description: "Insert partial derivative (∂)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "partial", "derivative", "multivariable"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.partial)
-        .run();
-    },
-  },
-  {
-    title: "Gradient",
-    description: "Insert gradient (∇)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "gradient", "nabla", "del", "vector"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.gradient)
-        .run();
-    },
-  },
+  function select(item: SlashCommandItem) {
+    const index = current.items.indexOf(item);
+    if (index === -1 || index === selectedIndex) return;
+    selectedIndex = index;
+    render();
+  }
 
-  // ============================================
-  // MATH - LINEAR ALGEBRA
-  // ============================================
-  {
-    title: "Matrix",
-    description: "Insert 2×2 matrix",
-    icon: <Grid3X3 className="h-4 w-4" />,
-    keywords: ["math", "matrix", "array", "linear", "algebra"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.matrix)
-        .run();
-    },
-  },
-  {
-    title: "Determinant",
-    description: "Insert determinant |A|",
-    icon: <Grid3X3 className="h-4 w-4" />,
-    keywords: ["math", "determinant", "det", "matrix", "linear"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.determinant)
-        .run();
-    },
-  },
-  {
-    title: "Vector",
-    description: "Insert column vector",
-    icon: <Brackets className="h-4 w-4" />,
-    keywords: ["math", "vector", "column", "linear", "algebra"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.vector)
-        .run();
-    },
-  },
-  {
-    title: "Norm",
-    description: "Insert norm ||x||",
-    icon: <Brackets className="h-4 w-4" />,
-    keywords: ["math", "norm", "magnitude", "length", "absolute"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.norm)
-        .run();
-    },
-  },
+  function run(item: SlashCommandItem) {
+    if (open && current.items.includes(item)) current.command(item);
+  }
 
-  // ============================================
-  // MATH - STATISTICS
-  // ============================================
-  {
-    title: "Expectation",
-    description: "Expected value E[X]",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: [
-      "math",
-      "expectation",
-      "expected",
-      "mean",
-      "average",
-      "statistics",
-    ],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.expectation)
-        .run();
-    },
-  },
-  {
-    title: "Probability",
-    description: "Probability P(X)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "probability", "prob", "statistics", "chance"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.probability)
-        .run();
-    },
-  },
-  {
-    title: "Variance",
-    description: "Variance Var(X)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "variance", "var", "statistics", "spread"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.variance)
-        .run();
-    },
-  },
-  {
-    title: "Normal Distribution",
-    description: "Normal distribution N(μ,σ²)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "normal", "gaussian", "distribution", "bell", "curve"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.normalDist)
-        .run();
-    },
-  },
+  const renderer = new ReactRenderer<unknown, MenuProps>(SlashCommands, {
+    editor,
+    className: "slash-positioner",
+    props: { id, query: initial.query, items: initial.items, selected: initial.items[0], onSelect: select, onRun: run },
+  });
+  const root = renderer.element;
+  view.dom.ownerDocument.body.append(root);
+  view.dom.setAttribute("aria-controls", id);
+  view.dom.setAttribute("aria-expanded", "true");
 
-  // ============================================
-  // MATH - MACHINE LEARNING
-  // ============================================
-  {
-    title: "Hat",
-    description: "Insert hat notation (ŷ)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "hat", "estimate", "prediction", "ml"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.hat)
-        .run();
-    },
-  },
-  {
-    title: "Argmax",
-    description: "Insert argmax",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "argmax", "maximum", "optimization", "ml"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.argmax)
-        .run();
-    },
-  },
-  {
-    title: "Argmin",
-    description: "Insert argmin",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "argmin", "minimum", "optimization", "ml"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.argmin)
-        .run();
-    },
-  },
-  {
-    title: "Sigmoid",
-    description: "Sigmoid function σ(x)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "sigmoid", "logistic", "activation", "neural", "ml"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.sigmoid)
-        .run();
-    },
-  },
-  {
-    title: "Softmax",
-    description: "Softmax function",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: [
-      "math",
-      "softmax",
-      "activation",
-      "classification",
-      "neural",
-      "ml",
-    ],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.softmax)
-        .run();
-    },
-  },
+  function render() {
+    const selected = current.items[selectedIndex];
+    if (selected) view.dom.setAttribute("aria-activedescendant", optionId(id, selected));
+    else view.dom.removeAttribute("aria-activedescendant");
+    renderer.updateProps({ query: current.query, items: current.items, selected });
+  }
 
-  // ============================================
-  // MATH - SET THEORY
-  // ============================================
-  {
-    title: "Element Of",
-    description: "Element of set (x ∈ A)",
-    icon: <Braces className="h-4 w-4" />,
-    keywords: ["math", "element", "in", "member", "set", "belongs"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.elementOf)
-        .run();
+  const caret = {
+    contextElement: view.dom,
+    getBoundingClientRect() {
+      const { left, right, top, bottom } = view.coordsAtPos(current.range.from);
+      return new DOMRect(left, top, right - left, bottom - top);
     },
-  },
-  {
-    title: "Union",
-    description: "Set union (A ∪ B)",
-    icon: <Braces className="h-4 w-4" />,
-    keywords: ["math", "union", "cup", "set", "or"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.union)
-        .run();
-    },
-  },
-  {
-    title: "Intersection",
-    description: "Set intersection (A ∩ B)",
-    icon: <Braces className="h-4 w-4" />,
-    keywords: ["math", "intersection", "cap", "set", "and"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.intersection)
-        .run();
-    },
-  },
-  {
-    title: "Subset",
-    description: "Subset (A ⊆ B)",
-    icon: <Braces className="h-4 w-4" />,
-    keywords: ["math", "subset", "contained", "set"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.subset)
-        .run();
-    },
-  },
+  };
 
-  // ============================================
-  // MATH - LOGIC
-  // ============================================
-  {
-    title: "For All",
-    description: "Universal quantifier (∀)",
-    icon: <ArrowRight className="h-4 w-4" />,
-    keywords: ["math", "forall", "all", "universal", "quantifier", "logic"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.forall)
-        .run();
-    },
-  },
-  {
-    title: "Exists",
-    description: "Existential quantifier (∃)",
-    icon: <ArrowRight className="h-4 w-4" />,
-    keywords: ["math", "exists", "existential", "quantifier", "logic"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.exists)
-        .run();
-    },
-  },
-  {
-    title: "Implies",
-    description: "Logical implication (⇒)",
-    icon: <ArrowRight className="h-4 w-4" />,
-    keywords: ["math", "implies", "implication", "then", "logic", "arrow"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.implies)
-        .run();
-    },
-  },
-  {
-    title: "If and Only If",
-    description: "Biconditional (⇔)",
-    icon: <ArrowRight className="h-4 w-4" />,
-    keywords: ["math", "iff", "biconditional", "equivalent", "logic"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.iff)
-        .run();
-    },
-  },
+  function position() {
+    const frame = ++request;
+    void computePosition(caret, root, {
+      strategy: "fixed",
+      placement: "bottom-start",
+      middleware: [
+        offset(5),
+        flip({ padding: 8, crossAxis: false }),
+        shift({ padding: 8 }),
+        size({
+          padding: 8,
+          apply({ availableHeight }) {
+            if (open && frame === request) {
+              root.style.setProperty("--slash-available-height", `${Math.max(0, availableHeight)}px`);
+            }
+          },
+        }),
+      ],
+    }).then(({ x, y, placement }) => {
+      if (!open || frame !== request) return;
+      root.style.left = `${x}px`;
+      root.style.top = `${y}px`;
+      root.dataset.side = placement.startsWith("top") ? "top" : "bottom";
 
-  // ============================================
-  // MATH - COMBINATORICS
-  // ============================================
-  {
-    title: "Binomial",
-    description: "Binomial coefficient (n choose k)",
-    icon: <Sigma className="h-4 w-4" />,
-    keywords: ["math", "binomial", "choose", "combination", "combinatorics"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathInline(mathTemplates.binomial)
-        .run();
-    },
-  },
-
-  // ============================================
-  // MATH - PIECEWISE
-  // ============================================
-  {
-    title: "Cases",
-    description: "Piecewise function",
-    icon: <Braces className="h-4 w-4" />,
-    keywords: ["math", "cases", "piecewise", "conditional", "if"],
-    command: ({ editor, range }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setMathBlock(mathTemplates.cases)
-        .run();
-    },
-  },
-];
-
-export const slashCommandSuggestion = {
-  items: ({ query }: { query: string }) => {
-    const items = slashCommandItems();
-
-    if (!query) return items;
-
-    const searchTerm = query.toLowerCase();
-
-    return items.filter((item) => {
-      return (
-        item.title.toLowerCase().includes(searchTerm) ||
-        item.description.toLowerCase().includes(searchTerm) ||
-        item.keywords?.some((keyword) =>
-          keyword.toLowerCase().includes(searchTerm)
-        )
-      );
+      if (root.dataset.positioned === undefined && root.firstElementChild) {
+        const surface = root.firstElementChild;
+        surface.setAttribute("data-starting-style", "");
+        root.dataset.positioned = "";
+        surface.getBoundingClientRect();
+        surface.removeAttribute("data-starting-style");
+      }
     });
-  },
+  }
 
-  render: () => {
-    let component: ReactRenderer;
-    let popup: any;
+  function onOutside(event: Event) {
+    if (event.target instanceof Node && !root.contains(event.target) &&
+        (event.type === "pointerdown" || !view.dom.contains(event.target))) {
+      dismiss(view);
+    }
+  }
 
-    return {
-      onStart: (props: any) => {
-        component = new ReactRenderer(SlashCommands, {
-          props,
-          editor: props.editor,
-        });
+  const doc = view.dom.ownerDocument;
+  doc.addEventListener("pointerdown", onOutside, true);
+  doc.addEventListener("focusin", onOutside, true);
+  const stopPositioning = autoUpdate(caret, root, position);
+  render();
 
-        if (!props.clientRect) {
-          return;
-        }
+  return {
+    update(props: SlashSuggestionProps) {
+      if (current.query !== props.query) selectedIndex = 0;
+      firstMiss = props.items.length ? undefined : Math.min(firstMiss ?? props.query.length, props.query.length);
+      if (firstMiss !== undefined &&
+          (/\s$/.test(props.query) || props.query.length - firstMiss >= 3)) {
+        dismiss(view);
+        return;
+      }
+      current = props;
+      render();
+      position();
+    },
+    keyDown(key: string) {
+      const { items } = current;
+      const item = items[selectedIndex];
+      if (!open || !item) return false;
 
-        popup = tippy("body", {
-          getReferenceClientRect: props.clientRect,
-          appendTo: () => document.body,
-          content: component.element,
-          showOnCreate: true,
-          interactive: true,
-          trigger: "manual",
-          placement: "bottom-start",
-        });
-      },
-
-      onUpdate(props: any) {
-        component.updateProps(props);
-
-        if (!props.clientRect) {
-          return;
-        }
-
-        popup[0].setProps({
-          getReferenceClientRect: props.clientRect,
-        });
-      },
-
-      onKeyDown(props: any) {
-        if (props.event.key === "Escape") {
-          popup[0].hide();
+      switch (key) {
+        case "ArrowUp":
+          selectedIndex = (selectedIndex + items.length - 1) % items.length;
+          break;
+        case "ArrowDown":
+          selectedIndex = (selectedIndex + 1) % items.length;
+          break;
+        case "Home":
+          selectedIndex = 0;
+          break;
+        case "End":
+          selectedIndex = items.length - 1;
+          break;
+        case "Enter":
+        case "Tab":
+          run(item);
           return true;
+        default:
+          return false;
+      }
+      render();
+      return true;
+    },
+    close() {
+      open = false;
+      stopPositioning();
+      doc.removeEventListener("pointerdown", onOutside, true);
+      doc.removeEventListener("focusin", onOutside, true);
+      view.dom.removeAttribute("aria-activedescendant");
+      view.dom.removeAttribute("aria-controls");
+      view.dom.removeAttribute("aria-expanded");
+
+      root.inert = true;
+      const surface = root.firstElementChild;
+      if (surface && root.dataset.positioned !== undefined) {
+        surface.setAttribute("data-ending-style", "");
+        const animations = surface.getAnimations();
+        if (animations.length) {
+          void Promise.allSettled(animations.map((animation) => animation.finished))
+            .then(() => renderer.destroy());
+          return;
         }
-
-        return (component.ref as any)?.onKeyDown(props);
-      },
-
-      onExit() {
-        popup[0].destroy();
-        component.destroy();
-      },
-    };
-  },
-};
+      }
+      renderer.destroy();
+    },
+  };
+}
