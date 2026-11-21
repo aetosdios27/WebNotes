@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Command, Keyboard, Calculator } from "lucide-react";
+import { Search, Keyboard, Calculator } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -138,33 +138,11 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             </div>
           ) : (
             <div className="space-y-8">
-              {/* Math Typing Hints Section */}
-              <div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-                <h4 className="text-blue-400 text-sm font-semibold mb-2 flex items-center gap-2">
-                  <Command className="w-4 h-4" /> Pro Tip: Speed Typing
-                </h4>
-                <p className="text-muted text-sm mb-2">
-                  You don&apos;t always need slash commands! Try these
-                  auto-replacements inside any math block:
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-sans text-reading">
-                  <div>
-                    Type <span className="text-ink">{"//"}</span> →{" "}
-                    <RenderMath latex="\frac{a}{b}" />
-                  </div>
-                  <div>
-                    Type <span className="text-ink">alpha</span> →{" "}
-                    <RenderMath latex="\alpha" />
-                  </div>
-                  <div>
-                    Type <span className="text-ink">sum</span> →{" "}
-                    <RenderMath latex="\sum" />
-                  </div>
-                  <div>
-                    Type <span className="text-ink">-{">"}</span> →{" "}
-                    <RenderMath latex="\rightarrow" />
-                  </div>
-                </div>
+              <div className="rounded-md border border-line bg-panel p-4 text-sm text-ink">
+                <p>Type <code>$x^2$</code> inline or start a line with <code>$$</code> and a space for a block.</p>
+                <p className="mt-2">Click a formula to edit it, or select it with the arrow keys and press Enter.
+                  Enter saves inline math, and Shift + Enter adds a line. For blocks, use Ctrl/⌘ + Enter to save.
+                  Click outside to save or press Esc to cancel.</p>
               </div>
 
               {Object.entries(groupBy(filteredMath, "category")).map(
@@ -221,11 +199,11 @@ function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
 
 const mathReference = [
   // Basic
-  { category: "Basic", label: "Inline Equation", cmd: "/math", preview: "x^2" },
+  { category: "Basic", label: "Inline Equation", cmd: "$…$", preview: "x^2" },
   {
     category: "Basic",
     label: "Block Equation",
-    cmd: "/block",
+    cmd: "$$ + Space",
     preview: "\\sum_{i=0}^n x_i",
   },
   {
@@ -335,7 +313,7 @@ const mathReference = [
   {
     category: "Statistics & ML",
     label: "Loss Function",
-    cmd: "/cross",
+    cmd: "\\times",
     preview: "L(\\theta)",
   },
 

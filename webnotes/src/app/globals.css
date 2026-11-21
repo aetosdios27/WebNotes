@@ -370,38 +370,133 @@ body {
   MATH RENDERING
 ============================================================
 */
-.math-inline-render {
-  display: inline-block;
-  padding: 2px 4px;
-  margin: 0 1px;
-  border-radius: var(--radius-detail);
+.math-inline-render,
+.math-block-render {
+  color: inherit;
   cursor: pointer;
-  transition: all 0.15s ease;
-  vertical-align: middle;
 }
-
-.math-inline-render:hover {
-  background: rgba(250, 204, 21, 0.1);
+.math-inline-render {
+  display: inline;
+  padding-inline: 0.16em;
+  border-radius: var(--radius-detail);
 }
-.math-inline-render.ring-2 {
-  background: rgba(250, 204, 21, 0.15);
-  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.4);
+.math-block-node {
+  position: relative;
+  margin-block: 12px;
 }
-
 .math-block-render {
   display: block;
-  padding: 24px;
-  margin: 16px 0;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 36px;
   border-radius: var(--radius-control);
   text-align: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
+  overflow-x: auto;
 }
-
-.math-block-render:hover {
-  background: rgba(250, 204, 21, 0.05);
-  border-color: rgba(250, 204, 21, 0.2);
+.math-block-render .katex-display,
+.math-live-preview .katex-display {
+  margin: 0;
+}
+[data-editing-formula] :is(.math-inline-render, .math-block-render),
+:is(.math-inline-render, .math-block-render)[data-selected],
+:is(.math-inline-render, .math-block-render):focus-visible {
+  background: var(--selected);
+  outline: none;
+}
+@media (hover: hover) {
+  :is(.math-inline-render, .math-block-render):hover:not([data-selected]) {
+    background: var(--panel);
+  }
+}
+.math-block-node .math-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+.math-block-node:is(:hover, :focus-within) .math-copy {
+  opacity: 1;
+}
+@media (hover: none) {
+  .math-block-node .math-copy {
+    opacity: 1;
+  }
+}
+.math-invalid {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  text-decoration: underline wavy var(--muted);
+  text-underline-offset: 0.18em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.math-editor {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 100;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 12px;
+  color: var(--ink);
+}
+.math-source-label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--reading);
+}
+.math-source-label textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
+  font: 400 16px/1.4 var(--font-mono), ui-monospace, monospace;
+}
+.math-source-label textarea:focus {
+  outline: 1px solid var(--muted);
+  outline-offset: -1px;
+}
+.math-live-preview {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  overflow-x: auto;
+  padding: 8px 2px;
+  font-size: 14px;
+}
+.math-live-preview > span {
+  margin-inline: auto;
+}
+.math-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--reading);
+}
+.math-editor-actions button {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  padding: 4px 10px;
+}
+.math-editor-actions button:hover {
+  background: var(--selected);
+}
+.mini-math .katex {
+  font-size: 1em;
 }
 
 /* Editor rules deliberately outrank Tailwind typography without !important. */
@@ -509,17 +604,7 @@ body {
   border-radius: var(--radius-control);
   padding: 1em;
 }
-.math-inline-render.ring-2 {
-  background: var(--selected);
-  box-shadow: 0 0 0 2px var(--line);
-}
-@media (hover: hover) {
-  .math-inline-render:hover,
-  .math-block-render:hover {
-    background: var(--panel);
-    border-color: var(--line);
-  }
-}
+
 @media (max-width: 600px) {
   .ProseMirror.ProseMirror {
     font-size: 16.5px;
@@ -549,7 +634,7 @@ body {
 }
 /* These two declarations must outrank NoteEditor's embedded !important fonts. */
 #note-editor-root#note-editor-root[data-font="sans"] .ProseMirror,
-#note-editor-root#note-editor-root[data-font="sans"] .ProseMirror * {
+#note-editor-root#note-editor-root[data-font="sans"] .ProseMirror :not(:where(.katex, .katex *, .math-invalid)) {
   font-family: var(--font-geist-sans), sans-serif !important;
 }
 #note-editor-root#note-editor-root
@@ -1730,12 +1815,8 @@ body {
   border-radius: var(--radius-control);
   overflow: hidden;
 }
-.ProseMirror code,
-.math-inline-render {
+.ProseMirror code {
   border-radius: var(--radius-detail);
-}
-.math-block-render {
-  border-radius: var(--radius-control);
 }
 [data-sonner-toast][data-styled="true"] {
   border-radius: var(--radius-surface);

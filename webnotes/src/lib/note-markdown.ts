@@ -11,6 +11,7 @@ export async function noteMarkdown(note: Note): Promise<string> {
     { TableRow },
     { TableHeader },
     { TableCell },
+    { MathInline, MathBlock },
   ] = await Promise.all([
     import("@tiptap/core"),
     import("@tiptap/starter-kit"),
@@ -21,6 +22,7 @@ export async function noteMarkdown(note: Note): Promise<string> {
     import("@tiptap/extension-table-row"),
     import("@tiptap/extension-table-header"),
     import("@tiptap/extension-table-cell"),
+    import("@/app/components/extensions/math"),
   ]);
   const editor = new Editor({
     extensions: [
@@ -32,6 +34,8 @@ export async function noteMarkdown(note: Note): Promise<string> {
       TableRow,
       TableHeader,
       TableCell,
+      MathInline,
+      MathBlock,
     ],
     content: note.content || "",
   });

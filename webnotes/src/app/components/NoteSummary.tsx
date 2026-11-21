@@ -6,6 +6,8 @@ import { Folder as FolderIcon } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import MarkdownIt from "markdown-it";
 import taskLists from "markdown-it-task-lists";
+import { addMathMarkdown } from "./extensions/math/MathMarkdown";
+import { renderLatex } from "./extensions/math/MathUtils";
 import type { Note, Folder } from "@/lib/storage/types";
 
 // Plain text keeps stored HTML inert, including scripts and remote resources.
@@ -36,7 +38,7 @@ const UNSAFE = new Set([
 
 // The editor's own parser and task-list plugin (via tiptap-markdown); unlike marked, its
 // link and emphasis scanning stays fast on pathological input.
-const markdown = new MarkdownIt({ html: true }).use(taskLists);
+const markdown = new MarkdownIt({ html: true }).use(taskLists).use(addMathMarkdown);
 
 // Separator whitespace only between blocks; inside a paragraph a newline is a space.
 const BLOCK_PARENTS = new Set([
@@ -86,6 +88,13 @@ export function noteMiniature(content: Note["content"]): ReactNode {
     }
     if (!(node instanceof Element)) return null;
     const tag = node.tagName.toLowerCase();
+    const type = node.getAttribute("data-type");
+    if ((tag === "span" && (type === "math-inline" || node.classList.contains("math-inline"))) ||
+        (tag === "div" && (type === "math-block" || node.classList.contains("math-block")))) {
+      const { html } = renderLatex(node.getAttribute("data-latex") ?? node.textContent ?? "");
+      return html ? <span key={key} className="mini-math"
+        dangerouslySetInnerHTML={{ __html: html }} /> : <span key={key} className="text-muted">Equation</span>;
+    }
     const children = () => Array.from(node.childNodes, walk);
     switch (tag) {
       case "p":
