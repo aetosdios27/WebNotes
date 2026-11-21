@@ -117,7 +117,7 @@ export function MathEditor({ editor }: { editor: Editor }) {
     >
       <label className="math-source-label">
         LaTeX source
-        <textarea ref={sourceRef} value={edit.draft} rows={2}
+        <textarea ref={sourceRef} value={edit.draft} rows={Math.min(8, edit.draft.split("\n").length)}
           onChange={event => session.change(editor, event.target.value)}
           spellCheck={false} autoCapitalize="off" autoComplete="off" autoCorrect="off"
           aria-invalid={Boolean(edit.error)} />

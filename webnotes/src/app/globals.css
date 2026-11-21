@@ -451,8 +451,7 @@ body {
 .math-source-label textarea {
   display: block;
   width: 100%;
-  min-height: 60px;
-  resize: vertical;
+  resize: none;
   color: var(--ink);
   background: var(--panel);
   border: 1px solid var(--line);
