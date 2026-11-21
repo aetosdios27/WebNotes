@@ -301,7 +301,7 @@ const mathReference = [
   {
     category: "Statistics & ML",
     label: "Normal Dist",
-    cmd: "/normalDist",
+    cmd: "/normal",
     preview: "\\mathcal{N}(\\mu, \\sigma)",
   },
   {
