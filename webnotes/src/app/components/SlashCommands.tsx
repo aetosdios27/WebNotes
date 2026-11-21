@@ -43,7 +43,7 @@ function SlashCommands({ id, query, items, selected, onSelect, onRun }: MenuProp
       >
         <Icon aria-hidden="true" />
         <span className="slash-title">{item.title}</span>
-        {item.shortcut && <kbd aria-hidden="true">{item.shortcut}</kbd>}
+        {item.shortcut && <kbd aria-hidden="true" data-shortcut={item.shortcut}>{item.shortcut}</kbd>}
         {item.symbol && <span className="slash-symbol" aria-hidden="true">{item.symbol}</span>}
       </div>
     );
@@ -144,7 +144,7 @@ function mountMenu(initial: SlashSuggestionProps, dismiss: (view: EditorView) =>
   const caret = {
     contextElement: view.dom,
     getBoundingClientRect() {
-      const { left, right, top, bottom } = view.coordsAtPos(view.state.selection.from);
+      const { left, right, top, bottom } = view.coordsAtPos(current.range.from);
       return new DOMRect(left, top, right - left, bottom - top);
     },
   };

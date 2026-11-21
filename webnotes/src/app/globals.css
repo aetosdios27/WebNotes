@@ -1656,6 +1656,12 @@ body {
 }
 .slash-results[data-searching] {
   max-height: min(268px, calc(var(--slash-available-height) - 2px));
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+.slash-results > [role="group"] + [role="group"] {
+  margin-top: 8px;
 }
 .slash-group-label {
   padding: 3px 12px;
@@ -1687,6 +1693,10 @@ body {
 }
 .slash-option kbd {
   font-family: var(--font-mono), ui-monospace, monospace;
+}
+/* Backticks sit at cap height; drop them to the other hints' optical centre. */
+.slash-option kbd[data-shortcut="```"] {
+  translate: 0 0.3em;
 }
 .slash-empty {
   padding: 6px 12px;

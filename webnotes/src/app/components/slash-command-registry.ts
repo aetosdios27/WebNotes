@@ -1,22 +1,25 @@
 import type { Editor, Range } from "@tiptap/core";
 import {
-  ArrowRight,
-  Braces,
-  Brackets,
   CheckSquare,
   Code,
+  Diff,
   Divide,
   Grid3X3,
   Heading1,
   Heading2,
   Heading3,
   Infinity as InfinityIcon,
+  Brackets,
   List,
   ListOrdered,
   Minus,
-  PlusCircle,
+  Pi,
   Quote,
+  Radical,
   Sigma,
+  SquareFunction,
+  Subscript,
+  Superscript,
   Table,
   Type,
   type LucideIcon,
@@ -47,7 +50,7 @@ function replaceTrigger({ editor, range }: CommandContext) {
 function mathTemplate(
   template: keyof typeof mathTemplates,
   title: string,
-  { icon = Sigma, keywords, symbol, block = false }: {
+  { icon = SquareFunction, keywords, symbol, block = false }: {
     icon?: LucideIcon;
     keywords: readonly string[];
     symbol?: string;
@@ -195,7 +198,7 @@ const commands: readonly SlashCommandItem[] = [
     id: "table-2x2",
     title: "Table 2×2",
     group: "Insert",
-    icon: Grid3X3,
+    icon: Table,
     keywords: ["table", "grid", "small", "2x2"],
     searchOnly: true,
     run(context) {
@@ -206,7 +209,7 @@ const commands: readonly SlashCommandItem[] = [
     id: "table-4x4",
     title: "Table 4×4",
     group: "Insert",
-    icon: Grid3X3,
+    icon: Table,
     keywords: ["table", "grid", "large", "4x4"],
     searchOnly: true,
     run(context) {
@@ -236,38 +239,43 @@ const commands: readonly SlashCommandItem[] = [
     },
   },
   mathTemplate("fraction", "Fraction", {
+    icon: Divide,
     keywords: ["math", "fraction", "frac", "divide", "ratio"],
     symbol: "a⁄b",
-    icon: Divide,
   }),
   mathTemplate("sqrt", "Square root", {
+    icon: Radical,
     keywords: ["math", "sqrt", "root", "square"],
     symbol: "√",
   }),
   mathTemplate("subscript", "Subscript", {
+    icon: Subscript,
     keywords: ["math", "subscript", "index", "sub"],
     symbol: "xᵢ",
   }),
   mathTemplate("superscript", "Superscript", {
+    icon: Superscript,
     keywords: ["math", "superscript", "power", "exponent", "sup"],
     symbol: "xⁿ",
   }),
   mathTemplate("infinity", "Infinity", {
+    icon: InfinityIcon,
     keywords: ["math", "infinity", "inf", "infinite"],
     symbol: "∞",
-    icon: InfinityIcon,
   }),
   mathTemplate("plusMinus", "Plus/minus", {
+    icon: Diff,
     keywords: ["math", "plus", "minus", "pm", "plusminus"],
     symbol: "±",
-    icon: PlusCircle,
   }),
   mathTemplate("sum", "Sum", {
+    icon: Sigma,
     keywords: ["math", "sum", "sigma", "summation", "series"],
     symbol: "∑",
     block: true,
   }),
   mathTemplate("product", "Product", {
+    icon: Pi,
     keywords: ["math", "product", "pi", "prod", "multiply"],
     symbol: "∏",
     block: true,
@@ -295,24 +303,24 @@ const commands: readonly SlashCommandItem[] = [
     symbol: "∇",
   }),
   mathTemplate("matrix", "Matrix", {
-    keywords: ["math", "matrix", "array", "linear", "algebra"],
     icon: Grid3X3,
+    keywords: ["math", "matrix", "array", "linear", "algebra"],
     block: true,
   }),
   mathTemplate("determinant", "Determinant", {
+    icon: Grid3X3,
     keywords: ["math", "determinant", "det", "matrix", "linear"],
     symbol: "|A|",
-    icon: Grid3X3,
     block: true,
   }),
   mathTemplate("vector", "Vector", {
-    keywords: ["math", "vector", "column", "linear", "algebra"],
     icon: Brackets,
+    keywords: ["math", "vector", "column", "linear", "algebra"],
   }),
   mathTemplate("norm", "Norm", {
+    icon: Brackets,
     keywords: ["math", "norm", "magnitude", "length", "absolute"],
     symbol: "‖x‖",
-    icon: Brackets,
   }),
   mathTemplate("expectation", "Expectation", {
     keywords: ["math", "expectation", "expected", "mean", "average", "statistics"],
@@ -352,42 +360,34 @@ const commands: readonly SlashCommandItem[] = [
   mathTemplate("elementOf", "Element of", {
     keywords: ["math", "element", "in", "member", "set", "belongs"],
     symbol: "∈",
-    icon: Braces,
   }),
   mathTemplate("union", "Union", {
     keywords: ["math", "union", "cup", "set", "or"],
     symbol: "∪",
-    icon: Braces,
   }),
   mathTemplate("intersection", "Intersection", {
     keywords: ["math", "intersection", "cap", "set", "and"],
     symbol: "∩",
-    icon: Braces,
   }),
   mathTemplate("subset", "Subset", {
     keywords: ["math", "subset", "contained", "set"],
     symbol: "⊆",
-    icon: Braces,
   }),
   mathTemplate("forall", "For all", {
     keywords: ["math", "forall", "all", "universal", "quantifier", "logic"],
     symbol: "∀",
-    icon: ArrowRight,
   }),
   mathTemplate("exists", "Exists", {
     keywords: ["math", "exists", "existential", "quantifier", "logic"],
     symbol: "∃",
-    icon: ArrowRight,
   }),
   mathTemplate("implies", "Implies", {
     keywords: ["math", "implies", "implication", "then", "logic", "arrow"],
     symbol: "⇒",
-    icon: ArrowRight,
   }),
   mathTemplate("iff", "If and only if", {
     keywords: ["math", "iff", "biconditional", "equivalent", "logic"],
     symbol: "⇔",
-    icon: ArrowRight,
   }),
   mathTemplate("binomial", "Binomial", {
     keywords: ["math", "binomial", "choose", "combination", "combinatorics"],
@@ -395,7 +395,6 @@ const commands: readonly SlashCommandItem[] = [
   }),
   mathTemplate("cases", "Cases", {
     keywords: ["math", "cases", "piecewise", "conditional", "if"],
-    icon: Braces,
     block: true,
   }),
 ];
