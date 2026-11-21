@@ -1627,6 +1627,73 @@ body {
 .switcher-actions button[data-selected="true"] {
   background: transparent;
 }
+.slash-positioner {
+  --slash-available-height: 100dvh;
+  position: fixed;
+  z-index: 50;
+  width: min(300px, calc(100dvw - 32px));
+  visibility: hidden;
+}
+.slash-positioner[data-positioned] {
+  visibility: visible;
+}
+.slash-positioner[data-side="top"] {
+  --transform-origin: left bottom;
+}
+.slash-menu {
+  --slash-secondary: color-mix(in srgb, var(--muted) 65%, var(--ink));
+  color: var(--ink);
+}
+.slash-results {
+  position: relative;
+  isolation: isolate;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: inherit;
+  max-height: calc(var(--slash-available-height) - 2px);
+  padding: 6px 8px;
+  scroll-padding-block: 6px;
+}
+.slash-results[data-searching] {
+  max-height: min(268px, calc(var(--slash-available-height) - 2px));
+}
+.slash-group-label {
+  padding: 3px 12px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--slash-secondary);
+}
+.slash-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding-inline: 12px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 13px;
+  touch-action: manipulation;
+}
+.slash-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slash-option :is(kbd, .slash-symbol) {
+  color: var(--slash-secondary);
+  font-size: 11px;
+}
+.slash-option kbd {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+.slash-empty {
+  padding: 6px 12px;
+  color: var(--slash-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .switcher-chips .sliding-indicator {
   background: var(--ink);
   border-radius: 999px;
