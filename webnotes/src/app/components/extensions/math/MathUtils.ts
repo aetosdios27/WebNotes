@@ -1,6 +1,21 @@
 import katex from 'katex';
 
-// Render LaTeX safely
+// Notes arrive from paste, import and sync, so their LaTeX is untrusted input.
+// `trust` stays off: it would let \href{javascript:...} and \htmlStyle run.
+const katexOptions = {
+  strict: false,
+  trust: false,
+  maxSize: 20,
+  maxExpand: 500,
+  macros: {
+    "\\R": "\\mathbb{R}",
+    "\\N": "\\mathbb{N}",
+    "\\Z": "\\mathbb{Z}",
+    "\\Q": "\\mathbb{Q}",
+    "\\C": "\\mathbb{C}",
+  },
+} as const;
+
 export function renderLatex(
   latex: string,
   displayMode: boolean = false
@@ -10,27 +25,10 @@ export function renderLatex(
   }
 
   try {
-    const html = katex.renderToString(latex, {
-      throwOnError: true,
-      displayMode,
-      strict: false,
-      trust: true,
-      macros: {
-        "\\R": "\\mathbb{R}",
-        "\\N": "\\mathbb{N}",
-        "\\Z": "\\mathbb{Z}",
-        "\\Q": "\\mathbb{Q}",
-        "\\C": "\\mathbb{C}",
-      },
-    });
-    return { html, error: null };
+    return { html: katex.renderToString(latex, { ...katexOptions, displayMode, throwOnError: true }), error: null };
   } catch (e: any) {
     try {
-      const html = katex.renderToString(latex, {
-        throwOnError: false,
-        displayMode,
-        strict: false,
-      });
+      const html = katex.renderToString(latex, { ...katexOptions, displayMode, throwOnError: false });
       return { html, error: e.message || 'Invalid LaTeX' };
     } catch {
       return { html: `<span class="math-error">${escapeHtml(latex)}</span>`, error: e.message };
